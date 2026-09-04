@@ -98,7 +98,7 @@ export const MobileMenuDrawer: React.FC = () => {
       <div className="relative z-10 w-[85vw] max-w-sm bg-[#F6F7F4] dark:bg-[#111714] text-stone-900 dark:text-stone-100 h-full flex flex-col justify-between shadow-2xl border-r border-stone-200/80 dark:border-stone-800/80 animate-in slide-in-from-left duration-250">
         
         {/* Top Header */}
-        <div className="p-4 border-b border-stone-200/70 dark:border-stone-800/70 flex items-center justify-between">
+        <div className="p-4 pt-safe-header border-b border-stone-200/70 dark:border-stone-800/70 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#1F3A34] text-emerald-100 flex items-center justify-center font-bold text-lg shadow-sm ring-1 ring-emerald-600/30">
               <span className="font-serif italic text-xl">L</span>
@@ -212,7 +212,7 @@ export const MobileMenuDrawer: React.FC = () => {
         </div>
 
         {/* Drawer Footer (User & Achievements) */}
-        <div className="p-4 border-t border-stone-200/70 dark:border-stone-800/70 space-y-2.5 bg-[#F6F7F4]/90 dark:bg-[#111714]/90">
+        <div className="p-4 pb-safe border-t border-stone-200/70 dark:border-stone-800/70 space-y-2.5 bg-[#F6F7F4]/90 dark:bg-[#111714]/90">
           {/* Achievements button */}
           <button
             onClick={handleOpenAchievements}

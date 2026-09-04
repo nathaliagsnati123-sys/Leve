@@ -17,8 +17,8 @@ export const Header: React.FC = () => {
   const unlockedCount = Object.keys(data.unlockedAchievements).length;
 
   return (
-    <header className="sticky top-0 z-30 bg-[#F9FAF8]/90 dark:bg-[#141B18]/90 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800/80 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 relative flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-[#F9FAF8]/95 dark:bg-[#141B18]/95 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800/80 transition-colors pt-safe-header">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 relative flex items-center justify-between">
         {/* Left side: Hamburger 3 bars button & brand icon */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           <button
