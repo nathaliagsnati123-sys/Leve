@@ -89,13 +89,10 @@ const AppContent: React.FC = () => {
         </aside>
 
         {/* Dynamic Center View Container */}
-        <main className="flex-1 min-w-0 pb-20 md:pb-6">
+        <main className="flex-1 min-w-0 pb-safe pb-8 md:pb-6">
           {renderActiveView()}
         </main>
       </div>
-
-      {/* Mobile Bottom Navigation */}
-      <Navbar />
 
       {/* Mobile Menu Drawer (All options identical to desktop) */}
       <MobileMenuDrawer />

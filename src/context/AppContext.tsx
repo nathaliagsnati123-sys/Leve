@@ -67,16 +67,23 @@ interface AppContextType {
   addTask: (task: Omit<Task, 'id' | 'completed'>) => void;
   updateTask: (task: Task) => void;
   toggleTask: (id: string) => void;
+  toggleTaskCompleted: (id: string) => void;
   deleteTask: (id: string) => void;
   duplicateTask: (id: string) => void;
+  openNewTaskModal: () => void;
+  openEditTaskModal: (task: Task) => void;
   
   // Habits
   addHabit: (habit: Omit<Habit, 'id' | 'history' | 'createdAt'>) => void;
+  updateHabit: (habit: Habit) => void;
   toggleHabit: (id: string, date?: string) => void;
+  toggleHabitCompletion: (id: string, date?: string) => void;
   deleteHabit: (id: string) => void;
   
   // Hydration
   addWater: (amountMl: number, date?: string) => void;
+  resetWater: (date?: string) => void;
+  setWaterTarget: (targetMl: number, cupSizeMl?: number) => void;
   updateHydrationTarget: (targetMl: number, cupSizeMl?: number) => void;
   
   // Meals & Groceries
@@ -94,6 +101,7 @@ interface AppContextType {
   
   // Self-care
   toggleSelfCareAction: (actionId: string, date?: string) => void;
+  toggleSelfCareItem: (actionId: string, date?: string) => void;
   addCustomSelfCareAction: (title: string) => void;
   
   // Emotional Check-in
@@ -257,6 +265,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerAchievement('first_task');
   }, [updateData, triggerAchievement]);
 
+  const toggleTaskCompleted = useCallback((id: string) => {
+    toggleTask(id);
+  }, [toggleTask]);
+
+  const openNewTaskModal = useCallback(() => {
+    setEditingTask(null);
+    setIsTaskModalOpen(true);
+  }, []);
+
+  const openEditTaskModal = useCallback((task: Task) => {
+    setEditingTask(task);
+    setIsTaskModalOpen(true);
+  }, []);
+
   const deleteTask = useCallback((id: string) => {
     updateData((prev) => ({
       ...prev,
@@ -296,6 +318,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Novo hábito cultivado.');
   }, [updateData, triggerAchievement, showToast]);
 
+  const updateHabit = useCallback((habit: Habit) => {
+    updateData((prev) => ({
+      ...prev,
+      habits: prev.habits.map((h) => (h.id === habit.id ? habit : h))
+    }));
+    showToast('Hábito atualizado.');
+  }, [updateData, showToast]);
+
   const toggleHabit = useCallback((id: string, date = getTodayDateString()) => {
     updateData((prev) => {
       const updated = prev.habits.map((h) => {
@@ -311,6 +341,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ...prev, habits: updated };
     });
   }, [updateData]);
+
+  const toggleHabitCompletion = useCallback((id: string, date?: string) => {
+    toggleHabit(id, date);
+  }, [toggleHabit]);
 
   const deleteHabit = useCallback((id: string) => {
     updateData((prev) => ({
@@ -374,6 +408,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     showToast('Meta de hidratação atualizada.');
   }, [updateData, showToast]);
+
+  const resetWater = useCallback((date = getTodayDateString()) => {
+    updateData((prev) => {
+      const cur = prev.hydration[date] || {
+        date,
+        amountMl: 0,
+        targetMl: 2000,
+        cupSizeMl: 300,
+        logs: []
+      };
+      return {
+        ...prev,
+        hydration: {
+          ...prev.hydration,
+          [date]: {
+            ...cur,
+            amountMl: 0,
+            logs: []
+          }
+        }
+      };
+    });
+    showToast('Registro de água zerado.');
+  }, [updateData, showToast]);
+
+  const setWaterTarget = useCallback((targetMl: number, cupSizeMl?: number) => {
+    updateHydrationTarget(targetMl, cupSizeMl);
+  }, [updateHydrationTarget]);
 
   // MEALS & GROCERIES
   const updateMeal = useCallback((date: string, partial: Partial<MealLog>) => {
@@ -472,6 +534,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
   }, [updateData]);
+
+  const toggleSelfCareItem = useCallback((actionId: string, date = getTodayDateString()) => {
+    toggleSelfCareAction(actionId, date);
+  }, [toggleSelfCareAction]);
 
   const addCustomSelfCareAction = useCallback((title: string) => {
     const newAction = {
@@ -906,12 +972,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addTask,
         updateTask,
         toggleTask,
+        toggleTaskCompleted,
         deleteTask,
         duplicateTask,
+        openNewTaskModal,
+        openEditTaskModal,
         addHabit,
+        updateHabit,
         toggleHabit,
+        toggleHabitCompletion,
         deleteHabit,
         addWater,
+        resetWater,
+        setWaterTarget,
         updateHydrationTarget,
         updateMeal,
         addGroceryItem,
@@ -921,6 +994,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMovement,
         updateSleep,
         toggleSelfCareAction,
+        toggleSelfCareItem,
         addCustomSelfCareAction,
         saveCheckIn,
         saveJournalEntry,

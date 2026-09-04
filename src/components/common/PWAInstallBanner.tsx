@@ -32,7 +32,7 @@ export const PWAInstallBanner: React.FC = () => {
     <>
       <div 
         id="pwa-install-banner"
-        className="fixed bottom-20 md:bottom-6 right-4 left-4 sm:left-auto sm:max-w-md z-40 animate-in slide-in-from-bottom-4 duration-300"
+        className="fixed bottom-4 sm:bottom-6 right-4 left-4 sm:left-auto sm:max-w-md z-40 animate-in slide-in-from-bottom-4 duration-300"
       >
         <div className="bg-[#1F3A34] text-white p-4 rounded-2xl shadow-xl border border-emerald-700/40 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">

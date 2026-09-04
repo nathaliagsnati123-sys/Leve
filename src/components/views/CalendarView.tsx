@@ -305,16 +305,25 @@ export const CalendarView: React.FC = () => {
                   key={t.id}
                   className="p-3.5 rounded-2xl border border-stone-200 dark:border-stone-700 flex items-center justify-between gap-3 hover:bg-stone-50 dark:hover:bg-stone-800 transition"
                 >
-                  <div className="flex items-center gap-3 truncate">
+                  <div className="flex items-center gap-3 truncate flex-1">
                     <button
-                      onClick={() => toggleTaskCompleted(t.id)}
-                      className={`w-5 h-5 rounded-lg flex items-center justify-center ${
-                        t.completed ? 'bg-emerald-600 text-white' : 'border-2 border-stone-300'
-                      }`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTaskCompleted(t.id);
+                      }}
+                      className="p-2 -m-2 touch-manipulation flex items-center justify-center min-w-[40px] min-h-[40px] flex-shrink-0"
+                      aria-label={t.completed ? "Desmarcar tarefa" : "Marcar tarefa como concluída"}
                     >
-                      {t.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      <div
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition ${
+                          t.completed ? 'bg-emerald-600 text-white' : 'border-2 border-stone-300 dark:border-stone-600'
+                        }`}
+                      >
+                        {t.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
                     </button>
-                    <div className="truncate">
+                    <div className="truncate flex-1">
                       <p className={`text-xs sm:text-sm font-medium ${t.completed ? 'line-through text-stone-400' : ''}`}>
                         {t.title}
                       </p>
@@ -362,16 +371,25 @@ export const CalendarView: React.FC = () => {
                 key={t.id}
                 className="p-3 bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 flex items-center justify-between"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 truncate flex-1">
                   <button
-                    onClick={() => toggleTaskCompleted(t.id)}
-                    className={`w-5 h-5 rounded-lg flex items-center justify-center ${
-                      t.completed ? 'bg-emerald-600 text-white' : 'border-2 border-stone-300'
-                    }`}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTaskCompleted(t.id);
+                    }}
+                    className="p-2 -m-2 touch-manipulation flex items-center justify-center min-w-[40px] min-h-[40px] flex-shrink-0"
+                    aria-label={t.completed ? "Desmarcar tarefa" : "Marcar tarefa como concluída"}
                   >
-                    {t.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    <div
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center transition ${
+                        t.completed ? 'bg-emerald-600 text-white' : 'border-2 border-stone-300 dark:border-stone-600'
+                      }`}
+                    >
+                      {t.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
                   </button>
-                  <div>
+                  <div className="truncate flex-1">
                     <p className={`text-xs sm:text-sm font-medium ${t.completed ? 'line-through text-stone-400' : ''}`}>
                       {t.title}
                     </p>

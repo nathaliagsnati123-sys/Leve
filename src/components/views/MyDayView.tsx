@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { 
   Plus, Check, Star, Sparkles, Brain, Moon, Droplets, 
   Sprout, Heart, HeartHandshake, ChevronRight, Clock, 
-  Filter, CheckCircle2, ArrowRight
+  Filter, CheckCircle2, ArrowRight, Trash2, X
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { MOTIVATIONAL_QUOTES, SCRIPTURE_VERSES, SELF_CARE_SUGGESTIONS } from '../../services/quotesAndVerses';
@@ -12,6 +12,8 @@ import { Priority, Task } from '../../types';
 export const MyDayView: React.FC = () => {
   const { 
     data, 
+    addTask,
+    deleteTask,
     toggleTaskCompleted, 
     openNewTaskModal, 
     openEditTaskModal,
@@ -52,6 +54,12 @@ export const MyDayView: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [quickGratitude, setQuickGratitude] = useState('');
 
+  // Priorities of the day state
+  const [isAddingPriority, setIsAddingPriority] = useState(false);
+  const [newPriorityTitle, setNewPriorityTitle] = useState('');
+  const [newPriorityCategory, setNewPriorityCategory] = useState<string>('Trabalho');
+  const [newPriorityTime, setNewPriorityTime] = useState('');
+
   const todayTasks = data.tasks.filter((t) => t.date === todayStr);
 
   const filteredTasks = todayTasks.filter((t) => {
@@ -60,14 +68,40 @@ export const MyDayView: React.FC = () => {
     return true;
   });
 
-  // Priorities of the day (up to 3, sorted by high priority or user star)
-  const priorityTasks = todayTasks
-    .filter((t) => !t.completed)
+  // Priorities of the day (up to 3: tasks flagged high priority or prioritized tasks)
+  const priorityTasks = [...todayTasks]
     .sort((a, b) => {
+      // Pending tasks first, then by priority weight
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
       const pMap: Record<Priority, number> = { high: 3, medium: 2, low: 1 };
       return pMap[b.priority] - pMap[a.priority];
     })
+    .filter((t) => t.priority === 'high' || !t.completed)
     .slice(0, 3);
+
+  const handleAddPriority = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newPriorityTitle.trim()) return;
+
+    addTask({
+      title: newPriorityTitle.trim(),
+      date: todayStr,
+      priority: 'high',
+      category: newPriorityCategory || 'Trabalho',
+      repeat: 'none',
+      time: newPriorityTime.trim() || undefined
+    });
+
+    setNewPriorityTitle('');
+    setNewPriorityTime('');
+    setIsAddingPriority(false);
+    showToast('Prioridade adicionada ao seu dia! ⭐', 'success');
+  };
+
+  const handleDeletePriority = (taskId: string, taskTitle: string) => {
+    deleteTask(taskId);
+    showToast(`Prioridade "${taskTitle.length > 20 ? taskTitle.slice(0, 20) + '...' : taskTitle}" apagada.`, 'info');
+  };
 
   // Water data
   const water = data.hydration[todayStr] || { date: todayStr, amountMl: 0, targetMl: 2000, logs: [] };
@@ -150,49 +184,220 @@ export const MyDayView: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Three Main Priorities for Today */}
-      <section className="bg-white dark:bg-stone-900 rounded-3xl p-5 sm:p-6 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
+      {/* 2. Main Priorities for Today */}
+      <section className="bg-white dark:bg-stone-900 rounded-3xl p-5 sm:p-6 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
             <h2 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
               Prioridades do Dia
             </h2>
+            {priorityTasks.length > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-semibold">
+                {priorityTasks.filter((t) => t.completed).length}/{priorityTasks.length}
+              </span>
+            )}
           </div>
-          <span className="text-xs text-stone-400">
-            Foque no essencial
-          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              id="add-priority-btn"
+              onClick={() => setIsAddingPriority(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 text-xs font-semibold transition"
+              title="Adicionar uma prioridade para hoje"
+            >
+              <Plus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Adicionar prioridade</span>
+            </button>
+          </div>
         </div>
 
+        {/* Inline form to add new priority */}
+        {isAddingPriority && (
+          <form
+            onSubmit={handleAddPriority}
+            className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-3 animate-in fade-in duration-200"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                Nova Prioridade de Hoje
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingPriority(false);
+                  setNewPriorityTitle('');
+                }}
+                className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <input
+              type="text"
+              autoFocus
+              value={newPriorityTitle}
+              onChange={(e) => setNewPriorityTitle(e.target.value)}
+              placeholder="O que é essencial realizar hoje? (Ex: Entregar relatório, ligar para médico...)"
+              className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+            />
+
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Category selector */}
+                <select
+                  value={newPriorityCategory}
+                  onChange={(e) => setNewPriorityCategory(e.target.value)}
+                  className="px-2.5 py-1 text-xs rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200"
+                >
+                  <option value="Trabalho">Trabalho</option>
+                  <option value="Pessoal">Pessoal</option>
+                  <option value="Casa">Casa</option>
+                  <option value="Saúde">Saúde</option>
+                  <option value="Espiritual">Espiritual</option>
+                  <option value="Outros">Outros</option>
+                </select>
+
+                {/* Optional time input */}
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs text-stone-600 dark:text-stone-300">
+                  <Clock className="w-3 h-3 text-stone-400" />
+                  <input
+                    type="time"
+                    value={newPriorityTime}
+                    onChange={(e) => setNewPriorityTime(e.target.value)}
+                    className="bg-transparent border-none p-0 text-xs focus:ring-0 text-stone-700 dark:text-stone-200"
+                    placeholder="Horário"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingPriority(false);
+                    setNewPriorityTitle('');
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newPriorityTitle.trim()}
+                  className="px-4 py-1.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] disabled:opacity-50 text-xs font-semibold transition shadow-xs"
+                >
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* Priority tasks grid */}
         {priorityTasks.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {priorityTasks.map((t, idx) => (
               <div
                 key={t.id}
-                onClick={() => toggleTaskCompleted(t.id)}
-                className="group cursor-pointer p-3.5 rounded-2xl border border-stone-200/70 dark:border-stone-700/60 bg-stone-50/60 dark:bg-stone-800/40 hover:border-emerald-400 dark:hover:border-emerald-600 transition flex items-start justify-between gap-2"
+                className={`group relative p-3.5 rounded-2xl border transition flex flex-col justify-between gap-2.5 ${
+                  t.completed 
+                    ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 dark:bg-emerald-950/20' 
+                    : 'border-stone-200/70 dark:border-stone-700/60 bg-stone-50/60 dark:bg-stone-800/40 hover:border-amber-400 dark:hover:border-amber-600'
+                }`}
               >
-                <div className="space-y-1 truncate">
+                <div className="flex items-start justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                     Foco {idx + 1}
                   </span>
-                  <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition">
+
+                  {/* Actions: delete priority and toggle complete */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Delete button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePriority(t.id, t.title);
+                      }}
+                      className="p-2 -m-1 rounded-xl text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
+                      title="Apagar prioridade"
+                      aria-label={`Apagar prioridade ${t.title}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    {/* Complete button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTaskCompleted(t.id);
+                      }}
+                      className="p-2 -m-1 touch-manipulation flex items-center justify-center min-w-[40px] min-h-[40px]"
+                      title={t.completed ? 'Marcar como pendente' : 'Concluir prioridade'}
+                      aria-label={t.completed ? 'Marcar como pendente' : 'Concluir prioridade'}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 transition flex items-center justify-center flex-shrink-0 ${
+                          t.completed
+                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                            : 'border-stone-300 dark:border-stone-600 hover:border-emerald-500 text-transparent'
+                        }`}
+                      >
+                        {t.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => openEditTaskModal(t)}
+                  className="cursor-pointer space-y-1"
+                >
+                  <p className={`text-xs sm:text-sm font-semibold transition line-clamp-2 ${
+                    t.completed 
+                      ? 'line-through text-stone-400 dark:text-stone-500' 
+                      : 'text-stone-900 dark:text-stone-100 group-hover:text-amber-700 dark:group-hover:text-amber-400'
+                  }`}>
                     {t.title}
                   </p>
                   <span className="text-[10px] text-stone-400 block">
                     {t.category} {t.time ? `• ${t.time}` : ''}
                   </span>
                 </div>
-                <div className="w-5 h-5 rounded-full border border-stone-300 dark:border-stone-600 group-hover:border-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Check className="w-3 h-3 text-transparent group-hover:text-emerald-600 transition" />
-                </div>
               </div>
             ))}
+
+            {/* Empty slots for up to 3 focuses */}
+            {priorityTasks.length < 3 && (
+              <button
+                type="button"
+                onClick={() => setIsAddingPriority(true)}
+                className="p-3.5 rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-600/60 bg-transparent hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition flex flex-col items-center justify-center text-center gap-1 text-stone-400 hover:text-amber-700 dark:hover:text-amber-400 min-h-[90px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-xs font-medium">
+                  + Adicionar foco {priorityTasks.length + 1}
+                </span>
+              </button>
+            )}
           </div>
         ) : (
-          <p className="text-xs text-stone-500 italic py-1">
-            Nenhuma prioridade urgente pendente para hoje. Respire fundo e aproveite seu dia! 🌿
-          </p>
+          <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/30 border border-stone-200/60 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-stone-500">
+              Você ainda não definiu as prioridades de hoje. Foque no que traz mais leveza e resultado!
+            </p>
+            <button
+              onClick={() => setIsAddingPriority(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition shadow-xs flex-shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Adicionar 1ª prioridade</span>
+            </button>
+          </div>
         )}
       </section>
 
@@ -272,21 +477,33 @@ export const MyDayView: React.FC = () => {
                       : 'bg-white dark:bg-stone-800/80 border-stone-200/80 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:border-emerald-300 dark:hover:border-emerald-700'
                   }`}
                 >
-                  <div className="flex items-center gap-3 truncate">
-                    {/* Checkbox */}
+                  <div 
+                    className="flex items-center gap-3 truncate flex-1 cursor-pointer select-none"
+                    onClick={() => toggleTaskCompleted(task.id)}
+                  >
+                    {/* Checkbox with generous touch target for mobile */}
                     <button
-                      onClick={() => toggleTaskCompleted(task.id)}
-                      className={`w-5 h-5 rounded-lg flex items-center justify-center transition flex-shrink-0 ${
-                        task.completed
-                          ? 'bg-emerald-600 text-white'
-                          : 'border-2 border-stone-300 dark:border-stone-600 hover:border-emerald-500'
-                      }`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTaskCompleted(task.id);
+                      }}
+                      className="p-2 -m-2 touch-manipulation flex items-center justify-center min-w-[44px] min-h-[44px] flex-shrink-0"
+                      aria-label={task.completed ? "Desmarcar tarefa como concluída" : "Marcar tarefa como concluída"}
                     >
-                      {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      <div
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition flex-shrink-0 ${
+                          task.completed
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'border-2 border-stone-300 dark:border-stone-600 hover:border-emerald-500 bg-stone-50/40 dark:bg-stone-700/40'
+                        }`}
+                      >
+                        {task.completed && <Check className="w-4 h-4 stroke-[3]" />}
+                      </div>
                     </button>
 
-                    <div className="truncate">
-                      <p className={`text-xs sm:text-sm font-medium truncate ${task.completed ? 'line-through' : ''}`}>
+                    <div className="truncate flex-1">
+                      <p className={`text-xs sm:text-sm font-medium truncate ${task.completed ? 'line-through opacity-70' : ''}`}>
                         {task.title}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -307,8 +524,9 @@ export const MyDayView: React.FC = () => {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => openEditTaskModal(task)}
-                    className="opacity-0 group-hover:opacity-100 text-xs text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700 transition"
+                    className="opacity-80 sm:opacity-0 sm:group-hover:opacity-100 text-xs text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2.5 py-1.5 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700 transition touch-manipulation flex-shrink-0"
                   >
                     Editar
                   </button>
