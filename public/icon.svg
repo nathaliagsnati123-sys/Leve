@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1F3A34" />
+      <stop offset="100%" stop-color="#142622" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#73D1B4" />
+      <stop offset="50%" stop-color="#4EAA8F" />
+      <stop offset="100%" stop-color="#2D7A65" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E8F5F1" />
+      <stop offset="100%" stop-color="#A7E2D1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded card -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+
+  <!-- Subtle ambient ring -->
+  <circle cx="256" cy="256" r="168" fill="none" stroke="#37675C" stroke-width="2" stroke-dasharray="6 6" opacity="0.4" />
+
+  <!-- Central Emblem: Feather / Balanced Leaf of Lightness -->
+  <g transform="translate(256, 240) rotate(-15) translate(-256, -240)">
+    <!-- Main leaf spine and curve -->
+    <path d="M170 340 C190 280 230 200 330 140 C340 134 352 146 346 156 C300 240 240 290 170 340 Z" fill="url(#accentGrad)" opacity="0.9" />
+    <!-- Secondary soft wing / leaf contour -->
+    <path d="M170 340 C210 320 270 290 310 210 C270 250 220 290 170 340 Z" fill="url(#leafGrad)" opacity="0.8" />
+    <!-- Center quill / stem -->
+    <path d="M165 350 Q235 255 338 135" stroke="#E8F5F1" stroke-width="6" stroke-linecap="round" fill="none" />
+    <!-- Small droplet of morning clarity -->
+    <circle cx="348" cy="126" r="8" fill="#73D1B4" />
+  </g>
+
+  <!-- Clean minimalist wordmark LEVE below -->
+  <text x="256" y="424" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="700" letter-spacing="12" fill="#E8F5F1">LEVE</text>
+</svg>

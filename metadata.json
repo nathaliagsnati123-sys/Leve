@@ -1,0 +1,6 @@
+{
+  "name": "LEVE",
+  "description": "Tire da cabeça. Coloque em ordem.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
