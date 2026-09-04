@@ -13,6 +13,7 @@ import { TaskModal } from './components/modals/TaskModal';
 import { DayClosingModal } from './components/modals/DayClosingModal';
 import { SearchModal } from './components/modals/SearchModal';
 import { AchievementsModal } from './components/modals/AchievementsModal';
+import { CelebrationModal } from './components/modals/CelebrationModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
 import { FiveMinuteGodModal } from './components/modals/FiveMinuteGodModal';
 
@@ -106,6 +107,7 @@ const AppContent: React.FC = () => {
       <DayClosingModal />
       <SearchModal />
       <AchievementsModal />
+      <CelebrationModal />
       <OnboardingModal />
       <FiveMinuteGodModal />
 

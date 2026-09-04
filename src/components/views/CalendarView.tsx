@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
-  Clock, Check, CheckCircle2, List, Grid3X3, Columns 
+  Clock, Check, CheckCircle2, List, Grid3X3, Columns, Trash2 
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { Task } from '../../types';
 
 export const CalendarView: React.FC = () => {
-  const { data, toggleTaskCompleted, openNewTaskModal, openEditTaskModal } = useApp();
+  const { data, toggleTaskCompleted, openNewTaskModal, openEditTaskModal, deleteTask, showToast } = useApp();
   const todayStr = getTodayDateString();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -332,12 +332,27 @@ export const CalendarView: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => openEditTaskModal(t)}
-                    className="text-xs text-stone-400 hover:text-stone-700 px-2 py-1 rounded"
-                  >
-                    Editar
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEditTaskModal(t)}
+                      className="text-xs text-stone-400 hover:text-stone-700 px-2 py-1 rounded"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteTask(t.id);
+                        showToast(`Tarefa "${t.title.length > 20 ? t.title.slice(0, 20) + '...' : t.title}" excluída.`, 'info');
+                      }}
+                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition touch-manipulation"
+                      title="Excluir tarefa"
+                      aria-label={`Excluir tarefa ${t.title}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
           </div>
@@ -398,12 +413,27 @@ export const CalendarView: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => openEditTaskModal(t)}
-                  className="text-xs text-stone-400 hover:text-stone-700"
-                >
-                  Editar
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditTaskModal(t)}
+                    className="text-xs text-stone-400 hover:text-stone-700 px-2 py-1 rounded"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTask(t.id);
+                      showToast(`Tarefa "${t.title.length > 20 ? t.title.slice(0, 20) + '...' : t.title}" excluída.`, 'info');
+                    }}
+                    className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition touch-manipulation"
+                    title="Excluir tarefa"
+                    aria-label={`Excluir tarefa ${t.title}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -146,6 +146,27 @@ export const HabitsView: React.FC = () => {
 
       {/* Habits List with Weekly Grid */}
       <div className="space-y-4">
+        {data.habits.length === 0 && (
+          <div className="text-center py-12 px-6 rounded-3xl bg-white dark:bg-stone-900 border border-dashed border-stone-200 dark:border-stone-800 space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center text-2xl">
+              🌱
+            </div>
+            <h3 className="font-serif text-base font-bold text-stone-800 dark:text-stone-200">
+              Nenhum hábito cadastrado
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-sm mx-auto">
+              Crie seu primeiro hábito personalizado para começar a cultivar a sua rotina com leveza.
+            </p>
+            <button
+              onClick={handleOpenNew}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold shadow-xs transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Criar hábito</span>
+            </button>
+          </div>
+        )}
+
         {data.habits.map((habit) => {
           const streak = calculateStreak(habit);
           const consistency = calculateConsistency(habit);
@@ -201,15 +222,16 @@ export const HabitsView: React.FC = () => {
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
-                        if (window.confirm(`Deseja excluir o hábito "${habit.name}"?`)) {
-                          deleteHabit(habit.id);
-                        }
+                        deleteHabit(habit.id);
+                        showToast(`Hábito "${habit.name}" excluído.`, 'info');
                       }}
-                      className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      className="p-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
                       title="Excluir hábito"
+                      aria-label={`Excluir hábito ${habit.name}`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

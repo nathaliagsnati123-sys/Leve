@@ -14,17 +14,14 @@ export const ProgressView: React.FC = () => {
   const past7Days = getPastDaysList(7);
 
   // Calculate gentle streak from habit consistency
-  const streakDays = Math.max(
-    1,
-    (data.habits || []).reduce((max, h) => {
-      let current = 0;
-      for (const day of past7Days) {
-        if (h.history?.[day]) current++;
-        else break;
-      }
-      return Math.max(max, current);
-    }, 1)
-  );
+  const streakDays = (data.habits || []).reduce((max, h) => {
+    let current = 0;
+    for (const day of past7Days) {
+      if (h.history?.[day]) current++;
+      else break;
+    }
+    return Math.max(max, current);
+  }, 0);
 
   // Daily task completion count for past 7 days
   const dailyTaskCompletion = past7Days.map((d) => {

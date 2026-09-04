@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { 
   AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, 
   SleepLog, EmotionalCheckIn, JournalEntry, Memory, Prayer, Devotional,
-  FiveMinuteGodSession, Goal, Bill, Income, MenstrualPeriod, CycleDailyLog, UserProfile
+  FiveMinuteGodSession, Goal, Bill, Income, MenstrualPeriod, CycleDailyLog, UserProfile,
+  Achievement
 } from '../types';
 import { 
   loadAppData, saveAppData, getTodayDateString, resetAllData 
@@ -56,6 +57,8 @@ interface AppContextType {
   setIsOnboardingOpen: (open: boolean) => void;
   isAchievementsOpen: boolean;
   setIsAchievementsOpen: (open: boolean) => void;
+  celebrationAchievement: Achievement | null;
+  closeCelebration: () => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (open: boolean) => void;
 
@@ -169,9 +172,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isFiveMinGodOpen, setIsFiveMinGodOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isAchievementsOpen, setIsAchievementsOpen] = useState(false);
+  const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const closeCelebration = useCallback(() => {
+    setCelebrationAchievement(null);
+  }, []);
 
   // Check onboarding on mount
   useEffect(() => {
@@ -197,25 +205,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 3200);
   }, []);
 
-  // Achievement unlock helper
+  // Achievement unlock helper with congratulations celebration modal
   const triggerAchievement = useCallback((achievementId: string) => {
     setData((prev) => {
-      if (prev.unlockedAchievements[achievementId]) return prev;
+      if (prev.unlockedAchievements && prev.unlockedAchievements[achievementId]) return prev;
       const ach = ACHIEVEMENTS_LIST.find((a) => a.id === achievementId);
       if (ach) {
-        showToast(`Conquista desbloqueada: ${ach.icon} ${ach.title}!`, 'gentle');
+        setCelebrationAchievement(ach);
       }
       const updated = {
         ...prev,
         unlockedAchievements: {
-          ...prev.unlockedAchievements,
+          ...(prev.unlockedAchievements || {}),
           [achievementId]: new Date().toISOString()
         }
       };
       saveAppData(updated);
       return updated;
     });
-  }, [showToast]);
+  }, []);
 
   const updateUser = useCallback((profile: Partial<UserProfile>) => {
     updateData((prev) => ({
@@ -248,10 +256,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateData, showToast]);
 
   const toggleTask = useCallback((id: string) => {
+    let justCompleted = false;
+    let totalCompleted = 0;
     updateData((prev) => {
       const updatedTasks = prev.tasks.map((t) => {
         if (t.id === id) {
           const nextCompleted = !t.completed;
+          if (nextCompleted) justCompleted = true;
           return {
             ...t,
             completed: nextCompleted,
@@ -260,9 +271,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return t;
       });
+      totalCompleted = updatedTasks.filter((t) => t.completed).length;
       return { ...prev, tasks: updatedTasks };
     });
-    triggerAchievement('first_task');
+    if (justCompleted) {
+      triggerAchievement('first_task');
+      if (totalCompleted >= 50) {
+        triggerAchievement('fifty_tasks');
+      }
+    }
   }, [updateData, triggerAchievement]);
 
   const toggleTaskCompleted = useCallback((id: string) => {
@@ -314,9 +331,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...prev,
       habits: [...prev.habits, newHabit]
     }));
-    triggerAchievement('first_habit');
     showToast('Novo hábito cultivado.');
-  }, [updateData, triggerAchievement, showToast]);
+  }, [updateData, showToast]);
 
   const updateHabit = useCallback((habit: Habit) => {
     updateData((prev) => ({
@@ -327,20 +343,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateData, showToast]);
 
   const toggleHabit = useCallback((id: string, date = getTodayDateString()) => {
+    let completedToday = false;
+    let habitStreak = 0;
     updateData((prev) => {
       const updated = prev.habits.map((h) => {
         if (h.id === id) {
           const cur = !!h.history[date];
+          const nextVal = !cur;
+          if (nextVal) completedToday = true;
+          const nextHistory = { ...h.history, [date]: nextVal };
+
+          // Calculate streak
+          let streak = 0;
+          const d = new Date();
+          for (let i = 0; i < 30; i++) {
+            const checkD = new Date(d);
+            checkD.setDate(checkD.getDate() - i);
+            const iso = `${checkD.getFullYear()}-${String(checkD.getMonth() + 1).padStart(2, '0')}-${String(checkD.getDate()).padStart(2, '0')}`;
+            if (nextHistory[iso]) streak++;
+            else break;
+          }
+          habitStreak = streak;
+
           return {
             ...h,
-            history: { ...h.history, [date]: !cur }
+            history: nextHistory
           };
         }
         return h;
       });
       return { ...prev, habits: updated };
     });
-  }, [updateData]);
+    if (completedToday) {
+      triggerAchievement('first_habit');
+      if (habitStreak >= 14) {
+        triggerAchievement('streak_14');
+      } else if (habitStreak >= 7) {
+        triggerAchievement('streak_7');
+      } else if (habitStreak >= 3) {
+        triggerAchievement('streak_3');
+      }
+    }
+  }, [updateData, triggerAchievement]);
 
   const toggleHabitCompletion = useCallback((id: string, date?: string) => {
     toggleHabit(id, date);
@@ -357,6 +401,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // HYDRATION
   const addWater = useCallback((amountMl: number, date = getTodayDateString()) => {
     const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let reachedTarget = false;
     updateData((prev) => {
       const current = prev.hydration[date] || {
         date,
@@ -367,7 +412,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       const newAmount = Math.max(0, current.amountMl + amountMl);
       if (newAmount >= current.targetMl && current.amountMl < current.targetMl) {
-        triggerAchievement('first_water');
+        reachedTarget = true;
       }
       return {
         ...prev,
@@ -381,6 +426,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
     });
+    if (reachedTarget) {
+      triggerAchievement('first_water');
+    }
     showToast(`+${amountMl} ml adicionados com carinho! 💧`);
   }, [updateData, triggerAchievement, showToast]);
 
@@ -965,6 +1013,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsOnboardingOpen,
         isAchievementsOpen,
         setIsAchievementsOpen,
+        celebrationAchievement,
+        closeCelebration,
         isMobileMenuOpen,
         setIsMobileMenuOpen,
         showToast,

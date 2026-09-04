@@ -120,7 +120,7 @@ export const DEFAULT_SELF_CARE_ACTIONS: SelfCareAction[] = [
 
 export const ACHIEVEMENTS_LIST: Achievement[] = [
   { id: 'first_task', title: 'Primeira tarefa concluída', description: 'Você deu o primeiro passo para organizar seu dia.', icon: '🏅' },
-  { id: 'first_habit', title: 'Primeiro hábito criado', description: 'Plantando a semente de uma rotina mais saudável.', icon: '🌱' },
+  { id: 'first_habit', title: 'Primeiro hábito concluído', description: 'Plantando a semente de uma rotina mais saudável.', icon: '🌱' },
   { id: 'first_water', title: 'Meta de água atingida', description: 'Cuidou da sua hidratação com carinho.', icon: '💧' },
   { id: 'streak_3', title: '3 dias consecutivos', description: 'Constância suave e consistente.', icon: '🔥' },
   { id: 'streak_7', title: '7 dias consecutivos', description: 'Uma semana inteira cuidando de si!', icon: '🌟' },
