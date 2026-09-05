@@ -1,17 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Settings, Download, Upload, Trash2, Sun, Moon, 
-  Monitor, Smartphone, User, ShieldCheck 
+  Monitor, Smartphone, User, ShieldCheck, Cloud, LogOut, RefreshCw, Key, CheckCircle2 
 } from 'lucide-react';
 import { exportDataAsJson, importAppDataFromJson } from '../../services/storage';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 export const SettingsView: React.FC = () => {
   const { data, updateUser, resetData, showToast } = useApp();
+  const { user, logout, setIsAuthModalOpen, syncDataNow, pullCloudData, syncStatus, lastSyncedAt } = useAuth();
   const { isInstallable, isIOS, isInstalled, installApp } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSyncingManual, setIsSyncingManual] = useState(false);
 
   const [name, setName] = useState(data.user?.name || 'Nathália');
   const [selectedAvatar, setSelectedAvatar] = useState(data.user?.avatar || '🌿');
@@ -25,6 +28,24 @@ export const SettingsView: React.FC = () => {
       avatar: selectedAvatar
     });
     showToast('Perfil atualizado com sucesso! ✨');
+  };
+
+  const handleManualSync = async () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setIsSyncingManual(true);
+    try {
+      const ok = await syncDataNow(data);
+      if (ok) {
+        showToast('Dados sincronizados com sucesso! ☁️');
+      } else {
+        showToast('Não foi possível sincronizar no momento. Tente novamente.', 'gentle');
+      }
+    } finally {
+      setIsSyncingManual(false);
+    }
   };
 
   const handleExport = () => {
@@ -97,10 +118,10 @@ export const SettingsView: React.FC = () => {
             <label className="font-medium text-stone-700 dark:text-stone-300">Como prefere ser chamada(o)?</label>
             <input
               type="text"
-              required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full max-w-md px-4 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+              placeholder="Seu nome"
+              className="w-full max-w-md px-4 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
             />
           </div>
 
@@ -184,6 +205,96 @@ export const SettingsView: React.FC = () => {
             <span className="text-xs">Sistema</span>
           </button>
         </div>
+      </div>
+
+      {/* Cloud Sync & Auth */}
+      <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Cloud className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+            <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
+              Sincronização em Nuvem & Conta
+            </h3>
+          </div>
+          {user && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Conectado
+            </span>
+          )}
+        </div>
+
+        <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+          Sincronização na nuvem ativa para backup e acesso seguro das suas tarefas, hábitos, metas e orações de qualquer dispositivo sem perder nada.
+        </p>
+
+        {user ? (
+          <div className="p-4 rounded-2xl bg-[#F9FAF8] dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div>
+                <span className="text-stone-500">Sessão ativa como: </span>
+                <strong className="text-stone-900 dark:text-stone-100">{user.email}</strong>
+              </div>
+              {lastSyncedAt && (
+                <span className="text-[11px] text-stone-400">
+                  Última sincronização: {new Date(lastSyncedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={handleManualSync}
+                disabled={isSyncingManual || syncStatus === 'syncing'}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 dark:bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-900 transition shadow-xs disabled:opacity-50 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingManual || syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                <span>{isSyncingManual ? 'Sincronizando...' : 'Sincronizar Agora'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-200 transition cursor-pointer"
+              >
+                <Key className="w-3.5 h-3.5 text-stone-500" />
+                <span>Gerenciar Chave / Conexão</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  showToast('Você saiu da sua conta.', 'gentle');
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition ml-auto cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Desconectar</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800">
+            <div>
+              <p className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                Você não está conectada
+              </p>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                Acesse sua conta para salvar seus dados e usá-los de qualquer dispositivo sem perder nada.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <User className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Entrar / Cadastrar</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Backup & Local Persistence */}

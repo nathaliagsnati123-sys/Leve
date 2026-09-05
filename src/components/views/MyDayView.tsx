@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Plus, Check, Star, Sparkles, Brain, Moon, Droplets, 
   Sprout, Heart, HeartHandshake, ChevronRight, Clock, 
-  Filter, CheckCircle2, ArrowRight, Trash2, X
+  Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
-import { MOTIVATIONAL_QUOTES, SCRIPTURE_VERSES, SELF_CARE_SUGGESTIONS } from '../../services/quotesAndVerses';
+import { 
+  MOTIVATIONAL_QUOTES, 
+  SCRIPTURE_VERSES, 
+  SELF_CARE_SUGGESTIONS, 
+  getRandomMotivationalQuote 
+} from '../../services/quotesAndVerses';
 import { Priority, Task } from '../../types';
 
 export const MyDayView: React.FC = () => {
@@ -45,9 +50,25 @@ export const MyDayView: React.FC = () => {
     greetingEmoji = '🌙';
   }
 
-  // Pick deterministic quote of the day
+  // Dynamic motivational quote - changes every time the user enters the application
+  const [dailyQuote, setDailyQuote] = useState<string>(() => {
+    const previous = typeof window !== 'undefined' ? sessionStorage.getItem('leve_last_motivational_quote') || '' : '';
+    const newQuote = getRandomMotivationalQuote(previous);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('leve_last_motivational_quote', newQuote);
+    }
+    return newQuote;
+  });
+
+  const shuffleMotivationalQuote = () => {
+    const next = getRandomMotivationalQuote(dailyQuote);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('leve_last_motivational_quote', next);
+    }
+    setDailyQuote(next);
+  };
+
   const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-  const dailyQuote = MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
   const dailyVerse = SCRIPTURE_VERSES[dayOfYear % SCRIPTURE_VERSES.length];
   const dailySelfCare = SELF_CARE_SUGGESTIONS[dayOfYear % SELF_CARE_SUGGESTIONS.length];
 
@@ -142,9 +163,20 @@ export const MyDayView: React.FC = () => {
                 {greeting}, {data.user.name || 'amiga'}!
               </h1>
             </div>
-            <p className="font-serif italic text-emerald-100/90 text-xs sm:text-sm max-w-xl leading-relaxed">
-              "{dailyQuote}"
-            </p>
+            <div className="flex items-start gap-2 max-w-xl">
+              <p className="font-serif italic text-emerald-100/90 text-xs sm:text-sm leading-relaxed">
+                "{dailyQuote}"
+              </p>
+              <button
+                type="button"
+                onClick={shuffleMotivationalQuote}
+                className="p-1 text-emerald-300/80 hover:text-white hover:bg-white/10 rounded-lg transition shrink-0 mt-0.5"
+                title="Trocar frase de motivação"
+                aria-label="Trocar frase de motivação"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
             <p className="text-[10px] uppercase tracking-widest text-emerald-300 font-semibold">
               — Lembrete de leveza
             </p>

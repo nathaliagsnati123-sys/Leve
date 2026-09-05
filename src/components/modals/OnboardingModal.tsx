@@ -5,7 +5,7 @@ import { ArrowRight, Check, Sparkles, Feather, Heart, Smile } from 'lucide-react
 export const OnboardingModal: React.FC = () => {
   const { isOnboardingOpen, setIsOnboardingOpen, updateUser, data } = useApp();
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(data.user.name || '');
+  const [name, setName] = useState('');
   const [avatar, setAvatar] = useState(data.user.avatar || '🌿');
 
   if (!isOnboardingOpen) return null;
@@ -14,7 +14,7 @@ export const OnboardingModal: React.FC = () => {
 
   const handleFinish = () => {
     updateUser({
-      name: name.trim() || 'Amiga',
+      name: name.trim(),
       avatar,
       hasCompletedOnboarding: true
     });

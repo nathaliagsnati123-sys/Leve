@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useApp, ActiveTab } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Brain, Sparkles, Award, X
+  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -19,6 +20,8 @@ export const MobileMenuDrawer: React.FC = () => {
     setIsAchievementsOpen,
     todayCompletionPercentage
   } = useApp();
+
+  const { user, setIsAuthModalOpen, hasLiaAccess } = useAuth();
 
   // Close on escape key
   useEffect(() => {
@@ -47,6 +50,12 @@ export const MobileMenuDrawer: React.FC = () => {
     { id: 'journal' as ActiveTab, label: 'Meu Caderno & Gratidão', icon: BookOpen },
     { id: 'spirituality' as ActiveTab, label: 'Fé & Momento com Deus', icon: HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
+    { 
+      id: 'lia' as ActiveTab, 
+      label: 'Lia • Mentora IA', 
+      icon: Sparkles,
+      badge: hasLiaAccess ? 'Ativa' : 'Lia Access'
+    },
   ];
 
   const wellnessNav = [
@@ -100,8 +109,8 @@ export const MobileMenuDrawer: React.FC = () => {
         {/* Top Header */}
         <div className="p-4 pt-safe-header border-b border-stone-200/70 dark:border-stone-800/70 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#1F3A34] text-emerald-100 flex items-center justify-center font-bold text-lg shadow-sm ring-1 ring-emerald-600/30">
-              <span className="font-serif italic text-xl">L</span>
+            <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-sm ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
+              <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
             </div>
             <div>
               <h2 className="font-serif font-bold text-lg tracking-widest text-stone-900 dark:text-stone-100 leading-tight">
@@ -145,8 +154,19 @@ export const MobileMenuDrawer: React.FC = () => {
                         : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
-                    <span className="truncate">{item.label}</span>
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                    <span className="truncate flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                        isActive 
+                          ? 'bg-emerald-400/20 text-emerald-200' 
+                          : item.badge === 'Ativa'
+                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                            : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -212,7 +232,36 @@ export const MobileMenuDrawer: React.FC = () => {
         </div>
 
         {/* Drawer Footer (User & Achievements) */}
-        <div className="p-4 pb-safe border-t border-stone-200/70 dark:border-stone-800/70 space-y-2.5 bg-[#F6F7F4]/90 dark:bg-[#111714]/90">
+        <div className="p-4 pb-safe border-t border-stone-200/70 dark:border-stone-800/70 space-y-2 bg-[#F6F7F4]/90 dark:bg-[#111714]/90">
+          {/* Supabase Account Button */}
+          <button
+            id="mobile-auth-btn"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              setIsAuthModalOpen(true);
+            }}
+            className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${
+              user 
+                ? 'bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200' 
+                : 'bg-stone-100 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200/60'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 truncate">
+              <Cloud className={`w-4 h-4 ${user ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500'}`} />
+              <div className="truncate">
+                <p className="text-xs font-bold truncate">
+                  {user ? 'Conta Conectada' : 'Acessar Conta'}
+                </p>
+                <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
+                  {user ? user.email : 'Acesse de qualquer dispositivo'}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/80 dark:bg-stone-800/80 shadow-2xs shrink-0">
+              {user ? 'Online' : 'Entrar'}
+            </span>
+          </button>
+
           {/* Achievements button */}
           <button
             onClick={handleOpenAchievements}

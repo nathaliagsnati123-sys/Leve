@@ -16,6 +16,8 @@ import { AchievementsModal } from './components/modals/AchievementsModal';
 import { CelebrationModal } from './components/modals/CelebrationModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
 import { FiveMinuteGodModal } from './components/modals/FiveMinuteGodModal';
+import { AuthModal } from './components/modals/AuthModal';
+import { AuthProvider } from './context/AuthContext';
 
 // Views
 import { MyDayView } from './components/views/MyDayView';
@@ -33,11 +35,29 @@ import { BillsView } from './components/views/BillsView';
 import { CycleView } from './components/views/CycleView';
 import { ProgressView } from './components/views/ProgressView';
 import { SettingsView } from './components/views/SettingsView';
+import { RefreshCw } from 'lucide-react';
+import { LiaView } from './components/views/LiaView';
+import { EntitlementLockScreen } from './components/common/EntitlementLockScreen';
+import { useAuth } from './context/AuthContext';
 
 const AppContent: React.FC = () => {
   const { activeTab, toastMessage } = useApp();
+  const { user, hasLeveAccess, isCheckingEntitlements, isLoading } = useAuth();
 
   const renderActiveView = () => {
+    // Se o usuário estiver logado e não possuir leve_access nem special_access
+    if (user && !hasLeveAccess) {
+      if (isCheckingEntitlements || isLoading) {
+        return (
+          <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="w-6 h-6 text-[#1F3A34] dark:text-emerald-400 animate-spin" />
+            <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">Verificando permissões...</p>
+          </div>
+        );
+      }
+      return <EntitlementLockScreen />;
+    }
+
     switch (activeTab) {
       case 'my-day':
         return <MyDayView />;
@@ -67,6 +87,8 @@ const AppContent: React.FC = () => {
         return <CycleView />;
       case 'progress':
         return <ProgressView />;
+      case 'lia':
+        return <LiaView />;
       case 'settings':
         return <SettingsView />;
       default:
@@ -110,6 +132,7 @@ const AppContent: React.FC = () => {
       <CelebrationModal />
       <OnboardingModal />
       <FiveMinuteGodModal />
+      <AuthModal />
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -123,8 +146,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthProvider>
   );
 }

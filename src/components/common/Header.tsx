@@ -1,8 +1,9 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import { formatDateToBrazilian, getTodayDateString } from '../../services/storage';
-import { Search, Award, Menu } from 'lucide-react';
+import { Search, Award, Menu, User, Cloud } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { 
@@ -12,6 +13,8 @@ export const Header: React.FC = () => {
     setIsMobileMenuOpen,
     todayCompletionPercentage
   } = useApp();
+
+  const { user, setIsAuthModalOpen, syncStatus } = useAuth();
 
   const todayBrazilian = formatDateToBrazilian(getTodayDateString());
   const unlockedCount = Object.keys(data.unlockedAchievements).length;
@@ -31,8 +34,8 @@ export const Header: React.FC = () => {
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="w-9 h-9 rounded-xl bg-[#1F3A34] text-emerald-100 flex items-center justify-center font-bold text-base shadow-xs ring-1 ring-emerald-700/30">
-            <span className="font-serif italic text-lg">L</span>
+          <div className="w-9 h-9 rounded-xl overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white">
+            <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
           </div>
         </div>
 
@@ -48,6 +51,27 @@ export const Header: React.FC = () => {
 
         {/* Action controls on right */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Account Button */}
+          <button
+            id="header-auth-btn"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100 dark:bg-stone-800/70 hover:bg-stone-200/70 dark:hover:bg-stone-700/60 border border-stone-200/70 dark:border-stone-700/60 transition cursor-pointer"
+            title={user ? `Conectada: ${user.email}` : 'Acessar de qualquer dispositivo'}
+          >
+            {user ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-300/40"></span>
+                <span className="hidden sm:inline max-w-[90px] truncate">{data.user.name || 'Conta'}</span>
+                <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              </>
+            ) : (
+              <>
+                <User className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400" />
+                <span className="hidden sm:inline">Entrar</span>
+              </>
+            )}
+          </button>
+
           {/* Achievements badge */}
           <button
             id="header-achievements-btn"
@@ -86,3 +110,4 @@ export const Header: React.FC = () => {
     </header>
   );
 };
+
