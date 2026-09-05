@@ -2,23 +2,28 @@
 import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { AppData } from '../types';
 
-export const SUPABASE_URL = 
-  (import.meta.env.VITE_SUPABASE_URL as string) || 
-  (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL as string) || 
+export const SUPABASE_URL: string = 
+  (import.meta.env.VITE_SUPABASE_URL as string)?.trim() || 
   'https://ozzlnqlhrythvjdrdgwe.supabase.co';
 
 const LOCAL_STORAGE_ANON_KEY = 'leve_supabase_anon_key';
 
+function cleanEnvKey(raw?: string | null): string {
+  if (!raw) return '';
+  let cleaned = String(raw).trim();
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  return cleaned;
+}
+
 export function getSupabaseAnonKey(): string {
-  const envKey = 
-    (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 
-    (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY as string) || 
-    '';
-  if (envKey && envKey.trim()) return envKey.trim();
+  const envKey = cleanEnvKey(import.meta.env.VITE_SUPABASE_ANON_KEY as string);
+  if (envKey) return envKey;
   
   try {
-    const local = localStorage.getItem(LOCAL_STORAGE_ANON_KEY);
-    if (local && local.trim()) return local.trim();
+    const local = cleanEnvKey(localStorage.getItem(LOCAL_STORAGE_ANON_KEY));
+    if (local) return local;
   } catch {}
   
   return '';
@@ -26,10 +31,11 @@ export function getSupabaseAnonKey(): string {
 
 export function saveStoredAnonKey(key: string): void {
   try {
-    if (!key || !key.trim()) {
+    const cleaned = cleanEnvKey(key);
+    if (!cleaned) {
       localStorage.removeItem(LOCAL_STORAGE_ANON_KEY);
     } else {
-      localStorage.setItem(LOCAL_STORAGE_ANON_KEY, key.trim());
+      localStorage.setItem(LOCAL_STORAGE_ANON_KEY, cleaned);
     }
     // Invalidate cached client to recreate with new key
     cachedClient = null;
@@ -55,7 +61,7 @@ export function getSupabase(): SupabaseClient | null {
         }
       });
     } catch (err) {
-      console.error('Failed to initialize Supabase client:', err);
+      console.error('[Supabase Client] Falha na inicialização do cliente:', err);
       return null;
     }
   }
@@ -67,6 +73,49 @@ export function isSupabaseConfigured(): boolean {
   return Boolean(getSupabaseAnonKey());
 }
 
+export interface SupabaseAuthDiagnostics {
+  hasSupabaseUrl: boolean;
+  hasSupabaseAnonKey: boolean;
+  isClientInitialized: boolean;
+  urlDomain: string;
+}
+
+/**
+ * Diagnóstico seguro: informa apenas a existência das variáveis (true/false) e
+ * o domínio público, sem nunca expor chaves ou valores sensíveis.
+ */
+export function getSupabaseDiagnostics(): SupabaseAuthDiagnostics {
+  const key = getSupabaseAnonKey();
+  let domain = 'não configurado';
+  try {
+    if (SUPABASE_URL) {
+      domain = new URL(SUPABASE_URL).hostname;
+    }
+  } catch {
+    domain = 'inválido';
+  }
+
+  return {
+    hasSupabaseUrl: Boolean(SUPABASE_URL && SUPABASE_URL.trim()),
+    hasSupabaseAnonKey: Boolean(key && key.trim()),
+    isClientInitialized: Boolean(getSupabase()),
+    urlDomain: domain,
+  };
+}
+
+// Log seguro em runtime no navegador para verificação rápida no console
+if (typeof window !== 'undefined') {
+  try {
+    const diag = getSupabaseDiagnostics();
+    console.info('[LEVE Supabase Auth Diagnostic]', {
+      hasSupabaseUrl: diag.hasSupabaseUrl,
+      hasSupabaseAnonKey: diag.hasSupabaseAnonKey,
+      isClientInitialized: diag.isClientInitialized,
+      urlDomain: diag.urlDomain,
+    });
+  } catch {}
+}
+
 // --------------------------------------------------------
 // Auth Actions
 // --------------------------------------------------------
@@ -74,26 +123,32 @@ export function isSupabaseConfigured(): boolean {
 export async function supabaseSignUp(email: string, password: string, name?: string) {
   const client = getSupabase();
   if (!client) {
+    const diag = getSupabaseDiagnostics();
+    console.warn('[Supabase Auth] Cadastro sem cliente inicializado:', diag);
     return {
       data: null,
-      error: new Error('Serviço de autenticação temporariamente indisponível.')
+      error: new Error(
+        !diag.hasSupabaseAnonKey
+          ? 'Serviço de autenticação temporariamente indisponível (chave não detectada).'
+          : 'Serviço de autenticação temporariamente indisponível.'
+      )
     };
   }
 
   try {
     const res = await client.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          name: name.trim(),
-          full_name: name.trim()
+          name: name ? name.trim() : '',
+          full_name: name ? name.trim() : ''
         }
       }
     });
-
     return res;
   } catch (err: any) {
+    console.error('[Supabase Auth] Exceção em signUp:', err);
     return { data: null, error: err };
   }
 }
@@ -101,19 +156,26 @@ export async function supabaseSignUp(email: string, password: string, name?: str
 export async function supabaseSignIn(email: string, password: string) {
   const client = getSupabase();
   if (!client) {
+    const diag = getSupabaseDiagnostics();
+    console.warn('[Supabase Auth] Login sem cliente inicializado:', diag);
     return {
       data: null,
-      error: new Error('Serviço de autenticação temporariamente indisponível.')
+      error: new Error(
+        !diag.hasSupabaseAnonKey
+          ? 'Serviço de autenticação temporariamente indisponível (chave não detectada).'
+          : 'Serviço de autenticação temporariamente indisponível.'
+      )
     };
   }
 
   try {
     const res = await client.auth.signInWithPassword({
-      email,
-      password
+      email: email.trim(),
+      password,
     });
     return res;
   } catch (err: any) {
+    console.error('[Supabase Auth] Exceção em signInWithPassword:', err);
     return { data: null, error: err };
   }
 }
@@ -132,19 +194,26 @@ export async function supabaseSignOut() {
 export async function supabaseResetPassword(email: string) {
   const client = getSupabase();
   if (!client) {
+    const diag = getSupabaseDiagnostics();
+    console.warn('[Supabase Auth] Recuperação de senha sem cliente inicializado:', diag);
     return {
       data: null,
-      error: new Error('Serviço de autenticação temporariamente indisponível.')
+      error: new Error(
+        !diag.hasSupabaseAnonKey
+          ? 'Serviço de autenticação temporariamente indisponível (chave não detectada).'
+          : 'Serviço de autenticação temporariamente indisponível.'
+      )
     };
   }
 
   try {
     const redirectUrl = window.location.origin;
-    const res = await client.auth.resetPasswordForEmail(email, {
+    const res = await client.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: redirectUrl
     });
     return res;
   } catch (err: any) {
+    console.error('[Supabase Auth] Exceção em resetPasswordForEmail:', err);
     return { data: null, error: err };
   }
 }
@@ -152,9 +221,15 @@ export async function supabaseResetPassword(email: string) {
 export async function supabaseUpdatePassword(newPassword: string) {
   const client = getSupabase();
   if (!client) {
+    const diag = getSupabaseDiagnostics();
+    console.warn('[Supabase Auth] Atualização de senha sem cliente inicializado:', diag);
     return {
       data: null,
-      error: new Error('Serviço de autenticação temporariamente indisponível.')
+      error: new Error(
+        !diag.hasSupabaseAnonKey
+          ? 'Serviço de autenticação temporariamente indisponível (chave não detectada).'
+          : 'Serviço de autenticação temporariamente indisponível.'
+      )
     };
   }
 
@@ -163,6 +238,7 @@ export async function supabaseUpdatePassword(newPassword: string) {
       password: newPassword
     });
   } catch (err: any) {
+    console.error('[Supabase Auth] Exceção em updateUser password:', err);
     return { data: null, error: err };
   }
 }

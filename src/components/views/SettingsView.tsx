@@ -10,7 +10,7 @@ import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 export const SettingsView: React.FC = () => {
   const { data, updateUser, resetData, showToast } = useApp();
-  const { user, logout, setIsAuthModalOpen, syncDataNow, pullCloudData, syncStatus, lastSyncedAt } = useAuth();
+  const { user, logout, setIsAuthModalOpen, syncDataNow, pullCloudData, syncStatus, lastSyncedAt, diagnostics } = useAuth();
   const { isInstallable, isIOS, isInstalled, installApp } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -295,6 +295,24 @@ export const SettingsView: React.FC = () => {
             </button>
           </div>
         )}
+
+        {/* Diagnóstico Seguro de Ambiente (sem expor chaves ou valores sensíveis) */}
+        <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500 dark:text-stone-400">
+          <span>Diagnóstico de Conexão:</span>
+          <div className="flex items-center gap-2 font-mono text-[10px]">
+            <span className={diagnostics.hasSupabaseUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
+              URL: {diagnostics.hasSupabaseUrl ? 'true' : 'false'}
+            </span>
+            <span>•</span>
+            <span className={diagnostics.hasSupabaseAnonKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}>
+              Chave: {diagnostics.hasSupabaseAnonKey ? 'true' : 'false'}
+            </span>
+            <span>•</span>
+            <span className={diagnostics.isClientInitialized ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
+              Pronto: {diagnostics.isClientInitialized ? 'true' : 'false'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Backup & Local Persistence */}

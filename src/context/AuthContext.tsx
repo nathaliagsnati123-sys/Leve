@@ -19,7 +19,9 @@ import {
   fetchUserProfile,
   parseBoolean,
   UserEntitlements,
-  SUPABASE_URL
+  SUPABASE_URL,
+  getSupabaseDiagnostics,
+  SupabaseAuthDiagnostics
 } from '../services/supabase';
 import { AppData } from '../types';
 import { translateAuthError } from '../utils/authErrors';
@@ -31,6 +33,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isConfigured: boolean;
+  diagnostics: SupabaseAuthDiagnostics;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   authTab: 'login' | 'signup' | 'reset';
@@ -217,7 +220,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { success: false, error: 'Não foi possível autenticar o usuário.' };
     } catch (err: any) {
-      return { success: false, error: translateAuthError(err.message) || 'Erro ao realizar login' };
+      console.error('[AuthContext] Exceção capturada durante login:', err);
+      return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar login' };
     } finally {
       setIsLoading(false);
     }
@@ -247,7 +251,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { success: false, error: 'Não foi possível cadastrar a conta.' };
     } catch (err: any) {
-      return { success: false, error: translateAuthError(err.message) || 'Erro ao realizar cadastro' };
+      console.error('[AuthContext] Exceção capturada durante cadastro:', err);
+      return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar cadastro' };
     } finally {
       setIsLoading(false);
     }
@@ -372,6 +377,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         session,
         isLoading,
         isConfigured,
+        diagnostics: getSupabaseDiagnostics(),
         isAuthModalOpen,
         setIsAuthModalOpen,
         authTab,

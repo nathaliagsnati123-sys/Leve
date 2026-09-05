@@ -27,6 +27,7 @@ export const AuthModal: React.FC = () => {
     syncDataNow, 
     supabaseUrl, 
     isConfigured,
+    diagnostics,
     entitlements,
     refreshEntitlements,
     userProfile,
@@ -591,10 +592,18 @@ export const AuthModal: React.FC = () => {
 
         </div>
 
-        {/* Footer info */}
-        <div className="px-6 py-3 bg-[#F4F2EB] dark:bg-[#121714] border-t border-stone-200/60 dark:border-stone-800/60 text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between">
+        {/* Footer info & Safe Diagnostic */}
+        <div className="px-6 py-2.5 bg-[#F4F2EB] dark:bg-[#121714] border-t border-stone-200/60 dark:border-stone-800/60 text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between">
           <span>Sincronização Segura em Nuvem</span>
-          <span className="font-mono text-[10px]">v1.0</span>
+          <div className="flex items-center gap-1.5 font-mono text-[10px] text-stone-400">
+            <span className={diagnostics.hasSupabaseUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
+              URL={diagnostics.hasSupabaseUrl ? 'true' : 'false'}
+            </span>
+            <span>•</span>
+            <span className={diagnostics.hasSupabaseAnonKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}>
+              Chave={diagnostics.hasSupabaseAnonKey ? 'true' : 'false'}
+            </span>
+          </div>
         </div>
       </motion.div>
     </div>
