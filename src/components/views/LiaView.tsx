@@ -1,3 +1,4 @@
+// Visualização da Assistente Lia - LEVE
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';

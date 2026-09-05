@@ -1,3 +1,4 @@
+// Tela de Bloqueio por Permissão (Entitlement) - LEVE
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ShieldAlert, RefreshCw, LogOut, MessageCircle, Sparkles, CheckCircle2, Lock } from 'lucide-react';

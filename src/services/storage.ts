@@ -1,3 +1,4 @@
+// Armazenamento Local e Persistência - LEVE
 import { AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, SleepLog, JournalEntry, Memory, Prayer, FiveMinuteGodSession, Goal, Bill, UserProfile } from '../types';
 import { DEFAULT_SELF_CARE_ACTIONS } from './quotesAndVerses';
 
@@ -35,7 +36,7 @@ export function formatDateToBrazilian(dateStr: string): string {
 
 export const INITIAL_APP_DATA: AppData = {
   user: {
-    name: 'Nathália',
+    name: '',
     avatar: '🌿',
     accentColor: '#1F3A34',
     theme: 'light',
@@ -162,10 +163,15 @@ export function loadAppData(): AppData {
     }
     const parsed = JSON.parse(raw) as AppData;
 
+    const userObj = { ...INITIAL_APP_DATA.user, ...parsed.user };
+    if (userObj.name === 'Nathália') {
+      userObj.name = '';
+    }
+
     return {
       ...INITIAL_APP_DATA,
       ...parsed,
-      user: { ...INITIAL_APP_DATA.user, ...parsed.user },
+      user: userObj,
       tasks: parsed.tasks || [],
       habits: parsed.habits || [],
       hydration: parsed.hydration || {},
