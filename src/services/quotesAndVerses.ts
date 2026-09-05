@@ -12,43 +12,10 @@ export const MOTIVATIONAL_QUOTES: string[] = [
   "Hoje, priorize a sua paz mental acima da urgência dos outros.",
   "Cuidar de você não é egoísmo, é a base para cuidar de tudo ao redor.",
   "Tudo bem desacelerar quando o corpo e o coração pedem descanso.",
-  "A clareza vem quando tiramos os pesos da mente e colocamos no papel.",
+  "A clareza vem quando colocamos os pensamentos no papel.",
   "Seja gentil com você mesma durante todo o processo.",
-  "O dia de hoje é um convite para recomeçar com leveza.",
-  "Permita-se viver um momento de cada vez sem cobranças excessivas.",
-  "Você é suficiente exatamente como é neste instante.",
-  "A paciência com você mesma é uma das formas mais bonitas de amor-próprio.",
-  "Não compare o seu bastidor com o palco de outra pessoa.",
-  "Grandes jornadas são feitas de pequenas pausas intencionais.",
-  "Celebre as pequenas vitórias silenciosas que ninguém mais vê.",
-  "Hoje é um novo dia, com novas oportunidades e misericórdias renovadas.",
-  "O que importa não é a velocidade, mas a direção e a paz no coração.",
-  "Solte a necessidade de controlar tudo e acolha o que o hoje traz.",
-  "Menos pressa, mais presença.",
-  "Deixe de lado o que não está sob o seu controle hoje.",
-  "Um coração em paz é um lar seguro para os seus sonhos.",
-  "Você tem a força necessária para enfrentar o que este dia pedir.",
-  "Descansar não é perder tempo; é nutrir sua mente para continuar.",
-  "A cada amanhecer, Deus nos dá a chance de escolher a leveza.",
-  "Coloque amor no que faz hoje, por mais simples que pareça.",
-  "Seja grata pelo que já tem enquanto constrói o que deseja alcançar.",
-  "Tudo o que você precisa fazer agora é dar o próximo passo consciente.",
-  "A sua saúde mental vale mais do que qualquer prazo ou correria.",
-  "Permita-se errar, aprender e seguir em frente sem culpa.",
-  "Uma rotina leve se constrói com carinho e consistência, não com rigidez."
+  "O dia de hoje é um convite para recomeçar com leveza."
 ];
-
-/**
- * Retorna uma frase motivacional aleatória diferente a cada vez que a pessoa entra
- */
-export function getRandomMotivationalQuote(excludeQuote?: string): string {
-  const pool = excludeQuote
-    ? MOTIVATIONAL_QUOTES.filter((q) => q !== excludeQuote)
-    : MOTIVATIONAL_QUOTES;
-  const list = pool.length > 0 ? pool : MOTIVATIONAL_QUOTES;
-  const randomIndex = Math.floor(Math.random() * list.length);
-  return list[randomIndex];
-}
 
 export const REFLECTION_QUESTIONS: string[] = [
   "O que fez você sorrir hoje?",

@@ -35,7 +35,7 @@ export function formatDateToBrazilian(dateStr: string): string {
 
 export const INITIAL_APP_DATA: AppData = {
   user: {
-    name: '',
+    name: 'Nathália',
     avatar: '🌿',
     accentColor: '#1F3A34',
     theme: 'light',
@@ -162,15 +162,10 @@ export function loadAppData(): AppData {
     }
     const parsed = JSON.parse(raw) as AppData;
 
-    const userObj = { ...INITIAL_APP_DATA.user, ...parsed.user };
-    if (userObj.name === 'Nathália') {
-      userObj.name = '';
-    }
-
     return {
       ...INITIAL_APP_DATA,
       ...parsed,
-      user: userObj,
+      user: { ...INITIAL_APP_DATA.user, ...parsed.user },
       tasks: parsed.tasks || [],
       habits: parsed.habits || [],
       hydration: parsed.hydration || {},

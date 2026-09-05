@@ -9,7 +9,6 @@ import {
   loadAppData, saveAppData, getTodayDateString, resetAllData 
 } from '../services/storage';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
-import { useAuth } from './AuthContext';
 
 export type ActiveTab = 
   | 'my-day' 
@@ -26,7 +25,6 @@ export type ActiveTab =
   | 'self-care'
   | 'bills'
   | 'cycle'
-  | 'lia'
   | 'settings';
 
 interface Toast {
@@ -189,70 +187,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsOnboardingOpen(true);
     }
   }, [data.user.hasCompletedOnboarding]);
-
-  // Supabase Cloud Sync Integration
-  const { user, syncDataNow, pullCloudData, userProfile } = useAuth();
-
-  // If user profile with name is fetched from Supabase, update user profile
-  useEffect(() => {
-    if (userProfile?.name || userProfile?.full_name) {
-      const profileName = (userProfile.name || userProfile.full_name).trim();
-      if (profileName) {
-        setData((prev) => {
-          if (prev.user.name === profileName) return prev;
-          const updated = {
-            ...prev,
-            user: {
-              ...prev.user,
-              name: profileName
-            }
-          };
-          saveAppData(updated);
-          return updated;
-        });
-      }
-    }
-  }, [userProfile]);
-
-  // On user login: pull from Supabase if available, or sync initial data
-  useEffect(() => {
-    if (!user) return;
-    let isCancelled = false;
-
-    async function syncOnLogin() {
-      try {
-        const cloudData = await pullCloudData();
-        if (cloudData && !isCancelled) {
-          setData((prev) => {
-            const merged: AppData = {
-              ...prev,
-              ...cloudData,
-              user: { ...prev.user, ...(cloudData.user || {}) }
-            };
-            saveAppData(merged);
-            return merged;
-          });
-        } else if (!cloudData && !isCancelled) {
-          // Push initial data to cloud
-          syncDataNow(data);
-        }
-      } catch (e) {
-        console.warn('Sync on login error:', e);
-      }
-    }
-
-    syncOnLogin();
-    return () => { isCancelled = true; };
-  }, [user]);
-
-  // Debounced auto-sync to Supabase when data changes and user is authenticated
-  useEffect(() => {
-    if (!user) return;
-    const timer = setTimeout(() => {
-      syncDataNow(data);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [data, user, syncDataNow]);
 
   // Persist state
   const updateData = useCallback((updater: (prev: AppData) => AppData) => {
