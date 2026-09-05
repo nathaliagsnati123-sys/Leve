@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Settings, Download, Upload, Trash2, Sun, Moon, 
-  Monitor, Smartphone, User, ShieldCheck, Cloud, LogOut, RefreshCw, Key, CheckCircle2 
+  Monitor, Smartphone, User, ShieldCheck, Cloud, LogOut, RefreshCw, CheckCircle2 
 } from 'lucide-react';
 import { exportDataAsJson, importAppDataFromJson } from '../../services/storage';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
@@ -258,8 +258,8 @@ export const SettingsView: React.FC = () => {
                 onClick={() => setIsAuthModalOpen(true)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-200 transition cursor-pointer"
               >
-                <Key className="w-3.5 h-3.5 text-stone-500" />
-                <span>Gerenciar Chave / Conexão</span>
+                <User className="w-3.5 h-3.5 text-stone-500" />
+                <span>Minha Conta</span>
               </button>
 
               <button

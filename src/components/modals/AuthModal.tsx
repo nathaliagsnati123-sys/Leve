@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Mail, Lock, User, Cloud, CheckCircle, AlertCircle, 
-  ArrowRight, LogOut, RefreshCw, Key, ShieldCheck,
+  ArrowRight, LogOut, RefreshCw, ShieldCheck,
   Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -26,8 +26,6 @@ export const AuthModal: React.FC = () => {
     lastSyncedAt, 
     syncDataNow, 
     supabaseUrl, 
-    anonKey, 
-    saveAnonKey,
     isConfigured,
     entitlements,
     refreshEntitlements,
@@ -42,7 +40,6 @@ export const AuthModal: React.FC = () => {
   const [name, setName] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
-  const [manualKeyInput, setManualKeyInput] = useState(anonKey || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -53,18 +50,6 @@ export const AuthModal: React.FC = () => {
     setIsAuthModalOpen(false);
     setErrorMessage(null);
     setSuccessMessage(null);
-  };
-
-  const handleSaveKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualKeyInput.trim()) {
-      setErrorMessage('Por favor, informe a chave de conexão da nuvem.');
-      return;
-    }
-    saveAnonKey(manualKeyInput.trim());
-    setErrorMessage(null);
-    setSuccessMessage('Chave salva com sucesso! Agora você pode entrar ou criar sua conta.');
-    showToast('Chave de conexão configurada!', 'success');
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -346,42 +331,6 @@ export const AuthModal: React.FC = () => {
           ) : (
             /* USER NOT LOGGED IN */
             <div className="space-y-4">
-              {/* Check if Anon Key is missing */}
-              {!isConfigured && (
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 space-y-3">
-                  <div className="flex items-start gap-2.5">
-                    <Key className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-                        Chave de Conexão Necessária
-                      </h4>
-                      <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
-                        Insira a chave pública de acesso (<code className="font-mono text-[10px]">anon/public</code>) para ativar o login e o banco:
-                      </p>
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleSaveKey} className="space-y-2">
-                    <input
-                      id="supabase-anon-key-input"
-                      type="text"
-                      value={manualKeyInput}
-                      onChange={(e) => setManualKeyInput(e.target.value)}
-                      placeholder="Cole aqui a sua chave pública (anon/public)"
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700/80 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono"
-                    />
-                    <button
-                      id="supabase-save-key-btn"
-                      type="submit"
-                      className="w-full py-2 px-3 rounded-xl bg-amber-700 dark:bg-amber-600 text-white font-medium text-xs hover:bg-amber-800 transition cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <span>Salvar e Conectar</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </form>
-                </div>
-              )}
-
               {/* Navigation Tabs (Entrar / Criar Conta / Recuperar) */}
               <div className="flex items-center p-1 rounded-xl bg-stone-200/70 dark:bg-stone-800/70 text-xs font-medium">
                 <button

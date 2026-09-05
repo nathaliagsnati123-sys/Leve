@@ -3,12 +3,17 @@ import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@s
 import { AppData } from '../types';
 
 export const SUPABASE_URL = 
-  (import.meta.env.VITE_SUPABASE_URL as string) || 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+  (import.meta.env.VITE_SUPABASE_URL as string) || 
+  (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL as string) || 
+  'https://ozzlnqlhrythvjdrdgwe.supabase.co';
 
 const LOCAL_STORAGE_ANON_KEY = 'leve_supabase_anon_key';
 
 export function getSupabaseAnonKey(): string {
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+  const envKey = 
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 
+    (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY as string) || 
+    '';
   if (envKey && envKey.trim()) return envKey.trim();
   
   try {
@@ -71,7 +76,7 @@ export async function supabaseSignUp(email: string, password: string, name?: str
   if (!client) {
     return {
       data: null,
-      error: new Error('A chave pública anônima do Supabase ainda não foi configurada.')
+      error: new Error('Serviço de autenticação temporariamente indisponível.')
     };
   }
 
@@ -98,7 +103,7 @@ export async function supabaseSignIn(email: string, password: string) {
   if (!client) {
     return {
       data: null,
-      error: new Error('A chave pública anônima do Supabase ainda não foi configurada.')
+      error: new Error('Serviço de autenticação temporariamente indisponível.')
     };
   }
 
@@ -129,7 +134,7 @@ export async function supabaseResetPassword(email: string) {
   if (!client) {
     return {
       data: null,
-      error: new Error('A chave pública anônima do Supabase ainda não foi configurada.')
+      error: new Error('Serviço de autenticação temporariamente indisponível.')
     };
   }
 
@@ -149,7 +154,7 @@ export async function supabaseUpdatePassword(newPassword: string) {
   if (!client) {
     return {
       data: null,
-      error: new Error('A chave pública anônima do Supabase ainda não foi configurada.')
+      error: new Error('Serviço de autenticação temporariamente indisponível.')
     };
   }
 

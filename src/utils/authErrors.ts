@@ -94,9 +94,9 @@ export function translateAuthError(errorMsg?: string | null): string {
     return 'Sua sessão expirou. Por favor, entre novamente com seu e-mail e senha.';
   }
 
-  // Chave pública
+  // Configuração ou conexão
   if (lower.includes('chave pública anônima do supabase') || lower.includes('supabase ainda não foi configurada')) {
-    return 'A chave de acesso da nuvem ainda não foi configurada.';
+    return 'Serviço de autenticação temporariamente indisponível.';
   }
 
   // Fallback se a mensagem já estiver em português
