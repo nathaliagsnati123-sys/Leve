@@ -18,14 +18,12 @@ function cleanEnvKey(raw?: string | null): string {
 }
 
 export function getSupabaseAnonKey(): string {
-  const envKey = cleanEnvKey(import.meta.env.VITE_SUPABASE_ANON_KEY as string);
+  const envKey = cleanEnvKey(
+    import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  );
+
   if (envKey) return envKey;
-  
-  try {
-    const local = cleanEnvKey(localStorage.getItem(LOCAL_STORAGE_ANON_KEY));
-    if (local) return local;
-  } catch {}
-  
+
   return '';
 }
 
