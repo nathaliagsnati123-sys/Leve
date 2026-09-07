@@ -3,9 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { 
-  Sparkles, Send, RefreshCw, Heart, Bot, ShieldCheck, 
-  Lock, ArrowRight, MessageSquare, Compass, Sun, Moon 
+  Sparkles, Send, Heart, Bot, ShieldCheck, 
+  ArrowRight, MessageSquare, Compass, Sun, Moon,
+  ChevronLeft, ChevronRight 
 } from 'lucide-react';
+import { EntitlementLockScreen } from '../common/EntitlementLockScreen';
 
 interface ChatMessage {
   id: string;
@@ -37,6 +39,30 @@ export const LiaView: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Suggestions scroll state
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const [canScrollSugLeft, setCanScrollSugLeft] = useState(false);
+  const [canScrollSugRight, setCanScrollSugRight] = useState(false);
+
+  const checkSugScroll = () => {
+    const el = suggestionsRef.current;
+    if (!el) return;
+    setCanScrollSugLeft(el.scrollLeft > 4);
+    setCanScrollSugRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  };
+
+  useEffect(() => {
+    checkSugScroll();
+    window.addEventListener('resize', checkSugScroll);
+    return () => window.removeEventListener('resize', checkSugScroll);
+  }, []);
+
+  const handleSugScroll = (dir: 'left' | 'right') => {
+    if (!suggestionsRef.current) return;
+    suggestionsRef.current.scrollBy({ left: dir === 'left' ? -180 : 180, behavior: 'smooth' });
+    setTimeout(checkSugScroll, 200);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,51 +119,9 @@ export const LiaView: React.FC = () => {
     }, 1100);
   };
 
-  // Se o usuário não tem lia_access liberado em user_entitlements
+  // Se o usuário não tem plano VIP com acesso à Levia
   if (!hasLiaAccess) {
-    return (
-      <div className="max-w-2xl mx-auto py-8 px-4 sm:px-6">
-        <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-6 sm:p-8 shadow-lg text-center space-y-6">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-800 to-[#1F3A34] text-white flex items-center justify-center shadow-md">
-            <Sparkles className="w-8 h-8 text-emerald-300" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-              Recurso Levia Access
-            </span>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
-              Conheça a Levia
-            </h1>
-            <p className="text-sm text-stone-600 dark:text-stone-300 max-w-md mx-auto leading-relaxed">
-              Levia é a sua mentora e companheira de leveza com inteligência artificial. Ela ajuda a descomprimir a mente, sugerir pausas intencionais, planejar seu dia sem ansiedade e trazer reflexões de paz.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800 text-left space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-stone-700 dark:text-stone-300">
-              <Lock className="w-4 h-4 text-amber-500" />
-              <span>Status do seu plano: <code>lia_access = false</code></span>
-            </div>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              O acesso à Levia é concedido a usuárias que possuem a permissão <strong>lia_access</strong> ativada na sua conta (<code>user_entitlements</code>).
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => refreshEntitlements()}
-              disabled={isCheckingEntitlements}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#1F3A34] hover:bg-[#172D28] text-white text-xs font-semibold transition shadow-xs cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isCheckingEntitlements ? 'animate-spin' : ''}`} />
-              <span>Verificar Permissões</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <EntitlementLockScreen feature="lia" />;
   }
 
   // Se o usuário possui lia_access liberado
@@ -204,18 +188,52 @@ export const LiaView: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggestion Chips */}
-        <div className="px-4 py-2 border-t border-stone-100 dark:border-stone-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar bg-stone-50/50 dark:bg-stone-900/50">
-          {PROMPT_SUGGESTIONS.map((sug, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => handleSendMessage(sug)}
-              className="text-[11px] whitespace-nowrap px-3 py-1.5 rounded-full bg-white dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-900 transition shrink-0 cursor-pointer"
-            >
-              {sug}
-            </button>
-          ))}
+        {/* Suggestion Chips with Arrows */}
+        <div className="px-3 py-2 border-t border-stone-100 dark:border-stone-800/80 flex items-center gap-1.5 bg-stone-50/50 dark:bg-stone-900/50">
+          <button
+            type="button"
+            onClick={() => handleSugScroll('left')}
+            disabled={!canScrollSugLeft}
+            aria-label="Rolar sugestões para a esquerda"
+            className={`w-6 h-6 rounded-full border transition-all duration-150 shrink-0 flex items-center justify-center cursor-pointer ${
+              canScrollSugLeft
+                ? 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-emerald-50'
+                : 'opacity-25 pointer-events-none text-stone-400 border-transparent'
+            }`}
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+
+          <div 
+            ref={suggestionsRef}
+            onScroll={checkSugScroll}
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full"
+          >
+            {PROMPT_SUGGESTIONS.map((sug, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSendMessage(sug)}
+                className="text-[11px] whitespace-nowrap px-3 py-1.5 rounded-full bg-white dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-900 transition shrink-0 cursor-pointer"
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleSugScroll('right')}
+            disabled={!canScrollSugRight}
+            aria-label="Rolar sugestões para a direita"
+            className={`w-6 h-6 rounded-full border transition-all duration-150 shrink-0 flex items-center justify-center cursor-pointer ${
+              canScrollSugRight
+                ? 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-emerald-50'
+                : 'opacity-25 pointer-events-none text-stone-400 border-transparent'
+            }`}
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Message Input Box */}

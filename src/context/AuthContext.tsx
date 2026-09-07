@@ -25,6 +25,14 @@ import {
 } from '../services/supabase';
 import { AppData } from '../types';
 import { translateAuthError } from '../utils/authErrors';
+import {
+  PlanTier,
+  AppFeature,
+  determineUserPlan,
+  canAccess,
+  getPlanLabel,
+  PLAN_LABELS
+} from '../services/authorization';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error' | 'local-only';
 
@@ -53,8 +61,11 @@ interface AuthContextType {
   // Entitlements & Access Control (user_entitlements)
   entitlements: UserEntitlements | null;
   isCheckingEntitlements: boolean;
-  hasLeveAccess: boolean; // leve_access || special_access
-  hasLiaAccess: boolean; // lia_access
+  plan: PlanTier;
+  planLabel: string;
+  canAccessFeature: (feature: AppFeature | string) => boolean;
+  hasLeveAccess: boolean; // special ou vip
+  hasLiaAccess: boolean; // somente vip
   refreshEntitlements: () => Promise<UserEntitlements | null>;
   userProfile: any | null;
 }
@@ -205,6 +216,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
+    setIsCheckingEntitlements(true);
+    // Limpeza rigorosa antes de autenticar outro usuário
+    setUser(null);
+    setSession(null);
+    setEntitlements(null);
+    setUserProfile(null);
+
     try {
       const { data, error } = await supabaseSignIn(email, password);
       if (error) {
@@ -214,8 +232,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(data.user);
         setSession(data.session);
         setSyncStatus('synced');
-        await loadEntitlements(data.user.id, data.session);
-        await loadProfile(data.user.id);
+        // Consulta obrigatória dos entitlements do novo usuário no Supabase
+        await Promise.all([
+          loadEntitlements(data.user.id, data.session),
+          loadProfile(data.user.id)
+        ]);
         return { success: true };
       }
       return { success: false, error: 'Não foi possível autenticar o usuário.' };
@@ -224,11 +245,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar login' };
     } finally {
       setIsLoading(false);
+      setIsCheckingEntitlements(false);
     }
   }, [loadEntitlements, loadProfile]);
 
   const signup = useCallback(async (email: string, password: string, name?: string) => {
     setIsLoading(true);
+    setIsCheckingEntitlements(true);
+    setUser(null);
+    setSession(null);
+    setEntitlements(null);
+    setUserProfile(null);
+
     try {
       const { data, error } = await supabaseSignUp(email, password, name);
       if (error) {
@@ -239,8 +267,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(data.session);
         const needsConfirmation = !data.session;
         if (data.session) {
-          await loadEntitlements(data.user.id, data.session);
-          await loadProfile(data.user.id);
+          await Promise.all([
+            loadEntitlements(data.user.id, data.session),
+            loadProfile(data.user.id)
+          ]);
         }
         return { 
           success: true, 
@@ -255,18 +285,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar cadastro' };
     } finally {
       setIsLoading(false);
+      setIsCheckingEntitlements(false);
     }
   }, [loadEntitlements, loadProfile]);
 
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      await supabaseSignOut();
+      // 1. Limpar imediatamente o usuário atual e todas as permissões em memória
       setUser(null);
       setSession(null);
       setEntitlements(null);
       setUserProfile(null);
       setSyncStatus('local-only');
+
+      // 2. Encerrar sessão no Supabase Auth
+      await supabaseSignOut();
+
+      // 3. Limpeza de eventuais tokens de sessão no storage para evitar vazamento entre contas
+      try {
+        sessionStorage.clear();
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('sb-refresh-token');
+        localStorage.removeItem('sb-access-token');
+      } catch {}
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
@@ -359,16 +401,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [user?.id, refreshEntitlements]);
 
-  // Regras de autorização:
-  // - Se não estiver logado: modo demonstração / local preservado sem bloquear a interface
-  // - Se estiver logado: deve ter leve_access ou special_access para acessar o LEVE completo
-  const hasLeveAccess = !user || Boolean(
-    parseBoolean(entitlements?.leve_access) || 
-    parseBoolean(entitlements?.special_access)
+  // ==========================================================================
+  // Sistema Centralizado de Planos & Autorização (LEVE Gratuito, Especial, VIP)
+  // ==========================================================================
+  const plan: PlanTier = determineUserPlan(user, entitlements);
+  const planLabel = getPlanLabel(plan);
+
+  const canAccessFeature = useCallback(
+    (feature: AppFeature | string): boolean => {
+      return canAccess(feature, plan);
+    },
+    [plan]
   );
 
-  // lia_access libera a Lia
-  const hasLiaAccess = Boolean(parseBoolean(entitlements?.lia_access));
+  // Áreas pagas gerais: requer plano Especial ou VIP
+  const hasLeveAccess = plan === 'special' || plan === 'vip';
+
+  // Levia (Mentora IA): exclusivo do plano VIP
+  const hasLiaAccess = plan === 'vip';
 
   return (
     <AuthContext.Provider
@@ -395,6 +445,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         pullCloudData,
         entitlements,
         isCheckingEntitlements,
+        plan,
+        planLabel,
+        canAccessFeature,
         hasLeveAccess,
         hasLiaAccess,
         refreshEntitlements,

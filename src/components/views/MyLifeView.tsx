@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
   BookOpen, Film, Tv, Palette, MapPin, Compass, Heart, 
-  Sparkles, Search, Plus, Sparkle 
+  Sparkles, Search, Plus, Sparkle, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { MyLifeLockedScreen } from '../my-life/MyLifeLockedScreen';
 import { MyLifeItemModal, ModalCategory } from '../my-life/MyLifeItemModal';
@@ -38,6 +38,66 @@ export const MyLifeView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalCategory, setModalCategory] = useState<ModalCategory>('books');
   const [editingItem, setEditingItem] = useState<any>(null);
+
+  // Category bar scroll & drag state
+  const categoryContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollStart, setScrollStart] = useState(0);
+  const [hasDragged, setHasDragged] = useState(false);
+
+  const checkCategoryScroll = useCallback(() => {
+    const el = categoryContainerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = categoryContainerRef.current;
+    if (!el) return;
+    checkCategoryScroll();
+    const ro = new ResizeObserver(() => checkCategoryScroll());
+    ro.observe(el);
+    el.addEventListener('scroll', checkCategoryScroll, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', checkCategoryScroll);
+    };
+  }, [checkCategoryScroll]);
+
+  const handleCategoryScroll = (dir: 'left' | 'right') => {
+    const el = categoryContainerRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
+    setTimeout(checkCategoryScroll, 250);
+  };
+
+  const handleCatMouseDown = (e: React.MouseEvent) => {
+    const el = categoryContainerRef.current;
+    if (!el) return;
+    setIsDragging(true);
+    setStartX(e.pageX - el.offsetLeft);
+    setScrollStart(el.scrollLeft);
+    setHasDragged(false);
+  };
+
+  const handleCatMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !categoryContainerRef.current) return;
+    e.preventDefault();
+    const el = categoryContainerRef.current;
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startX) * 1.3;
+    if (Math.abs(walk) > 4) setHasDragged(true);
+    el.scrollLeft = scrollStart - walk;
+    checkCategoryScroll();
+  };
+
+  const handleCatMouseUp = () => setIsDragging(false);
+  const handleCatMouseLeave = () => setIsDragging(false);
 
   // Check access: must have hasLeveAccess or bypassed for demo/testing
   if (!hasLeveAccess && !demoBypass) {
@@ -142,132 +202,176 @@ export const MyLifeView: React.FC = () => {
         </div>
       </div>
 
-      {/* Category Navigation Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      {/* Category Navigation Bar with Scroll Arrows & Drag Support */}
+      <div className="relative flex items-center gap-1.5 sm:gap-2">
+        {/* Setinha para a esquerda */}
         <button
           type="button"
-          onClick={() => setActiveTab('books')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'books'
-              ? 'bg-[#1F3A34] text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+          onClick={() => handleCategoryScroll('left')}
+          disabled={!canScrollLeft}
+          aria-label="Rolar categorias para a esquerda"
+          title="Rolar categorias para a esquerda"
+          className={`w-8 h-8 rounded-full border transition-all duration-200 shrink-0 flex items-center justify-center cursor-pointer ${
+            canScrollLeft
+              ? 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:bg-stone-700 hover:border-emerald-300 active:scale-90 shadow-xs'
+              : 'opacity-25 pointer-events-none text-stone-400 dark:text-stone-600 border-stone-200/50 dark:border-stone-800'
           }`}
         >
-          <BookOpen className="w-4 h-4" />
-          <span>Livros</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'books' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
-          }`}>
-            {myLife.books?.length || 0}
-          </span>
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('movies')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'movies'
-              ? 'bg-[#1F3A34] text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+        <div 
+          ref={categoryContainerRef}
+          onMouseDown={handleCatMouseDown}
+          onMouseMove={handleCatMouseMove}
+          onMouseUp={handleCatMouseUp}
+          onMouseLeave={handleCatMouseLeave}
+          className={`flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth w-full touch-pan-x ${
+            isDragging ? 'cursor-grabbing' : 'cursor-grab'
           }`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <Film className="w-4 h-4" />
-          <span>Filmes</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'movies' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
-          }`}>
-            {myLife.movies?.length || 0}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('books'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'books'
+                ? 'bg-[#1F3A34] text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Livros</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'books' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+            }`}>
+              {myLife.books?.length || 0}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('series')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'series'
-              ? 'bg-[#1F3A34] text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
-          }`}
-        >
-          <Tv className="w-4 h-4" />
-          <span>Séries</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'series' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
-          }`}>
-            {myLife.series?.length || 0}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('movies'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'movies'
+                ? 'bg-[#1F3A34] text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <Film className="w-4 h-4" />
+            <span>Filmes</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'movies' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+            }`}>
+              {myLife.movies?.length || 0}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('hobbies')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'hobbies'
-              ? 'bg-[#1F3A34] text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
-          }`}
-        >
-          <Palette className="w-4 h-4" />
-          <span>Hobbies</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'hobbies' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
-          }`}>
-            {myLife.hobbies?.length || 0}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('series'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'series'
+                ? 'bg-[#1F3A34] text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <Tv className="w-4 h-4" />
+            <span>Séries</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'series' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+            }`}>
+              {myLife.series?.length || 0}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('places')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'places'
-              ? 'bg-[#1F3A34] text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>Lugares</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'places' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
-          }`}>
-            {myLife.places?.length || 0}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('hobbies'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'hobbies'
+                ? 'bg-[#1F3A34] text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <Palette className="w-4 h-4" />
+            <span>Hobbies</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'hobbies' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+            }`}>
+              {myLife.hobbies?.length || 0}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('dreams')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'dreams'
-              ? 'bg-[#1F3A34] text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
-          }`}
-        >
-          <Compass className="w-4 h-4" />
-          <span>Sonhos</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'dreams' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
-          }`}>
-            {myLife.dreams?.length || 0}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('places'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'places'
+                ? 'bg-[#1F3A34] text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <MapPin className="w-4 h-4" />
+            <span>Lugares</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'places' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+            }`}>
+              {myLife.places?.length || 0}
+            </span>
+          </button>
 
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('dreams'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'dreams'
+                ? 'bg-[#1F3A34] text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <Compass className="w-4 h-4" />
+            <span>Sonhos</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'dreams' ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+            }`}>
+              {myLife.dreams?.length || 0}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { if (!hasDragged) setActiveTab('favorites'); }}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+              activeTab === 'favorites'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-white' : 'text-rose-500 fill-rose-500'}`} />
+            <span>Favoritos</span>
+            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'favorites' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200'
+            }`}>
+              {totalFavoritesCount}
+            </span>
+          </button>
+        </div>
+
+        {/* Setinha para a direita */}
         <button
           type="button"
-          onClick={() => setActiveTab('favorites')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'favorites'
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
+          onClick={() => handleCategoryScroll('right')}
+          disabled={!canScrollRight}
+          aria-label="Rolar categorias para a direita"
+          title="Rolar categorias para a direita"
+          className={`w-8 h-8 rounded-full border transition-all duration-200 shrink-0 flex items-center justify-center cursor-pointer ${
+            canScrollRight
+              ? 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:bg-stone-700 hover:border-emerald-300 active:scale-90 shadow-xs'
+              : 'opacity-25 pointer-events-none text-stone-400 dark:text-stone-600 border-stone-200/50 dark:border-stone-800'
           }`}
         >
-          <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-white' : 'text-rose-500 fill-rose-500'}`} />
-          <span>Favoritos</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-            activeTab === 'favorites' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200'
-          }`}>
-            {totalFavoritesCount}
-          </span>
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 

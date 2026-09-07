@@ -32,6 +32,8 @@ export const AuthModal: React.FC = () => {
     refreshEntitlements,
     userProfile,
     isCheckingEntitlements,
+    plan,
+    planLabel,
     hasLeveAccess,
     hasLiaAccess
   } = useAuth();
@@ -235,35 +237,24 @@ export const AuthModal: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block">
-                        Plano Disponível
+                        Plano Ativo
                       </span>
                       <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
-                        {entitlements?.plan_name || 
-                         entitlements?.plan || 
-                         entitlements?.plano || 
-                         userProfile?.plan_name ||
-                         userProfile?.plan ||
-                         (parseBoolean(entitlements?.special_access)
-                           ? 'Plano Especial / VIP'
-                           : hasLeveAccess && hasLiaAccess
-                           ? 'Plano LEVE Completo + Levia'
-                           : hasLeveAccess
-                           ? 'Plano LEVE'
-                           : hasLiaAccess
-                           ? 'Plano Levia (Mentora IA)'
-                           : 'Acesso Pendente')}
+                        {planLabel}
                       </h3>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      (hasLeveAccess || hasLiaAccess)
+                      plan === 'vip'
+                        ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        : plan === 'special'
                         ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                        : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700'
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${(hasLeveAccess || hasLiaAccess) ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                      {(hasLeveAccess || hasLiaAccess) ? 'Ativo' : 'Pendente'}
+                      <span className={`w-1.5 h-1.5 rounded-full ${plan === 'vip' ? 'bg-amber-500' : plan === 'special' ? 'bg-emerald-500' : 'bg-stone-400'}`} />
+                      {plan === 'vip' ? 'VIP' : plan === 'special' ? 'Especial' : 'Gratuito'}
                     </span>
 
                     <button

@@ -42,26 +42,42 @@ import { EntitlementLockScreen } from './components/common/EntitlementLockScreen
 import { useAuth } from './context/AuthContext';
 
 const AppContent: React.FC = () => {
-  const { activeTab, toastMessage } = useApp();
-  const { user, hasLeveAccess, isCheckingEntitlements, isLoading } = useAuth();
+  const { activeTab, setActiveTab, toastMessage } = useApp();
+  const { user, canAccessFeature, isCheckingEntitlements, isLoading } = useAuth();
 
   const renderActiveView = () => {
-    // Se o usuário estiver logado e não possuir leve_access nem special_access
-    if (user && !hasLeveAccess) {
-      if (isCheckingEntitlements || isLoading) {
-        return (
-          <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="w-6 h-6 text-[#1F3A34] dark:text-emerald-400 animate-spin" />
-            <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">Verificando permissões...</p>
-          </div>
-        );
-      }
-      return <EntitlementLockScreen />;
+    // 1. "Meu Dia" é SEMPRE liberado para qualquer plano e visitantes
+    if (activeTab === 'my-day') {
+      return <MyDayView />;
     }
 
+    // 2. Configurações também é sempre acessível
+    if (activeTab === 'settings') {
+      return <SettingsView />;
+    }
+
+    // 3. Se estiver em processo de verificação das permissões no Supabase
+    if (user && (isCheckingEntitlements || isLoading)) {
+      return (
+        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+          <RefreshCw className="w-6 h-6 text-[#1F3A34] dark:text-emerald-400 animate-spin" />
+          <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">Verificando seu plano LEVE...</p>
+        </div>
+      );
+    }
+
+    // 4. Bloqueio centralizado caso o plano do usuário não tenha acesso
+    if (!canAccessFeature(activeTab)) {
+      return (
+        <EntitlementLockScreen 
+          feature={activeTab}
+          onGoToFree={() => setActiveTab('my-day')}
+        />
+      );
+    }
+
+    // 5. Renderização das abas liberadas
     switch (activeTab) {
-      case 'my-day':
-        return <MyDayView />;
       case 'calendar':
         return <CalendarView />;
       case 'habits':
@@ -92,8 +108,6 @@ const AppContent: React.FC = () => {
         return <MyLifeView />;
       case 'lia':
         return <LiaView />;
-      case 'settings':
-        return <SettingsView />;
       default:
         return <MyDayView />;
     }
@@ -116,6 +130,7 @@ const AppContent: React.FC = () => {
 
         {/* Dynamic Center View Container */}
         <main className="flex-1 min-w-0 pb-safe pb-8 md:pb-6">
+          <Navbar />
           {renderActiveView()}
         </main>
       </div>

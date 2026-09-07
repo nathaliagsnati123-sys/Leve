@@ -10,7 +10,7 @@ import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 export const SettingsView: React.FC = () => {
   const { data, updateUser, resetData, showToast } = useApp();
-  const { user, logout, setIsAuthModalOpen, syncDataNow, pullCloudData, syncStatus, lastSyncedAt, diagnostics } = useAuth();
+  const { user, logout, setIsAuthModalOpen, syncDataNow, pullCloudData, syncStatus, lastSyncedAt, diagnostics, planLabel } = useAuth();
   const { isInstallable, isIOS, isInstalled, installApp } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -231,9 +231,12 @@ export const SettingsView: React.FC = () => {
         {user ? (
           <div className="p-4 rounded-2xl bg-[#F9FAF8] dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-              <div>
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-stone-500">Sessão ativa como: </span>
                 <strong className="text-stone-900 dark:text-stone-100">{user.email}</strong>
+                <span className="font-bold px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  {planLabel}
+                </span>
               </div>
               {lastSyncedAt && (
                 <span className="text-[11px] text-stone-400">

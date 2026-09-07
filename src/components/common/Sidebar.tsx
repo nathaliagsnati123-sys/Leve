@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Sparkles, Award, Cloud, User, Compass
+  BarChart3, Settings, Sparkles, Award, Cloud, User, Compass, Lock
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -17,7 +17,7 @@ export const Sidebar: React.FC = () => {
     todayCompletionPercentage
   } = useApp();
 
-  const { user, setIsAuthModalOpen, syncStatus, hasLiaAccess, hasLeveAccess } = useAuth();
+  const { user, setIsAuthModalOpen, syncStatus, plan, planLabel, canAccessFeature } = useAuth();
 
   const mainNav = [
     { id: 'my-day' as ActiveTab, label: 'Meu Dia', icon: Sun },
@@ -35,7 +35,7 @@ export const Sidebar: React.FC = () => {
       id: 'lia' as ActiveTab, 
       label: 'Levia • Mentora IA', 
       icon: Sparkles,
-      badge: hasLiaAccess ? 'Ativa' : 'Levia Access'
+      badge: 'VIP'
     },
   ];
 
@@ -87,6 +87,7 @@ export const Sidebar: React.FC = () => {
               {mainNav.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
+                const isLocked = !canAccessFeature(item.id);
                 return (
                   <button
                     key={item.id}
@@ -101,15 +102,16 @@ export const Sidebar: React.FC = () => {
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
                     <span className="truncate flex-1">{item.label}</span>
                     {item.badge && (
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
                         isActive 
-                          ? 'bg-emerald-400/20 text-emerald-200' 
-                          : item.badge === 'Ativa'
-                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
-                            : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+                          ? 'bg-amber-400/20 text-amber-200' 
+                          : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
                       }`}>
                         {item.badge}
                       </span>
+                    )}
+                    {isLocked && !item.badge && (
+                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
                     )}
                   </button>
                 );
@@ -126,6 +128,7 @@ export const Sidebar: React.FC = () => {
               {wellnessNav.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
+                const isLocked = !canAccessFeature(item.id);
                 return (
                   <button
                     key={item.id}
@@ -137,8 +140,11 @@ export const Sidebar: React.FC = () => {
                         : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
-                    <span className="truncate">{item.label}</span>
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                    <span className="truncate flex-1">{item.label}</span>
+                    {isLocked && (
+                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                    )}
                   </button>
                 );
               })}
@@ -154,6 +160,7 @@ export const Sidebar: React.FC = () => {
               {managementNav.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
+                const isLocked = !canAccessFeature(item.id);
                 return (
                   <button
                     key={item.id}
@@ -165,8 +172,11 @@ export const Sidebar: React.FC = () => {
                         : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
-                    <span className="truncate">{item.label}</span>
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                    <span className="truncate flex-1">{item.label}</span>
+                    {isLocked && (
+                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                    )}
                   </button>
                 );
               })}
@@ -188,10 +198,10 @@ export const Sidebar: React.FC = () => {
           }`}
         >
           <div className="flex items-center gap-2 truncate">
-            <Cloud className={`w-3.5 h-3.5 ${user ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500'}`} />
+            <Cloud className={`w-3.5 h-3.5 shrink-0 ${user ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500'}`} />
             <div className="truncate">
               <p className="text-[11px] font-semibold truncate">
-                {user ? 'Conta Conectada' : 'Acessar Conta'}
+                {user ? planLabel : 'Acessar Conta'}
               </p>
               <p className="text-[9px] text-stone-500 dark:text-stone-400 truncate">
                 {user ? user.email : 'Acesse de qualquer dispositivo'}

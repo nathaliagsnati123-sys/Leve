@@ -36,7 +36,7 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
         <div className="space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Exclusivo Planos LEVE & LEVE Completo</span>
+            <span>Disponível nos Planos LEVE Especial & VIP</span>
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 pt-1">
             Minha Vida 🌿
@@ -82,7 +82,7 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
                 Você está conectado como <strong className="text-stone-900 dark:text-stone-100">{user.email}</strong>.
               </p>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                Para liberar esta aba, sua conta precisa do <strong>Plano LEVE</strong> ou <strong>Plano LEVE Completo</strong> ativo no Supabase.
+                Para liberar esta aba, sua conta precisa do <strong>LEVE Especial</strong> ou <strong>LEVE VIP</strong> ativo.
               </p>
             </div>
           ) : (
