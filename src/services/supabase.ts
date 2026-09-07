@@ -1,6 +1,6 @@
 // Serviço de integração Supabase - LEVE
 import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { AppData, MyLifeData } from '../types';
+import { AppData, MyLifeData, TreatmentPreference } from '../types';
 
 export const SUPABASE_URL: string = 
   (import.meta.env.VITE_SUPABASE_URL as string)?.trim() || 
@@ -199,7 +199,12 @@ if (typeof window !== 'undefined') {
 // Auth Actions
 // --------------------------------------------------------
 
-export async function supabaseSignUp(email: string, password: string, name?: string) {
+export async function supabaseSignUp(
+  email: string, 
+  password: string, 
+  name?: string,
+  treatmentPreference: TreatmentPreference = 'neutro'
+) {
   const client = getSupabase();
   if (!client) {
     const diag = getSupabaseDiagnostics();
@@ -221,10 +226,23 @@ export async function supabaseSignUp(email: string, password: string, name?: str
       options: {
         data: {
           name: name ? name.trim() : '',
-          full_name: name ? name.trim() : ''
+          full_name: name ? name.trim() : '',
+          treatment_preference: treatmentPreference || 'neutro'
         }
       }
     });
+
+    // Se o usuário foi criado, vincular diretamente à tabela profiles
+    if (res.data?.user) {
+      try {
+        await saveUserProfileToSupabase(res.data.user.id, {
+          name: name ? name.trim() : '',
+          full_name: name ? name.trim() : '',
+          treatment_preference: treatmentPreference || 'neutro'
+        });
+      } catch {}
+    }
+
     return res;
   } catch (err: any) {
     console.error('[Supabase Auth] Exceção em signUp:', err);
@@ -731,6 +749,8 @@ export async function fetchUserEntitlements(
 
 /**
  * Consulta o perfil do usuário gerado pelo trigger no banco (tabela profiles)
+ * Se o usuário não tiver preferência cadastrada, retorna 'neutro' por padrão.
+ * Nunca tenta adivinhar o gênero pelo nome.
  */
 export async function fetchUserProfile(userId: string): Promise<{ data: any | null; error?: string }> {
   const client = getSupabase();
@@ -752,8 +772,110 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
       if (alt.data) res = alt;
     }
 
-    return { data: res.data || null };
+    if (res.data) {
+      return {
+        data: {
+          ...res.data,
+          treatment_preference: res.data.treatment_preference || 'neutro'
+        }
+      };
+    }
+
+    // Se a linha em profiles ainda não existir, verifica metadados de auth
+    const { data: authUserData } = await client.auth.getUser();
+    if (authUserData?.user && authUserData.user.id === userId) {
+      const meta = authUserData.user.user_metadata || {};
+      return {
+        data: {
+          id: userId,
+          user_id: userId,
+          name: meta.name || meta.full_name || '',
+          full_name: meta.full_name || meta.name || '',
+          treatment_preference: meta.treatment_preference || 'neutro'
+        }
+      };
+    }
+
+    return { data: null };
   } catch (err: any) {
     return { data: null, error: err.message };
   }
+}
+
+/**
+ * Salva a preferência de tratamento e perfil diretamente no Supabase.
+ * Salva na tabela `profiles` vinculada ao auth.uid() e respeitando RLS.
+ * Também mantém os metadados de autenticação sincronizados.
+ */
+export async function saveUserProfileToSupabase(
+  userId: string,
+  profile: {
+    name?: string;
+    full_name?: string;
+    treatment_preference?: TreatmentPreference;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabase();
+  if (!client || !userId) {
+    return { success: false, error: 'Usuário não autenticado ou Supabase desconectado.' };
+  }
+
+  const treatment_preference: TreatmentPreference = profile.treatment_preference || 'neutro';
+  const name = profile.name?.trim() || '';
+  const fullName = profile.full_name?.trim() || name;
+
+  let hasProfileError = false;
+  let lastErrMsg = '';
+
+  // 1. Upsert na tabela profiles respeitando RLS (auth.uid() = id / user_id)
+  try {
+    const { error } = await client
+      .from('profiles')
+      .upsert({
+        id: userId,
+        user_id: userId,
+        name: name,
+        full_name: fullName,
+        treatment_preference: treatment_preference,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) {
+      // Tentativa alternativa com conflito por user_id caso a chave primária seja diferente
+      const { error: errAlt } = await client
+        .from('profiles')
+        .upsert({
+          user_id: userId,
+          name: name,
+          full_name: fullName,
+          treatment_preference: treatment_preference,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+      if (errAlt) {
+        console.warn('[Supabase Profiles] Aviso ao salvar tabela profiles:', error.message);
+        hasProfileError = true;
+        lastErrMsg = error.message;
+      }
+    }
+  } catch (e: any) {
+    console.warn('[Supabase Profiles] Exceção ao persistir profile:', e);
+    hasProfileError = true;
+    lastErrMsg = e?.message || 'Erro ao persistir na tabela profiles';
+  }
+
+  // 2. Atualizar user_metadata no Supabase Auth para a sessão atual
+  try {
+    await client.auth.updateUser({
+      data: {
+        name,
+        full_name: fullName,
+        treatment_preference
+      }
+    });
+  } catch (e) {
+    console.warn('[Supabase Auth] Aviso ao atualizar user_metadata:', e);
+  }
+
+  return { success: !hasProfileError, error: hasProfileError ? lastErrMsg : undefined };
 }

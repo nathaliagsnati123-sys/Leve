@@ -17,13 +17,14 @@ import {
   getSupabase,
   fetchUserEntitlements,
   fetchUserProfile,
+  saveUserProfileToSupabase,
   parseBoolean,
   UserEntitlements,
   SUPABASE_URL,
   getSupabaseDiagnostics,
   SupabaseAuthDiagnostics
 } from '../services/supabase';
-import { AppData } from '../types';
+import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
 import {
   PlanTier,
@@ -52,7 +53,7 @@ interface AuthContextType {
   anonKey: string;
   saveAnonKey: (key: string) => void;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  signup: (email: string, password: string, name?: string, treatmentPreference?: TreatmentPreference) => Promise<{ success: boolean; error?: string; message?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   syncDataNow: (data: AppData) => Promise<boolean>;
@@ -68,6 +69,9 @@ interface AuthContextType {
   hasLiaAccess: boolean; // somente vip
   refreshEntitlements: () => Promise<UserEntitlements | null>;
   userProfile: any | null;
+  treatmentPreference: TreatmentPreference;
+  updateTreatmentPreference: (preference: TreatmentPreference) => Promise<boolean>;
+  saveProfile: (profile: { name?: string; full_name?: string; treatment_preference?: TreatmentPreference }) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -249,7 +253,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [loadEntitlements, loadProfile]);
 
-  const signup = useCallback(async (email: string, password: string, name?: string) => {
+  const signup = useCallback(async (
+    email: string, 
+    password: string, 
+    name?: string,
+    preference: TreatmentPreference = 'neutro'
+  ) => {
     setIsLoading(true);
     setIsCheckingEntitlements(true);
     setUser(null);
@@ -258,7 +267,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUserProfile(null);
 
     try {
-      const { data, error } = await supabaseSignUp(email, password, name);
+      const { data, error } = await supabaseSignUp(email, password, name, preference);
       if (error) {
         return { success: false, error: translateAuthError(error.message) };
       }
@@ -288,6 +297,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsCheckingEntitlements(false);
     }
   }, [loadEntitlements, loadProfile]);
+
+  const treatmentPreference: TreatmentPreference =
+    userProfile?.treatment_preference ||
+    (user?.user_metadata?.treatment_preference as TreatmentPreference) ||
+    'neutro';
+
+  const updateTreatmentPreference = useCallback(async (preference: TreatmentPreference): Promise<boolean> => {
+    if (!user) return false;
+    const res = await saveUserProfileToSupabase(user.id, {
+      name: userProfile?.name || user?.user_metadata?.name || '',
+      treatment_preference: preference
+    });
+    if (res.success) {
+      setUserProfile((prev: any) => ({
+        ...(prev || {}),
+        treatment_preference: preference
+      }));
+      return true;
+    }
+    return false;
+  }, [user, userProfile]);
+
+  const saveProfile = useCallback(async (profile: {
+    name?: string;
+    full_name?: string;
+    treatment_preference?: TreatmentPreference;
+  }): Promise<boolean> => {
+    if (!user) return false;
+    const res = await saveUserProfileToSupabase(user.id, profile);
+    if (res.success) {
+      setUserProfile((prev: any) => ({
+        ...(prev || {}),
+        ...profile
+      }));
+      return true;
+    }
+    return false;
+  }, [user]);
 
   const logout = useCallback(async () => {
     setIsLoading(true);
@@ -451,7 +498,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         hasLeveAccess,
         hasLiaAccess,
         refreshEntitlements,
-        userProfile
+        userProfile,
+        treatmentPreference,
+        updateTreatmentPreference,
+        saveProfile
       }}
     >
       {children}

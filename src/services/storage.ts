@@ -41,7 +41,8 @@ export const INITIAL_APP_DATA: AppData = {
     accentColor: '#1F3A34',
     theme: 'light',
     hasCompletedOnboarding: false,
-    dailyIntention: 'Ter mais calma e paciência comigo mesma 🕊️'
+    treatmentPreference: 'neutro',
+    dailyIntention: 'Ter mais calma e paciência no meu caminhar 🕊️'
   },
   tasks: [
     {

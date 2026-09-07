@@ -239,26 +239,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [data.user.hasCompletedOnboarding]);
 
   // Supabase Cloud Sync Integration
-  const { user, syncDataNow, pullCloudData, userProfile } = useAuth();
+  const { user, syncDataNow, pullCloudData, userProfile, saveProfile } = useAuth();
 
-  // If user profile with name is fetched from Supabase, update user profile
+  // If user profile with name or treatment preference is fetched from Supabase, update user profile in state
   useEffect(() => {
-    if (userProfile?.name || userProfile?.full_name) {
-      const profileName = (userProfile.name || userProfile.full_name).trim();
-      if (profileName) {
-        setData((prev) => {
-          if (prev.user.name === profileName) return prev;
-          const updated = {
-            ...prev,
-            user: {
-              ...prev.user,
-              name: profileName
-            }
-          };
-          saveAppData(updated);
-          return updated;
-        });
-      }
+    if (userProfile) {
+      const profileName = (userProfile.name || userProfile.full_name || '').trim();
+      const pref = userProfile.treatment_preference || 'neutro';
+      setData((prev) => {
+        const needsNameUpdate = profileName && prev.user.name !== profileName;
+        const needsPrefUpdate = pref && prev.user.treatmentPreference !== pref;
+        if (!needsNameUpdate && !needsPrefUpdate) return prev;
+        const updated = {
+          ...prev,
+          user: {
+            ...prev.user,
+            ...(needsNameUpdate ? { name: profileName } : {}),
+            ...(needsPrefUpdate ? { treatmentPreference: pref } : {})
+          }
+        };
+        saveAppData(updated);
+        return updated;
+      });
     }
   }, [userProfile]);
 
@@ -344,8 +346,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...prev,
       user: { ...prev.user, ...profile }
     }));
+
+    // Se o usuário estiver autenticado e alterou nome ou preferência de gênero, salva no Supabase
+    if (user && (profile.treatmentPreference !== undefined || profile.name !== undefined)) {
+      saveProfile({
+        name: profile.name,
+        treatment_preference: profile.treatmentPreference
+      }).catch((e) => {
+        console.warn('Erro ao sincronizar preferência no Supabase:', e);
+      });
+    }
+
     showToast('Preferências atualizadas.');
-  }, [updateData, showToast]);
+  }, [updateData, showToast, user, saveProfile]);
 
   // TASKS
   const addTask = useCallback((taskInput: Omit<Task, 'id' | 'completed'>) => {

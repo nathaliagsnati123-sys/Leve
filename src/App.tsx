@@ -2,7 +2,6 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
-import { Navbar } from './components/common/Navbar';
 import { MobileMenuDrawer } from './components/common/MobileMenuDrawer';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { PWAInstallBanner } from './components/common/PWAInstallBanner';
@@ -130,7 +129,6 @@ const AppContent: React.FC = () => {
 
         {/* Dynamic Center View Container */}
         <main className="flex-1 min-w-0 pb-safe pb-8 md:pb-6">
-          <Navbar />
           {renderActiveView()}
         </main>
       </div>

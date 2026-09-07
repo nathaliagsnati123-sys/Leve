@@ -354,6 +354,8 @@ export interface Achievement {
   unlockedAt?: string;
 }
 
+export type TreatmentPreference = 'feminino' | 'masculino' | 'neutro' | 'nao_informar';
+
 export interface UserProfile {
   name: string;
   avatar: string;
@@ -362,6 +364,7 @@ export interface UserProfile {
   hasCompletedOnboarding: boolean;
   dailyIntention?: string;
   lastClosedDay?: string;
+  treatmentPreference?: TreatmentPreference;
 }
 
 export interface UserStats {
