@@ -37,6 +37,7 @@ import { ProgressView } from './components/views/ProgressView';
 import { SettingsView } from './components/views/SettingsView';
 import { RefreshCw } from 'lucide-react';
 import { LiaView } from './components/views/LiaView';
+import { MyLifeView } from './components/views/MyLifeView';
 import { EntitlementLockScreen } from './components/common/EntitlementLockScreen';
 import { useAuth } from './context/AuthContext';
 
@@ -87,6 +88,8 @@ const AppContent: React.FC = () => {
         return <CycleView />;
       case 'progress':
         return <ProgressView />;
+      case 'my-life':
+        return <MyLifeView />;
       case 'lia':
         return <LiaView />;
       case 'settings':

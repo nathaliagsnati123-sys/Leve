@@ -99,6 +99,11 @@ export function translateAuthError(errorMsg?: string | null): string {
     return 'Serviço de autenticação temporariamente indisponível.';
   }
 
+  // Chave de API do Supabase inválida ou incorreta
+  if (lower.includes('invalid api key') || lower.includes('double check your supabase') || lower.includes('double check your api key')) {
+    return 'Chave de API do Supabase inválida ou não reconhecida. Verifique se a Publishable Key (sb_publishable_...) configurada no ambiente é a deste projeto.';
+  }
+
   // Fallback se a mensagem já estiver em português
   if (
     lower.includes('por favor') || 

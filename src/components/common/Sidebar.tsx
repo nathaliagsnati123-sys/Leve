@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Sparkles, Award, Cloud, User
+  BarChart3, Settings, Sparkles, Award, Cloud, User, Compass
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -17,7 +17,7 @@ export const Sidebar: React.FC = () => {
     todayCompletionPercentage
   } = useApp();
 
-  const { user, setIsAuthModalOpen, syncStatus, hasLiaAccess } = useAuth();
+  const { user, setIsAuthModalOpen, syncStatus, hasLiaAccess, hasLeveAccess } = useAuth();
 
   const mainNav = [
     { id: 'my-day' as ActiveTab, label: 'Meu Dia', icon: Sun },
@@ -27,10 +27,15 @@ export const Sidebar: React.FC = () => {
     { id: 'spirituality' as ActiveTab, label: 'Fé & Momento com Deus', icon: HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
     { 
+      id: 'my-life' as ActiveTab, 
+      label: 'Minha Vida', 
+      icon: Compass
+    },
+    { 
       id: 'lia' as ActiveTab, 
-      label: 'Lia • Mentora IA', 
+      label: 'Levia • Mentora IA', 
       icon: Sparkles,
-      badge: hasLiaAccess ? 'Ativa' : 'Lia Access'
+      badge: hasLiaAccess ? 'Ativa' : 'Levia Access'
     },
   ];
 

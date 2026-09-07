@@ -1,6 +1,6 @@
 // Serviço de integração Supabase - LEVE
 import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { AppData } from '../types';
+import { AppData, MyLifeData } from '../types';
 
 export const SUPABASE_URL: string = 
   (import.meta.env.VITE_SUPABASE_URL as string)?.trim() || 
@@ -11,9 +11,22 @@ const LOCAL_STORAGE_ANON_KEY = 'leve_supabase_anon_key';
 function cleanEnvKey(raw?: string | null): string {
   if (!raw) return '';
   let cleaned = String(raw).trim();
+  // Remove zero-width and invisible unicode characters (often pasted accidentally from clipboard)
+  cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+
+  // Remove accidental variable assignment prefix if pasted into Vercel value field
+  cleaned = cleaned.replace(/^(?:export\s+)?(?:VITE_)?SUPABASE_ANON_KEY\s*[:=]\s*/i, '').trim();
+
+  // Remove wrapping quotes if present
   if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
     cleaned = cleaned.slice(1, -1).trim();
   }
+
+  // Remove trailing semicolon if present
+  if (cleaned.endsWith(';')) {
+    cleaned = cleaned.slice(0, -1).trim();
+  }
+
   return cleaned;
 }
 
@@ -37,27 +50,32 @@ export function saveStoredAnonKey(key: string): void {
     }
     // Invalidate cached client to recreate with new key
     cachedClient = null;
+    lastUsedAnonKey = null;
   } catch {}
 }
 
 let cachedClient: SupabaseClient | null = null;
+let lastUsedAnonKey: string | null = null;
 
 export function getSupabase(): SupabaseClient | null {
   const anonKey = getSupabaseAnonKey();
   if (!anonKey) {
+    cachedClient = null;
+    lastUsedAnonKey = null;
     return null;
   }
 
-  if (!cachedClient) {
+  if (!cachedClient || lastUsedAnonKey !== anonKey) {
     try {
       cachedClient = createClient(SUPABASE_URL, anonKey, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          storage: window.localStorage
+          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         }
       });
+      lastUsedAnonKey = anonKey;
     } catch (err) {
       console.error('[Supabase Client] Falha na inicialização do cliente:', err);
       return null;
@@ -76,11 +94,14 @@ export interface SupabaseAuthDiagnostics {
   hasSupabaseAnonKey: boolean;
   isClientInitialized: boolean;
   urlDomain: string;
+  keyPrefix: string;
+  keyLength: number;
 }
 
 /**
- * Diagnóstico seguro: informa apenas a existência das variáveis (true/false) e
- * o domínio público, sem nunca expor chaves ou valores sensíveis.
+ * Diagnóstico seguro: informa apenas a existência das variáveis (true/false),
+ * domínio, prefixo (ex: 'sb_publishable_...') e tamanho da chave em caracteres,
+ * SEM NUNCA expor o valor completo ou segredos.
  */
 export function getSupabaseDiagnostics(): SupabaseAuthDiagnostics {
   const key = getSupabaseAnonKey();
@@ -93,12 +114,70 @@ export function getSupabaseDiagnostics(): SupabaseAuthDiagnostics {
     domain = 'inválido';
   }
 
+  let prefix = 'nenhum';
+  if (key) {
+    if (key.startsWith('sb_publishable_')) {
+      prefix = 'sb_publishable_...';
+    } else if (key.startsWith('sb_secret_')) {
+      prefix = 'sb_secret_...';
+    } else if (key.startsWith('eyJ')) {
+      prefix = 'jwt_legacy (eyJ...)';
+    } else {
+      prefix = key.slice(0, 10) + '...';
+    }
+  }
+
   return {
     hasSupabaseUrl: Boolean(SUPABASE_URL && SUPABASE_URL.trim()),
     hasSupabaseAnonKey: Boolean(key && key.trim()),
     isClientInitialized: Boolean(getSupabase()),
     urlDomain: domain,
+    keyPrefix: prefix,
+    keyLength: key ? key.length : 0,
   };
+}
+
+/**
+ * Teste seguro de ping em runtime contra a API de autenticação do Supabase.
+ * Retorna status e mensagem de erro traduzida sem expor tokens ou credenciais.
+ */
+export async function verifySupabaseConnection(): Promise<{
+  ok: boolean;
+  status: number;
+  message: string;
+}> {
+  const key = getSupabaseAnonKey();
+  if (!key || !SUPABASE_URL) {
+    return {
+      ok: false,
+      status: 0,
+      message: 'Chave ou URL do Supabase não configurada.',
+    };
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+      method: 'GET',
+      headers: {
+        apikey: key,
+      },
+    });
+
+    if (res.ok) {
+      return { ok: true, status: res.status, message: 'Conexão ativa e chave aceita pelo Supabase!' };
+    }
+
+    const text = await res.text();
+    let msg = `Erro HTTP ${res.status}`;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.message) msg = parsed.message;
+    } catch {}
+
+    return { ok: false, status: res.status, message: msg };
+  } catch (err: any) {
+    return { ok: false, status: 0, message: err?.message || 'Falha na conexão de rede.' };
+  }
 }
 
 // Log seguro em runtime no navegador para verificação rápida no console
@@ -108,6 +187,8 @@ if (typeof window !== 'undefined') {
     console.info('[LEVE Supabase Auth Diagnostic]', {
       hasSupabaseUrl: diag.hasSupabaseUrl,
       hasSupabaseAnonKey: diag.hasSupabaseAnonKey,
+      keyPrefix: diag.keyPrefix,
+      keyLength: diag.keyLength,
       isClientInitialized: diag.isClientInitialized,
       urlDomain: diag.urlDomain,
     });
@@ -343,6 +424,80 @@ export async function fetchUserDataFromSupabase(userId: string): Promise<{ data:
 
     if (data && data.data) {
       return { data: data.data as AppData };
+    }
+
+    return { data: null };
+  } catch (err: any) {
+    return { data: null, error: err.message };
+  }
+}
+
+/**
+ * Dedicated sync for Minha Vida categories with Supabase.
+ * Respects RLS - each record is strictly constrained by user_id = auth.uid().
+ */
+export async function syncMyLifeToSupabase(userId: string, myLife: MyLifeData): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabase();
+  if (!client || !userId) {
+    return { success: false, error: 'Usuário não autenticado ou Supabase indisponível.' };
+  }
+
+  try {
+    // 1. Sync directly to leve_user_data JSON structure (primary single source of truth)
+    // First retrieve current user data to avoid wiping other fields
+    const { data: current } = await client
+      .from('leve_user_data')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const mergedData = {
+      ...(current?.data || {}),
+      myLife
+    };
+
+    const { error } = await client
+      .from('leve_user_data')
+      .upsert({
+        user_id: userId,
+        data: mergedData,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.warn('Erro ao sincronizar Minha Vida com Supabase:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.warn('Exceção ao sincronizar Minha Vida:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fetches Minha Vida items from Supabase for the authenticated user.
+ */
+export async function fetchMyLifeFromSupabase(userId: string): Promise<{ data: MyLifeData | null; error?: string }> {
+  const client = getSupabase();
+  if (!client || !userId) {
+    return { data: null, error: 'Usuário não conectado ao Supabase' };
+  }
+
+  try {
+    const { data, error } = await client
+      .from('leve_user_data')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    if (data?.data?.myLife) {
+      return { data: data.data.myLife as MyLifeData };
     }
 
     return { data: null };

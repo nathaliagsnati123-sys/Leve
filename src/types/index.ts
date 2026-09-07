@@ -394,4 +394,128 @@ export interface AppData {
   incomes?: Income[];
   cycle?: MenstrualCycleData;
   unlockedAchievements: Record<string, string>; // achievementId -> unlockedAt ISO
+  myLife?: MyLifeData;
+}
+
+// --------------------------------------------------------
+// Minha Vida (My Life) Types
+// --------------------------------------------------------
+
+export type BookStatus = 'want_to_read' | 'reading' | 'read';
+
+export interface MyLifeBook {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl?: string;
+  status: BookStatus;
+  rating?: number; // 1 to 5
+  notes?: string;
+  favorite: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type MovieStatus = 'want_to_watch' | 'watched';
+
+export interface MyLifeMovie {
+  id: string;
+  title: string;
+  year?: string;
+  genre?: string;
+  coverUrl?: string;
+  status: MovieStatus;
+  rating?: number; // 1 to 5
+  notes?: string;
+  favorite: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type SeriesStatus = 'want_to_watch' | 'watching' | 'finished' | 'paused';
+
+export interface MyLifeSeries {
+  id: string;
+  name: string;
+  title?: string;
+  seasons?: string;
+  coverUrl?: string;
+  status: SeriesStatus;
+  rating?: number; // 1 to 5
+  notes?: string;
+  favorite: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type HobbyStatus = 'current' | 'wishlist';
+
+export interface MyLifeHobby {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  accentColor?: string;
+  goal?: string;
+  status: HobbyStatus;
+  favorite: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type PlaceStatus = 'want_to_visit' | 'visited';
+
+export interface MyLifePlace {
+  id: string;
+  name: string;
+  city?: string;
+  country?: string;
+  coverUrl?: string;
+  notes?: string;
+  status: PlaceStatus;
+  favorite: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type DreamStatus = 'want_to_realize' | 'in_progress' | 'completed';
+
+export interface MyLifeDream {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  category?: string;
+  nextStep?: string;
+  status: DreamStatus;
+  favorite: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface MyLifeData {
+  books: MyLifeBook[];
+  movies: MyLifeMovie[];
+  series: MyLifeSeries[];
+  hobbies: MyLifeHobby[];
+  places: MyLifePlace[];
+  dreams: MyLifeDream[];
+}
+
+export type MyLifeCategory = 
+  | 'books' 
+  | 'movies' 
+  | 'series' 
+  | 'hobbies' 
+  | 'places' 
+  | 'dreams' 
+  | 'favorites';
+
+// Structure prepared for future Levia integration
+export interface LeviaMyLifeAction {
+  action: 'add' | 'update' | 'delete';
+  category: 'books' | 'movies' | 'series' | 'hobbies' | 'places' | 'dreams';
+  item: Partial<MyLifeBook & MyLifeMovie & MyLifeSeries & MyLifeHobby & MyLifePlace & MyLifeDream>;
+  requiresConfirmation: boolean;
+  confirmationMessage?: string;
 }

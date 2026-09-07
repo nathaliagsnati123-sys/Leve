@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
-  HeartHandshake, Sparkles, Plus, Check, Heart, 
+  Plus, Check, Heart, 
   BookOpen, Clock, Calendar, CheckCircle2, Trash2, X 
 } from 'lucide-react';
-import { SCRIPTURE_VERSES } from '../../services/quotesAndVerses';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { Prayer, Devotional, PrayerCategory } from '../../types';
 
@@ -20,8 +19,6 @@ export const SpiritualityView: React.FC = () => {
   } = useApp();
 
   const todayStr = getTodayDateString();
-  const dayIndex = new Date().getDate() % SCRIPTURE_VERSES.length;
-  const dailyVerse = SCRIPTURE_VERSES[dayIndex];
 
   const [activeTab, setActiveTab] = useState<'prayers' | 'devotional' | 'history'>('prayers');
 
@@ -81,39 +78,11 @@ export const SpiritualityView: React.FC = () => {
     setDevotionalPassage('');
     setDevotionalLearned('');
     setDevotionalApply('');
-    showToast('Devocional salvo no seu histórico! 📖');
+    showToast('Leitura salva no seu histórico! 📖');
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-br from-[#1C332C] via-[#224037] to-[#152621] text-white p-6 sm:p-8 rounded-3xl shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🕊️</span>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-emerald-50">
-                Fé & Momento com Deus
-              </h1>
-            </div>
-            <p className="font-serif italic text-emerald-100/90 text-sm sm:text-base max-w-xl leading-relaxed">
-              "{dailyVerse.verse}"
-            </p>
-            <p className="text-[11px] uppercase tracking-widest text-emerald-300 font-semibold">
-              — {dailyVerse.reference}
-            </p>
-          </div>
-
-          <button
-            onClick={() => setIsFiveMinGodOpen(true)}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white text-emerald-950 hover:bg-emerald-50 text-xs sm:text-sm font-semibold transition shadow-md self-start sm:self-auto"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-700" />
-            <span>5 Minutos com Deus</span>
-          </button>
-        </div>
-      </div>
-
       {/* Navigation Sub-Tabs */}
       <div className="flex items-center gap-2 border-b border-stone-200 dark:border-stone-800 pb-2">
         <button
@@ -134,7 +103,7 @@ export const SpiritualityView: React.FC = () => {
               : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
           }`}
         >
-          Devocional & Leitura ({(data.devotionals || []).length})
+          Leitura ({(data.devotionals || []).length})
         </button>
         <button
           onClick={() => setActiveTab('history')}
@@ -324,12 +293,12 @@ export const SpiritualityView: React.FC = () => {
         </div>
       )}
 
-      {/* 2. DEVOCIONAL & LEITURA */}
+      {/* 2. LEITURA */}
       {activeTab === 'devotional' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
             <h3 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
-              Registrar Devocional de Hoje 📖
+              Registrar Leitura de Hoje 📖
             </h3>
 
             <form onSubmit={handleSaveDevotional} className="space-y-4 text-xs sm:text-sm">
@@ -378,7 +347,7 @@ export const SpiritualityView: React.FC = () => {
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold"
                 >
-                  Salvar Devocional
+                  Salvar Leitura
                 </button>
               </div>
             </form>
@@ -387,7 +356,7 @@ export const SpiritualityView: React.FC = () => {
           {/* Devotionals History */}
           <div className="space-y-3">
             <h4 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-              Devocionais Anteriores
+              Leituras Anteriores
             </h4>
             {(data.devotionals || []).map((dev) => (
               <div
@@ -416,7 +385,7 @@ export const SpiritualityView: React.FC = () => {
             ))}
             {(!data.devotionals || data.devotionals.length === 0) && (
               <p className="text-xs text-stone-400 italic py-4 text-center">
-                Nenhum devocional registrado ainda. Que tal ler um trecho hoje? 🌿
+                Nenhuma leitura registrada ainda. Que tal ler um trecho hoje? 🌿
               </p>
             )}
           </div>

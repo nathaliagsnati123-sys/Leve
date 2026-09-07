@@ -301,15 +301,15 @@ export const SettingsView: React.FC = () => {
           <span>Diagnóstico de Conexão:</span>
           <div className="flex items-center gap-2 font-mono text-[10px]">
             <span className={diagnostics.hasSupabaseUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
-              URL: {diagnostics.hasSupabaseUrl ? 'true' : 'false'}
+              URL: {diagnostics.hasSupabaseUrl ? 'OK' : 'Não'}
             </span>
             <span>•</span>
             <span className={diagnostics.hasSupabaseAnonKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}>
-              Chave: {diagnostics.hasSupabaseAnonKey ? 'true' : 'false'}
+              Chave: {diagnostics.hasSupabaseAnonKey ? `${diagnostics.keyPrefix} (${diagnostics.keyLength}c)` : 'Não'}
             </span>
             <span>•</span>
             <span className={diagnostics.isClientInitialized ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
-              Pronto: {diagnostics.isClientInitialized ? 'true' : 'false'}
+              Cliente: {diagnostics.isClientInitialized ? 'Pronto' : 'Pendente'}
             </span>
           </div>
         </div>

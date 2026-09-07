@@ -4,7 +4,8 @@ import {
   AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, 
   SleepLog, EmotionalCheckIn, JournalEntry, Memory, Prayer, Devotional,
   FiveMinuteGodSession, Goal, Bill, Income, MenstrualPeriod, CycleDailyLog, UserProfile,
-  Achievement
+  Achievement, MyLifeBook, MyLifeMovie, MyLifeSeries, MyLifeHobby, MyLifePlace, MyLifeDream,
+  LeviaMyLifeAction
 } from '../types';
 import { 
   loadAppData, saveAppData, getTodayDateString, resetAllData 
@@ -19,6 +20,7 @@ export type ActiveTab =
   | 'journal' 
   | 'spirituality' 
   | 'goals' 
+  | 'my-life'
   | 'progress'
   | 'hydration'
   | 'nutrition'
@@ -151,6 +153,34 @@ interface AppContextType {
   deletePeriod: (id: string) => void;
   updateCycleDailyLog: (date: string, log: Partial<CycleDailyLog>) => void;
   updateCycleSettings: (settings: { averageCycleLength?: number; averagePeriodLength?: number }) => void;
+
+  // Minha Vida (My Life)
+  addMyLifeBook: (book: Omit<MyLifeBook, 'id' | 'createdAt'>) => void;
+  updateMyLifeBook: (book: MyLifeBook) => void;
+  deleteMyLifeBook: (id: string) => void;
+  
+  addMyLifeMovie: (movie: Omit<MyLifeMovie, 'id' | 'createdAt'>) => void;
+  updateMyLifeMovie: (movie: MyLifeMovie) => void;
+  deleteMyLifeMovie: (id: string) => void;
+  
+  addMyLifeSeries: (series: Omit<MyLifeSeries, 'id' | 'createdAt'>) => void;
+  updateMyLifeSeries: (series: MyLifeSeries) => void;
+  deleteMyLifeSeries: (id: string) => void;
+  
+  addMyLifeHobby: (hobby: Omit<MyLifeHobby, 'id' | 'createdAt'>) => void;
+  updateMyLifeHobby: (hobby: MyLifeHobby) => void;
+  deleteMyLifeHobby: (id: string) => void;
+  
+  addMyLifePlace: (place: Omit<MyLifePlace, 'id' | 'createdAt'>) => void;
+  updateMyLifePlace: (place: MyLifePlace) => void;
+  deleteMyLifePlace: (id: string) => void;
+  
+  addMyLifeDream: (dream: Omit<MyLifeDream, 'id' | 'createdAt'>) => void;
+  updateMyLifeDream: (dream: MyLifeDream) => void;
+  deleteMyLifeDream: (id: string) => void;
+  
+  toggleMyLifeFavorite: (category: 'books' | 'movies' | 'series' | 'hobbies' | 'places' | 'dreams', id: string) => void;
+  executeLeviaMyLifeAction: (action: LeviaMyLifeAction) => Promise<{ success: boolean; message: string }>;
   
   // Data management
   resetData: () => void;
@@ -164,7 +194,24 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<AppData>(loadAppData);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('my-day');
+  const [activeTab, setActiveTabState] = useState<ActiveTab>(() => {
+    try {
+      const saved = localStorage.getItem('leve_active_tab');
+      if (saved) return saved as ActiveTab;
+    } catch {
+      // fallback
+    }
+    return 'my-day';
+  });
+
+  const setActiveTab = (tab: ActiveTab) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('leve_active_tab', tab);
+    } catch {
+      // ignore
+    }
+  };
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   
   const [isBrainDumpOpen, setIsBrainDumpOpen] = useState(false);
@@ -1011,6 +1058,340 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Configurações do ciclo salvas.');
   }, [updateData, showToast]);
 
+  // --------------------------------------------------------
+  // Minha Vida (My Life) Operations
+  // --------------------------------------------------------
+  const getSafeMyLife = (prev: AppData) => {
+    return prev.myLife || {
+      books: [],
+      movies: [],
+      series: [],
+      hobbies: [],
+      places: [],
+      dreams: []
+    };
+  };
+
+  const addMyLifeBook = useCallback((book: Omit<MyLifeBook, 'id' | 'createdAt'>) => {
+    const newBook: MyLifeBook = {
+      ...book,
+      id: 'book-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          books: [newBook, ...ml.books]
+        }
+      };
+    });
+    showToast(`"${book.title}" adicionado aos seus livros.`);
+  }, [updateData, showToast]);
+
+  const updateMyLifeBook = useCallback((book: MyLifeBook) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          books: ml.books.map((b) => (b.id === book.id ? { ...book, updatedAt: new Date().toISOString() } : b))
+        }
+      };
+    });
+    showToast('Livro atualizado.');
+  }, [updateData, showToast]);
+
+  const deleteMyLifeBook = useCallback((id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          books: ml.books.filter((b) => b.id !== id)
+        }
+      };
+    });
+    showToast('Livro removido.');
+  }, [updateData, showToast]);
+
+  const addMyLifeMovie = useCallback((movie: Omit<MyLifeMovie, 'id' | 'createdAt'>) => {
+    const newMovie: MyLifeMovie = {
+      ...movie,
+      id: 'movie-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          movies: [newMovie, ...ml.movies]
+        }
+      };
+    });
+    showToast(`"${movie.title}" adicionado aos seus filmes.`);
+  }, [updateData, showToast]);
+
+  const updateMyLifeMovie = useCallback((movie: MyLifeMovie) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          movies: ml.movies.map((m) => (m.id === movie.id ? { ...movie, updatedAt: new Date().toISOString() } : m))
+        }
+      };
+    });
+    showToast('Filme atualizado.');
+  }, [updateData, showToast]);
+
+  const deleteMyLifeMovie = useCallback((id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          movies: ml.movies.filter((m) => m.id !== id)
+        }
+      };
+    });
+    showToast('Filme removido.');
+  }, [updateData, showToast]);
+
+  const addMyLifeSeries = useCallback((series: Omit<MyLifeSeries, 'id' | 'createdAt'>) => {
+    const newSeries: MyLifeSeries = {
+      ...series,
+      id: 'series-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          series: [newSeries, ...ml.series]
+        }
+      };
+    });
+    showToast(`"${series.name}" adicionada às suas séries.`);
+  }, [updateData, showToast]);
+
+  const updateMyLifeSeries = useCallback((series: MyLifeSeries) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          series: ml.series.map((s) => (s.id === series.id ? { ...series, updatedAt: new Date().toISOString() } : s))
+        }
+      };
+    });
+    showToast('Série atualizada.');
+  }, [updateData, showToast]);
+
+  const deleteMyLifeSeries = useCallback((id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          series: ml.series.filter((s) => s.id !== id)
+        }
+      };
+    });
+    showToast('Série removida.');
+  }, [updateData, showToast]);
+
+  const addMyLifeHobby = useCallback((hobby: Omit<MyLifeHobby, 'id' | 'createdAt'>) => {
+    const newHobby: MyLifeHobby = {
+      ...hobby,
+      id: 'hobby-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          hobbies: [newHobby, ...ml.hobbies]
+        }
+      };
+    });
+    showToast(`Hobby "${hobby.name}" adicionado.`);
+  }, [updateData, showToast]);
+
+  const updateMyLifeHobby = useCallback((hobby: MyLifeHobby) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          hobbies: ml.hobbies.map((h) => (h.id === hobby.id ? { ...hobby, updatedAt: new Date().toISOString() } : h))
+        }
+      };
+    });
+    showToast('Hobby atualizado.');
+  }, [updateData, showToast]);
+
+  const deleteMyLifeHobby = useCallback((id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          hobbies: ml.hobbies.filter((h) => h.id !== id)
+        }
+      };
+    });
+    showToast('Hobby removido.');
+  }, [updateData, showToast]);
+
+  const addMyLifePlace = useCallback((place: Omit<MyLifePlace, 'id' | 'createdAt'>) => {
+    const newPlace: MyLifePlace = {
+      ...place,
+      id: 'place-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          places: [newPlace, ...ml.places]
+        }
+      };
+    });
+    showToast(`"${place.name}" adicionado aos seus lugares.`);
+  }, [updateData, showToast]);
+
+  const updateMyLifePlace = useCallback((place: MyLifePlace) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          places: ml.places.map((p) => (p.id === place.id ? { ...place, updatedAt: new Date().toISOString() } : p))
+        }
+      };
+    });
+    showToast('Lugar atualizado.');
+  }, [updateData, showToast]);
+
+  const deleteMyLifePlace = useCallback((id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          places: ml.places.filter((p) => p.id !== id)
+        }
+      };
+    });
+    showToast('Lugar removido.');
+  }, [updateData, showToast]);
+
+  const addMyLifeDream = useCallback((dream: Omit<MyLifeDream, 'id' | 'createdAt'>) => {
+    const newDream: MyLifeDream = {
+      ...dream,
+      id: 'dream-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          dreams: [newDream, ...ml.dreams]
+        }
+      };
+    });
+    showToast(`Sonho "${dream.title}" registrado com carinho.`);
+  }, [updateData, showToast]);
+
+  const updateMyLifeDream = useCallback((dream: MyLifeDream) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          dreams: ml.dreams.map((d) => (d.id === dream.id ? { ...dream, updatedAt: new Date().toISOString() } : d))
+        }
+      };
+    });
+    showToast('Sonho atualizado.');
+  }, [updateData, showToast]);
+
+  const deleteMyLifeDream = useCallback((id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      return {
+        ...prev,
+        myLife: {
+          ...ml,
+          dreams: ml.dreams.filter((d) => d.id !== id)
+        }
+      };
+    });
+    showToast('Sonho removido.');
+  }, [updateData, showToast]);
+
+  const toggleMyLifeFavorite = useCallback((category: 'books' | 'movies' | 'series' | 'hobbies' | 'places' | 'dreams', id: string) => {
+    updateData((prev) => {
+      const ml = getSafeMyLife(prev);
+      const updated = {
+        ...prev,
+        myLife: {
+          ...ml,
+          [category]: (ml[category] as any[]).map((item) => {
+            if (item.id === id) {
+              return { ...item, favorite: !item.favorite };
+            }
+            return item;
+          })
+        }
+      };
+      return updated;
+    });
+  }, [updateData]);
+
+  // Pre-configured executor for future LEVIA AI interactions
+  const executeLeviaMyLifeAction = useCallback(async (action: LeviaMyLifeAction): Promise<{ success: boolean; message: string }> => {
+    try {
+      const { category, action: act, item } = action;
+      if (act === 'add') {
+        if (category === 'books') addMyLifeBook(item as any);
+        else if (category === 'movies') addMyLifeMovie(item as any);
+        else if (category === 'series') addMyLifeSeries(item as any);
+        else if (category === 'hobbies') addMyLifeHobby(item as any);
+        else if (category === 'places') addMyLifePlace(item as any);
+        else if (category === 'dreams') addMyLifeDream(item as any);
+        return { success: true, message: `Item adicionado com sucesso em Minha Vida (${category}).` };
+      }
+      return { success: true, message: 'Ação processada com sucesso.' };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Erro ao processar ação.' };
+    }
+  }, [addMyLifeBook, addMyLifeMovie, addMyLifeSeries, addMyLifeHobby, addMyLifePlace, addMyLifeDream]);
+
   const resetData = useCallback(() => {
     resetAllData();
     setData(loadAppData());
@@ -1141,6 +1522,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deletePeriod,
         updateCycleDailyLog,
         updateCycleSettings,
+        addMyLifeBook,
+        updateMyLifeBook,
+        deleteMyLifeBook,
+        addMyLifeMovie,
+        updateMyLifeMovie,
+        deleteMyLifeMovie,
+        addMyLifeSeries,
+        updateMyLifeSeries,
+        deleteMyLifeSeries,
+        addMyLifeHobby,
+        updateMyLifeHobby,
+        deleteMyLifeHobby,
+        addMyLifePlace,
+        updateMyLifePlace,
+        deleteMyLifePlace,
+        addMyLifeDream,
+        updateMyLifeDream,
+        deleteMyLifeDream,
+        toggleMyLifeFavorite,
+        executeLeviaMyLifeAction,
         resetData,
         refreshData,
         todayCompletionPercentage

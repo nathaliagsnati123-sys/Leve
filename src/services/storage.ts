@@ -141,7 +141,15 @@ export const INITIAL_APP_DATA: AppData = {
     periods: [],
     dailyLogs: {}
   },
-  unlockedAchievements: {}
+  unlockedAchievements: {},
+  myLife: {
+    books: [],
+    movies: [],
+    series: [],
+    hobbies: [],
+    places: [],
+    dreams: []
+  }
 };
 
 export function loadAppData(): AppData {
@@ -194,7 +202,15 @@ export function loadAppData(): AppData {
       bills: parsed.bills || [],
       incomes: parsed.incomes || [],
       cycle: parsed.cycle || INITIAL_APP_DATA.cycle,
-      unlockedAchievements: parsed.unlockedAchievements || {}
+      unlockedAchievements: parsed.unlockedAchievements || {},
+      myLife: parsed.myLife ? {
+        books: (Array.isArray(parsed.myLife.books) ? parsed.myLife.books : []).filter((i: any) => i && i.id !== 'book-1'),
+        movies: (Array.isArray(parsed.myLife.movies) ? parsed.myLife.movies : []).filter((i: any) => i && i.id !== 'movie-1'),
+        series: (Array.isArray(parsed.myLife.series) ? parsed.myLife.series : []).filter((i: any) => i && i.id !== 'series-1'),
+        hobbies: (Array.isArray(parsed.myLife.hobbies) ? parsed.myLife.hobbies : []).filter((i: any) => i && i.id !== 'hobby-1' && i.id !== 'hobby-2'),
+        places: (Array.isArray(parsed.myLife.places) ? parsed.myLife.places : []).filter((i: any) => i && i.id !== 'place-1'),
+        dreams: (Array.isArray(parsed.myLife.dreams) ? parsed.myLife.dreams : []).filter((i: any) => i && i.id !== 'dream-1')
+      } : INITIAL_APP_DATA.myLife
     };
   } catch (err) {
     console.error('Failed to parse saved AppData, using fallback', err);

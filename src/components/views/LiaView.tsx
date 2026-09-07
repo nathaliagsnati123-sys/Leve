@@ -1,4 +1,4 @@
-// Visualização da Assistente Lia - LEVE
+// Visualização da Assistente Levia - LEVE
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -14,11 +14,11 @@ interface ChatMessage {
   timestamp: string;
 }
 
-const LIA_INITIAL_MESSAGES: ChatMessage[] = [
+const LEVIA_INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'msg-1',
     sender: 'lia',
-    text: 'Olá, querida! Eu sou a Lia, sua mentora e companheira de leveza. Como está o seu coração e a sua mente hoje? Se houver coisas demais acumuladas na sua cabeça, podemos organizar juntos, um passo de cada vez.',
+    text: 'Olá, querida! Eu sou a Levia, sua mentora e companheira de leveza. Como está o seu coração e a sua mente hoje? Se houver coisas demais acumuladas na sua cabeça, podemos organizar juntos, um passo de cada vez.',
     timestamp: 'Agora'
   }
 ];
@@ -33,7 +33,7 @@ const PROMPT_SUGGESTIONS = [
 export const LiaView: React.FC = () => {
   const { hasLiaAccess, entitlements, refreshEntitlements, isCheckingEntitlements } = useAuth();
   const { data, showToast } = useApp();
-  const [messages, setMessages] = useState<ChatMessage[]>(LIA_INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<ChatMessage[]>(LEVIA_INITIAL_MESSAGES);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -61,7 +61,7 @@ export const LiaView: React.FC = () => {
     setInputText('');
     setIsTyping(true);
 
-    // Resposta contextual e acolhedora da Lia
+    // Resposta contextual e acolhedora da Levia
     setTimeout(() => {
       let reply = '';
       const lower = text.toLowerCase();
@@ -104,13 +104,13 @@ export const LiaView: React.FC = () => {
 
           <div className="space-y-2">
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-              Recurso Lia Access
+              Recurso Levia Access
             </span>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
-              Conheça a Lia
+              Conheça a Levia
             </h1>
             <p className="text-sm text-stone-600 dark:text-stone-300 max-w-md mx-auto leading-relaxed">
-              Lia é a sua mentora e companheira de leveza com inteligência artificial. Ela ajuda a descomprimir a mente, sugerir pausas intencionais, planejar seu dia sem ansiedade e trazer reflexões de paz.
+              Levia é a sua mentora e companheira de leveza com inteligência artificial. Ela ajuda a descomprimir a mente, sugerir pausas intencionais, planejar seu dia sem ansiedade e trazer reflexões de paz.
             </p>
           </div>
 
@@ -120,7 +120,7 @@ export const LiaView: React.FC = () => {
               <span>Status do seu plano: <code>lia_access = false</code></span>
             </div>
             <p className="text-xs text-stone-500 leading-relaxed">
-              O acesso à Lia é concedido a usuárias que possuem a permissão <strong>lia_access</strong> ativada na sua conta (<code>user_entitlements</code>).
+              O acesso à Levia é concedido a usuárias que possuem a permissão <strong>lia_access</strong> ativada na sua conta (<code>user_entitlements</code>).
             </p>
           </div>
 
@@ -143,30 +143,29 @@ export const LiaView: React.FC = () => {
   // Se o usuário possui lia_access liberado
   return (
     <div className="max-w-3xl mx-auto space-y-4 pb-8">
-      {/* Header Banner */}
-      <div className="rounded-3xl bg-gradient-to-br from-[#1F3A34] via-[#264A41] to-[#152723] text-white p-5 sm:p-6 shadow-md relative overflow-hidden">
-        <div className="relative z-10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-300 shadow-xs">
-              <Sparkles className="w-6 h-6" />
+      {/* Chat Container */}
+      <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col h-[580px] overflow-hidden">
+        {/* Compact Header Bar */}
+        <div className="px-5 py-3.5 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between bg-stone-50/50 dark:bg-stone-900/50">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-800 text-emerald-100 flex items-center justify-center text-xs font-serif font-bold shadow-xs">
+              L
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-tight">Lia</h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 uppercase tracking-wider">
-                  Lia Access Ativo
+                <h2 className="font-serif text-sm font-bold text-stone-900 dark:text-stone-100">Levia</h2>
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Mentora Ativa
                 </span>
               </div>
-              <p className="text-xs text-emerald-100/90 font-light">
-                Sua mentora diária de leveza, organização e acolhimento.
+              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                Sua mentora diária de leveza, organização e acolhimento
               </p>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Chat Container */}
-      <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col h-[520px] overflow-hidden">
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {messages.map((m) => (
@@ -199,7 +198,7 @@ export const LiaView: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-bounce" />
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-bounce [animation-delay:0.2s]" />
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-bounce [animation-delay:0.4s]" />
-              <span className="ml-1">Lia está refletindo...</span>
+              <span className="ml-1">Levia está refletindo...</span>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -231,7 +230,7 @@ export const LiaView: React.FC = () => {
                 handleSendMessage();
               }
             }}
-            placeholder="Converse com a Lia ou tire um peso da mente..."
+            placeholder="Converse com a Levia ou tire um peso da mente..."
             className="flex-1 px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 border-none text-xs sm:text-sm text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-700/50 placeholder:text-stone-400"
           />
           <button

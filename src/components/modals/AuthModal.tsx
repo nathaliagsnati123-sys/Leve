@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Mail, Lock, User, Cloud, CheckCircle, AlertCircle, 
-  ArrowRight, LogOut, RefreshCw, ShieldCheck,
+  ArrowRight, LogOut, RefreshCw, ShieldCheck, Sparkles,
   Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -31,7 +31,9 @@ export const AuthModal: React.FC = () => {
     entitlements,
     refreshEntitlements,
     userProfile,
-    isCheckingEntitlements
+    isCheckingEntitlements,
+    hasLeveAccess,
+    hasLiaAccess
   } = useAuth();
 
   const { data, showToast } = useApp();
@@ -224,76 +226,78 @@ export const AuthModal: React.FC = () => {
           {/* USER LOGGED IN VIEW */}
           {user ? (
             <div className="space-y-4">
+              {/* Informação do Plano Disponível do Cliente */}
               <div className="p-4 rounded-2xl bg-white dark:bg-[#1A211D] border border-stone-200/80 dark:border-stone-800/80 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-stone-500 dark:text-stone-400 font-medium">Servidor em Nuvem:</span>
-                  <span className="font-mono text-[11px] text-stone-700 dark:text-stone-300 truncate max-w-[200px]">
-                    {supabaseUrl.replace('https://', '')}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-stone-500 dark:text-stone-400 font-medium">Status de Nuvem:</span>
-                  <div className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-300">
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>
-                      {syncStatus === 'synced' && 'Sincronizado'}
-                      {syncStatus === 'syncing' && 'Sincronizando...'}
-                      {syncStatus === 'offline' && 'Offline (Salvo local)'}
-                      {syncStatus === 'error' && 'Pendente'}
-                      {syncStatus === 'local-only' && 'Apenas local'}
-                    </span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block">
+                        Plano Disponível
+                      </span>
+                      <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
+                        {entitlements?.plan_name || 
+                         entitlements?.plan || 
+                         entitlements?.plano || 
+                         userProfile?.plan_name ||
+                         userProfile?.plan ||
+                         (parseBoolean(entitlements?.special_access)
+                           ? 'Plano Especial / VIP'
+                           : hasLeveAccess && hasLiaAccess
+                           ? 'Plano LEVE Completo + Levia'
+                           : hasLeveAccess
+                           ? 'Plano LEVE'
+                           : hasLiaAccess
+                           ? 'Plano Levia (Mentora IA)'
+                           : 'Acesso Pendente')}
+                      </h3>
+                    </div>
                   </div>
-                </div>
 
-                {lastSyncedAt && (
-                  <div className="flex items-center justify-between text-[11px] text-stone-400 dark:text-stone-500">
-                    <span>Última sincronização:</span>
-                    <span>{lastSyncedAt.toLocaleTimeString('pt-BR')}</span>
-                  </div>
-                )}
-
-                {/* User Entitlements */}
-                <div className="pt-2 border-t border-stone-200/60 dark:border-stone-800/60 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-600 dark:text-stone-300">
-                      Permissões (user_entitlements):
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                      (hasLeveAccess || hasLiaAccess)
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${(hasLeveAccess || hasLiaAccess) ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      {(hasLeveAccess || hasLiaAccess) ? 'Ativo' : 'Pendente'}
                     </span>
+
                     <button
                       type="button"
                       onClick={() => refreshEntitlements()}
                       disabled={isCheckingEntitlements}
-                      className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      title="Atualizar informações do plano"
+                      className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                     >
-                      <RefreshCw className={`w-2.5 h-2.5 ${isCheckingEntitlements ? 'animate-spin' : ''}`} />
-                      <span>Atualizar</span>
+                      <RefreshCw className={`w-3.5 h-3.5 ${isCheckingEntitlements ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
-                    <div className={`p-1.5 rounded-lg border ${
-                      parseBoolean(entitlements?.leve_access)
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-200 font-bold' 
-                        : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400'
-                    }`}>
-                      <div>leve_access</div>
-                      <div>{parseBoolean(entitlements?.leve_access) ? 'Ativo' : 'Inativo'}</div>
-                    </div>
-                    <div className={`p-1.5 rounded-lg border ${
-                      parseBoolean(entitlements?.special_access)
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-200 font-bold' 
-                        : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400'
-                    }`}>
-                      <div>special_access</div>
-                      <div>{parseBoolean(entitlements?.special_access) ? 'Ativo' : 'Inativo'}</div>
-                    </div>
-                    <div className={`p-1.5 rounded-lg border ${
-                      parseBoolean(entitlements?.lia_access)
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-200 font-bold' 
-                        : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400'
-                    }`}>
-                      <div>lia_access</div>
-                      <div>{parseBoolean(entitlements?.lia_access) ? 'Ativo' : 'Inativo'}</div>
-                    </div>
+                </div>
+
+                {/* Recursos e Acessos Inclusos no Plano */}
+                <div className="pt-2.5 border-t border-stone-100 dark:border-stone-800/80 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                      <CheckCircle className={`w-3.5 h-3.5 ${hasLeveAccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-300 dark:text-stone-600'}`} />
+                      <span>Acesso LEVE (Rotinas, Hábitos, Metas)</span>
+                    </span>
+                    <span className={`text-[11px] font-semibold ${hasLeveAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-400 dark:text-stone-500'}`}>
+                      {hasLeveAccess ? 'Liberado' : 'Bloqueado'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                      <CheckCircle className={`w-3.5 h-3.5 ${hasLiaAccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-300 dark:text-stone-600'}`} />
+                      <span>Levia • Mentora de Inteligência Artificial</span>
+                    </span>
+                    <span className={`text-[11px] font-semibold ${hasLiaAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-400 dark:text-stone-500'}`}>
+                      {hasLiaAccess ? 'Liberado' : 'Não incluso'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -309,6 +313,12 @@ export const AuthModal: React.FC = () => {
                   <RefreshCw className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
                   <span>Sincronizar Meus Dados Agora</span>
                 </button>
+
+                {lastSyncedAt && (
+                  <p className="text-[10px] text-center text-stone-400 dark:text-stone-500">
+                    Última sincronização: {lastSyncedAt.toLocaleTimeString('pt-BR')}
+                  </p>
+                )}
 
                 <button
                   id="auth-logout-btn"
@@ -597,11 +607,11 @@ export const AuthModal: React.FC = () => {
           <span>Sincronização Segura em Nuvem</span>
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-stone-400">
             <span className={diagnostics.hasSupabaseUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
-              URL={diagnostics.hasSupabaseUrl ? 'true' : 'false'}
+              URL={diagnostics.hasSupabaseUrl ? 'OK' : 'Não'}
             </span>
             <span>•</span>
             <span className={diagnostics.hasSupabaseAnonKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}>
-              Chave={diagnostics.hasSupabaseAnonKey ? 'true' : 'false'}
+              Chave={diagnostics.hasSupabaseAnonKey ? `${diagnostics.keyPrefix} (${diagnostics.keyLength}c)` : 'Não'}
             </span>
           </div>
         </div>
