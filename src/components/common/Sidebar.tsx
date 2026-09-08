@@ -51,7 +51,6 @@ export const Sidebar: React.FC = () => {
   const managementNav = [
     { id: 'bills' as ActiveTab, label: 'Contas & Pendências', icon: Receipt },
     { id: 'progress' as ActiveTab, label: 'Meu Progresso', icon: BarChart3 },
-    { id: 'settings' as ActiveTab, label: 'Configurações & Backup', icon: Settings },
   ];
 
   const unlockedCount = Object.keys(data.unlockedAchievements).length;
@@ -229,29 +228,46 @@ export const Sidebar: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
         </button>
 
-        {/* User Mini Card */}
-        <div className="flex items-center justify-between p-2 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-800/60 shadow-xs">
+        {/* User Mini Card / Configurações */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className={`w-full flex items-center justify-between p-2 rounded-2xl border transition cursor-pointer text-left ${
+            activeTab === 'settings'
+              ? 'bg-[#1F3A34] text-white border-[#1F3A34] shadow-xs'
+              : 'bg-white dark:bg-stone-900 border-stone-200/60 dark:border-stone-800/60 hover:bg-stone-50 dark:hover:bg-stone-850 shadow-xs'
+          }`}
+          title="Abrir Configurações do Perfil"
+        >
           <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-xs">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${
+              activeTab === 'settings'
+                ? 'bg-emerald-800 text-emerald-100'
+                : 'bg-emerald-100 dark:bg-emerald-950'
+            }`}>
               {data.user.avatar || '🌿'}
             </div>
             <div className="truncate">
-              <p className="text-xs font-semibold text-stone-900 dark:text-stone-100 truncate">
+              <p className={`text-xs font-semibold truncate ${
+                activeTab === 'settings' ? 'text-white' : 'text-stone-900 dark:text-stone-100'
+              }`}>
                 {data.user.name || 'Você'}
               </p>
-              <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
+              <p className={`text-[10px] truncate ${
+                activeTab === 'settings' ? 'text-emerald-200' : 'text-stone-500 dark:text-stone-400'
+              }`}>
                 Dia {todayCompletionPercentage}% concluído
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800"
-            title="Abrir Configurações"
-          >
+          <div className={`p-1.5 rounded-lg ${
+            activeTab === 'settings'
+              ? 'text-emerald-200 bg-white/10'
+              : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}>
             <Settings className="w-4 h-4" />
-          </button>
-        </div>
+          </div>
+        </button>
       </div>
     </aside>
   );

@@ -72,10 +72,25 @@ CREATE POLICY "Acesso restrito ao próprio dono dos itens de Minha Vida"
   WITH CHECK (auth.uid() = user_id);
 
 -- 4. Tabela de permissões e planos de acesso (user_entitlements)
--- Planos Comerciais LEVE:
--- - 🆓 LEVE Gratuito (R$0): leve_gratuito = true (Acesso somente ao "Meu Dia")
--- - ⭐ LEVE Especial (R$49,90): leve_especial = true (Todas as áreas, exceto LEVIA)
--- - 👑 LEVE VIP (R$65,90): leve_vip = true (Todas as áreas + LEVIA)
+-- CONTROLE MANUAL DE PLANOS PELA ADMINISTRADORA NO SUPABASE:
+--
+-- 🆓 GRATUITO:
+-- "leve gratuito" = true (ou leve_gratuito = true)
+-- leve_especial = false
+-- leve_vip = false
+--
+-- ⭐ ESPECIAL:
+-- "leve gratuito" = false (ou leve_gratuito = false)
+-- leve_especial = true
+-- leve_vip = false
+--
+-- 👑 VIP:
+-- "leve gratuito" = false (ou leve_gratuito = false)
+-- leve_especial = false
+-- leve_vip = true
+--
+-- O sistema respeita estritamente as alterações manuais feitas pela administradora.
+-- Nenhuma sincronização automática reverte alterações manuais sem uma nova ação válida da Hotmart.
 CREATE TABLE IF NOT EXISTS public.user_entitlements (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
@@ -91,13 +106,63 @@ CREATE TABLE IF NOT EXISTS public.user_entitlements (
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
--- Migrações seguras caso a tabela já exista com colunas antigas:
+-- Migrações seguras caso a tabela já exista:
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS leve_gratuito BOOLEAN DEFAULT true NOT NULL;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS leve_especial BOOLEAN DEFAULT false NOT NULL;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS leve_vip BOOLEAN DEFAULT false NOT NULL;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS lia_access BOOLEAN DEFAULT false NOT NULL;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS hotmart_status TEXT DEFAULT 'gratuito';
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS hotmart_transaction_id TEXT;
+
+-- Suporte à coluna com espaço "leve gratuito":
+DO $$ 
+BEGIN
+  BEGIN
+    ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS "leve gratuito" BOOLEAN DEFAULT true;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+END $$;
+
+-- Trigger para manter sincronizadas as colunas "leve gratuito" e leve_gratuito caso ambas existam:
+CREATE OR REPLACE FUNCTION public.sync_user_entitlements_columns()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW."leve gratuito" IS NOT NULL AND NEW.leve_gratuito IS NULL THEN
+    NEW.leve_gratuito := NEW."leve gratuito";
+  ELSIF NEW.leve_gratuito IS NOT NULL AND NEW."leve gratuito" IS NULL THEN
+    NEW."leve gratuito" := NEW.leve_gratuito;
+  ELSIF NEW."leve gratuito" IS NOT NULL AND NEW.leve_gratuito IS NOT NULL THEN
+    -- Se um deles foi modificado no update manual
+    IF TG_OP = 'UPDATE' THEN
+      IF NEW."leve gratuito" IS DISTINCT FROM OLD."leve gratuito" THEN
+        NEW.leve_gratuito := NEW."leve gratuito";
+      ELSIF NEW.leve_gratuito IS DISTINCT FROM OLD.leve_gratuito THEN
+        NEW."leve gratuito" := NEW.leve_gratuito;
+      END IF;
+    END IF;
+  END IF;
+
+  -- Se o plano foi alterado para VIP manualmente, mantém plan_name e lia_access em harmonia
+  IF NEW.leve_vip = true THEN
+    NEW.plan_name := 'vip';
+    NEW.lia_access := true;
+  ELSIF NEW.leve_especial = true THEN
+    NEW.plan_name := 'especial';
+    NEW.lia_access := false;
+  ELSIF NEW.leve_gratuito = true OR NEW."leve gratuito" = true THEN
+    NEW.plan_name := 'gratuito';
+    NEW.lia_access := false;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_user_entitlements_columns ON public.user_entitlements;
+CREATE TRIGGER trg_sync_user_entitlements_columns
+BEFORE INSERT OR UPDATE ON public.user_entitlements
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_user_entitlements_columns();
 
 ALTER TABLE public.user_entitlements ENABLE ROW LEVEL SECURITY;
 
@@ -106,14 +171,10 @@ CREATE POLICY "Usuários autenticados podem ler suas próprias permissões"
   ON public.user_entitlements
   FOR SELECT
   TO authenticated
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Usuários autenticados podem inserir permissão gratuita inicial" ON public.user_entitlements;
-CREATE POLICY "Usuários autenticados podem inserir permissão gratuita inicial"
-  ON public.user_entitlements
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id AND leve_especial = false AND leve_vip = false);
+  USING (
+    auth.uid() = user_id 
+    OR (email IS NOT NULL AND lower(email) = lower(auth.jwt() ->> 'email'))
+  );
 
 -- Trigger: Todo novo usuário cadastrado recebe automaticamente o plano LEVE Gratuito
 CREATE OR REPLACE FUNCTION public.handle_new_user_entitlements()

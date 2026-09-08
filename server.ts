@@ -292,9 +292,10 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
           (priceValue >= 35 && priceValue < 59)
         );
 
-      let entitlementUpdate = {
+      let entitlementUpdate: Record<string, any> = {
         plan_name: "especial",
         leve_gratuito: false,
+        "leve gratuito": false,
         leve_especial: true,
         leve_vip: false,
         lia_access: false,
@@ -306,6 +307,7 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
         entitlementUpdate = {
           plan_name: "gratuito",
           leve_gratuito: true,
+          "leve gratuito": true,
           leve_especial: false,
           leve_vip: false,
           lia_access: false,
@@ -318,6 +320,7 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
           entitlementUpdate = {
             plan_name: "vip",
             leve_gratuito: false,
+            "leve gratuito": false,
             leve_especial: false,
             leve_vip: true,
             lia_access: true,
@@ -329,6 +332,7 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
           entitlementUpdate = {
             plan_name: "especial",
             leve_gratuito: false,
+            "leve gratuito": false,
             leve_especial: true,
             leve_vip: false,
             lia_access: false,

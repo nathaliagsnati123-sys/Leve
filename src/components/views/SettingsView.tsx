@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  Settings, Sun, Moon, Monitor, User, LogOut, Check, Mail, HeartHandshake
+  Settings, Sun, Moon, Monitor, User, LogOut, Check, Mail, HeartHandshake, Sparkles, RefreshCw
 } from 'lucide-react';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
@@ -14,7 +14,11 @@ export const SettingsView: React.FC = () => {
     logout, 
     setIsAuthModalOpen, 
     treatmentPreference: authTreatmentPref, 
-    updateTreatmentPreference 
+    updateTreatmentPreference,
+    plan,
+    planLabel,
+    refreshEntitlements,
+    isCheckingEntitlements
   } = useAuth();
 
   const [name, setName] = useState(data.user?.name || '');
@@ -278,27 +282,81 @@ export const SettingsView: React.FC = () => {
         </h3>
 
         {user ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-750">
-            <div className="space-y-0.5">
-              <span className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">
-                E-mail cadastrado
-              </span>
-              <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-                {user.email}
-              </p>
+          <div className="space-y-3">
+            {/* Informações do Plano Ativo com Botão de Atualização */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-750">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                  plan === 'vip'
+                    ? 'bg-amber-100/70 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                    : plan === 'special'
+                    ? 'bg-emerald-100/70 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                    : 'bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-700'
+                }`}>
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold block">
+                    Plano Ativo
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                      {planLabel}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                      plan === 'vip'
+                        ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        : plan === 'special'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${plan === 'vip' ? 'bg-amber-500' : plan === 'special' ? 'bg-emerald-500' : 'bg-stone-400'}`} />
+                      {plan === 'vip' ? 'VIP' : plan === 'special' ? 'Especial' : 'Gratuito'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await refreshEntitlements();
+                    showToast('Permissões do plano atualizadas!');
+                  }}
+                  disabled={isCheckingEntitlements}
+                  title="Recarregar plano do Supabase"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 border border-stone-200 dark:border-stone-700 shadow-2xs transition cursor-pointer disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingEntitlements ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingEntitlements ? 'Checando...' : 'Atualizar Plano'}</span>
+                </button>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={async () => {
-                await logout();
-                showToast('Você saiu da sua conta.');
-              }}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition cursor-pointer border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Desconectar</span>
-            </button>
+            {/* E-mail e Desconexão */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-750">
+              <div className="space-y-0.5">
+                <span className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">
+                  E-mail cadastrado
+                </span>
+                <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                  {user.email}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  showToast('Você saiu da sua conta.');
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition cursor-pointer border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Desconectar</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-750">

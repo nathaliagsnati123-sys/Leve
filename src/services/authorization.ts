@@ -2,7 +2,27 @@
 // Sistema Centralizado de Autorização e Planos Comerciais - LEVE
 // ============================================================================
 
-import { parseBoolean } from './supabase';
+/**
+ * Converte com precisão valores do Postgres/Supabase para booleano real:
+ * Suporta boolean (true/false), strings ('true', 't', '1', 'yes', 'sim') e números (1/0).
+ */
+export function parseBoolean(value: any): boolean {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase();
+    return (
+      trimmed === 'true' || 
+      trimmed === 't' || 
+      trimmed === '1' || 
+      trimmed === 'yes' || 
+      trimmed === 'sim' ||
+      trimmed === 'active' ||
+      trimmed === 'ativo' ||
+      trimmed === 's'
+    );
+  }
+  return false;
+}
 
 export type PlanTier = 'free' | 'special' | 'vip';
 
@@ -94,6 +114,119 @@ export const FEATURE_NAMES: Record<AppFeature | string, string> = {
  * - Especial ('special'): leve_especial === true OU plan_name contendo 'especial'/'special'
  * - Gratuito ('free'): leve_gratuito === true ou usuário sem compra
  */
+export interface ExtractedPlanBooleans {
+  isVip: boolean;
+  isSpecial: boolean;
+  isGratuito: boolean;
+  tier: PlanTier;
+  planName: 'gratuito' | 'especial' | 'vip';
+}
+
+/**
+ * Avalia com rigor absoluto os 3 campos da tabela user_entitlements
+ * definidos e alterados manualmente pela administradora diretamente no Supabase:
+ *
+ * GRATUITO:
+ * "leve gratuito" = true
+ * leve_especial = false
+ * leve_vip = false
+ *
+ * ESPECIAL:
+ * "leve gratuito" = false
+ * leve_especial = true
+ * leve_vip = false
+ *
+ * VIP:
+ * "leve gratuito" = false
+ * leve_especial = false
+ * leve_vip = true
+ */
+export function extractPlanFromRow(row: any): ExtractedPlanBooleans {
+  if (!row) {
+    return {
+      isVip: false,
+      isSpecial: false,
+      isGratuito: true,
+      tier: 'free',
+      planName: 'gratuito'
+    };
+  }
+
+  // 1. Extração segura dos 3 campos especificados (suporte a coluna com espaço "leve gratuito" ou underline leve_gratuito)
+  const rawVip = row.leve_vip !== undefined ? row.leve_vip : (row['leve vip'] !== undefined ? row['leve vip'] : row.vip);
+  const rawSpecial = row.leve_especial !== undefined ? row.leve_especial : (row['leve especial'] !== undefined ? row['leve especial'] : row.especial);
+  const rawGratuito = row['leve gratuito'] !== undefined ? row['leve gratuito'] : (row.leve_gratuito !== undefined ? row.leve_gratuito : row.gratuito);
+
+  const vipBool = parseBoolean(rawVip);
+  const specialBool = parseBoolean(rawSpecial);
+  const gratuitoBool = parseBoolean(rawGratuito);
+
+  // 2. Respeito estrito às regras manuais da administradora:
+  // VIP: "leve gratuito" = false, leve_especial = false, leve_vip = true
+  if (vipBool) {
+    return {
+      isVip: true,
+      isSpecial: false,
+      isGratuito: false,
+      tier: 'vip',
+      planName: 'vip'
+    };
+  }
+
+  // ESPECIAL: "leve gratuito" = false, leve_especial = true, leve_vip = false
+  if (specialBool) {
+    return {
+      isVip: false,
+      isSpecial: true,
+      isGratuito: false,
+      tier: 'special',
+      planName: 'especial'
+    };
+  }
+
+  // GRATUITO: "leve gratuito" = true, leve_especial = false, leve_vip = false
+  if (gratuitoBool) {
+    return {
+      isVip: false,
+      isSpecial: false,
+      isGratuito: true,
+      tier: 'free',
+      planName: 'gratuito'
+    };
+  }
+
+  // 3. Fallback textual caso a administradora tenha preenchido apenas o campo descritivo plan_name/plan/plano
+  const rawPlan = String(row.plan_name || row.plan || row.plano || '').toLowerCase().trim();
+  if (rawPlan === 'vip' || rawPlan.includes('vip') || rawPlan.includes('completo')) {
+    return {
+      isVip: true,
+      isSpecial: false,
+      isGratuito: false,
+      tier: 'vip',
+      planName: 'vip'
+    };
+  }
+
+  if (rawPlan === 'especial' || rawPlan.includes('especial') || rawPlan === 'special') {
+    return {
+      isVip: false,
+      isSpecial: true,
+      isGratuito: false,
+      tier: 'special',
+      planName: 'especial'
+    };
+  }
+
+  // Padrão do LEVE: Gratuito
+  return {
+    isVip: false,
+    isSpecial: false,
+    isGratuito: true,
+    tier: 'free',
+    planName: 'gratuito'
+  };
+}
+
 export function determineUserPlan(user: any | null, entitlements: any | null): PlanTier {
   if (!user) {
     return 'free';
@@ -103,47 +236,8 @@ export function determineUserPlan(user: any | null, entitlements: any | null): P
     return 'free';
   }
 
-  // 1. Verificação prioritária de colunas de permissão do Supabase (user_entitlements)
-  const isVip = parseBoolean(entitlements.leve_vip) || parseBoolean(entitlements.lia_access);
-  const isSpecial = parseBoolean(entitlements.leve_especial);
-
-  if (isVip) {
-    return 'vip';
-  }
-
-  if (isSpecial) {
-    return 'special';
-  }
-
-  // 2. Verificação pelo campo descritivo de plano do banco (plan_name / plan / plano)
-  const rawPlan = (
-    entitlements.plan_name ||
-    entitlements.plan ||
-    entitlements.plano ||
-    ''
-  ).toString().trim().toLowerCase();
-
-  if (
-    rawPlan === 'vip' ||
-    rawPlan === 'leve vip' ||
-    rawPlan === 'completo' ||
-    rawPlan === 'leve completo' ||
-    rawPlan.includes('vip')
-  ) {
-    return 'vip';
-  }
-
-  if (
-    rawPlan === 'special' ||
-    rawPlan === 'especial' ||
-    rawPlan === 'leve especial' ||
-    rawPlan.includes('especial')
-  ) {
-    return 'special';
-  }
-
-  // 3. Usuário Gratuito padrão
-  return 'free';
+  const { tier } = extractPlanFromRow(entitlements);
+  return tier;
 }
 
 /**

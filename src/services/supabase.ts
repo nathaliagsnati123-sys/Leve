@@ -1,6 +1,7 @@
 // Serviço de integração Supabase - LEVE
 import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { AppData, MyLifeData, TreatmentPreference } from '../types';
+import { extractPlanFromRow } from './authorization';
 
 export const SUPABASE_URL: string = 
   (import.meta.env.VITE_SUPABASE_URL as string)?.trim() || 
@@ -534,8 +535,11 @@ export interface UserEntitlements {
   email?: string;
   plan_name?: string;
   leve_gratuito: boolean;
+  'leve gratuito'?: boolean;
   leve_especial: boolean;
+  'leve especial'?: boolean;
   leve_vip: boolean;
+  'leve vip'?: boolean;
   lia_access: boolean;
   hotmart_status?: string;
   hotmart_transaction_id?: string;
@@ -722,72 +726,52 @@ export async function fetchUserEntitlements(
     }
 
     if (rows.length === 0) {
-      // Usuário autenticado sem registro: concede automaticamente o plano LEVE Gratuito
+      // Usuário autenticado sem registro em user_entitlements:
+      // O app reconhece como Gratuito em memória SEM fazer inserção automática no banco,
+      // garantindo controle manual absoluto da administradora e evitando sobrescritas acidentais.
       const defaultFree: UserEntitlements = {
         user_id: effectiveUserId,
         email: userEmail || '',
         plan_name: 'gratuito',
         leve_gratuito: true,
+        'leve gratuito': true,
         leve_especial: false,
+        'leve especial': false,
         leve_vip: false,
+        'leve vip': false,
         lia_access: false,
         hotmart_status: 'gratuito'
       };
 
-      // Tenta gravar o registro inicial gratuito se a tabela permitir
-      try {
-        await client.from('user_entitlements').insert({
-          user_id: effectiveUserId,
-          email: userEmail || '',
-          plan_name: 'gratuito',
-          leve_gratuito: true,
-          leve_especial: false,
-          leve_vip: false,
-          lia_access: false,
-          hotmart_status: 'gratuito'
-        });
-      } catch {}
-
       return { data: defaultFree };
     }
 
-    // Identificar e consolidar permissões ativas com base nas colunas atuais do Supabase
-    // 👑 VIP: leve_vip = true OU lia_access = true OU plan_name contendo 'vip'
-    const hasVip = rows.some(r => 
-      parseBoolean(r.leve_vip) || 
-      parseBoolean(r.lia_access) ||
-      String(r.plan_name || r.plan || '').toLowerCase().includes('vip') ||
-      String(r.plan_name || r.plan || '').toLowerCase().includes('completo')
-    );
+    // Prioriza linha com permissão ativa (VIP > Especial > Gratuito)
+    const activeRow = rows.find(r => {
+      const plan = extractPlanFromRow(r);
+      return plan.isVip;
+    }) || rows.find(r => {
+      const plan = extractPlanFromRow(r);
+      return plan.isSpecial;
+    }) || rows[0];
 
-    // ⭐ Especial: leve_especial = true OU plan_name contendo 'especial' ou 'special'
-    const hasSpecial = !hasVip && rows.some(r => 
-      parseBoolean(r.leve_especial) ||
-      String(r.plan_name || r.plan || '').toLowerCase().includes('especial') ||
-      String(r.plan_name || r.plan || '').toLowerCase().includes('special')
-    );
-
-    // 🆓 Gratuito: usuário sem compra de Especial ou VIP
-    const isGratuito = !hasVip && !hasSpecial;
-
-    // Linha ativa prioritária
-    const activeRow = rows.find(r => 
-      parseBoolean(r.leve_vip) || 
-      parseBoolean(r.lia_access) || 
-      parseBoolean(r.leve_especial)
-    ) || rows[0];
+    // Extração rigorosa respeitando as regras manuais da administradora
+    const planInfo = extractPlanFromRow(activeRow);
 
     const entitlements: UserEntitlements = {
       ...activeRow,
       id: activeRow.id,
       user_id: activeRow.user_id || effectiveUserId,
       email: activeRow.email || userEmail,
-      plan_name: hasVip ? 'vip' : hasSpecial ? 'especial' : 'gratuito',
-      leve_gratuito: isGratuito,
-      leve_especial: hasSpecial,
-      leve_vip: hasVip,
-      lia_access: hasVip || parseBoolean(activeRow.lia_access),
-      hotmart_status: activeRow.hotmart_status || (hasVip || hasSpecial ? 'approved' : 'gratuito'),
+      plan_name: planInfo.planName,
+      leve_gratuito: planInfo.isGratuito,
+      'leve gratuito': planInfo.isGratuito,
+      leve_especial: planInfo.isSpecial,
+      'leve especial': planInfo.isSpecial,
+      leve_vip: planInfo.isVip,
+      'leve vip': planInfo.isVip,
+      lia_access: planInfo.isVip,
+      hotmart_status: activeRow.hotmart_status || (planInfo.isVip || planInfo.isSpecial ? 'approved' : 'gratuito'),
       hotmart_transaction_id: activeRow.hotmart_transaction_id
     };
 
