@@ -11,6 +11,8 @@ import { useApp } from '../../context/AppContext';
 import { translateAuthError } from '../../utils/authErrors';
 import { parseBoolean } from '../../services/supabase';
 import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
+import { TreatmentPreference } from '../../types';
+import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 
 export const AuthModal: React.FC = () => {
   const { 
@@ -36,14 +38,19 @@ export const AuthModal: React.FC = () => {
     plan,
     planLabel,
     hasLeveAccess,
-    hasLiaAccess
+    hasLiaAccess,
+    treatmentPreference: authTreatmentPref,
+    updateTreatmentPreference
   } = useAuth();
 
-  const { data, showToast } = useApp();
+  const { data, showToast, updateUser } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
+    return normalizeTreatmentPreference(data.user?.treatmentPreference || 'nao_informar');
+  });
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,10 +103,14 @@ export const AuthModal: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const res = await signup(email, password, name);
+    const res = await signup(email, password, name, treatmentPreference);
     setIsSubmitting(false);
 
     if (res.success) {
+      updateUser({
+        name: name.trim() || data.user.name,
+        treatmentPreference
+      });
       setSuccessMessage(res.message || 'Conta criada com sucesso!');
       showToast('Conta criada com sucesso!', 'success');
       // If session was immediately established, sync initial data
@@ -374,6 +385,48 @@ export const AuthModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Preferência de Tratamento */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A211D] border border-stone-200/80 dark:border-stone-800/80 space-y-2.5 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                    Preferência de Tratamento
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {TREATMENT_OPTIONS.map((opt) => {
+                    const currentPref = data.user?.treatmentPreference || authTreatmentPref || 'nao_informar';
+                    const isSelected = currentPref === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={async () => {
+                          updateUser({ treatmentPreference: opt.id });
+                          if (user) {
+                            try {
+                              await updateTreatmentPreference(opt.id);
+                            } catch (err) {
+                              console.warn('Erro ao atualizar preferência:', err);
+                            }
+                          }
+                          showToast(`Tratamento atualizado para: ${opt.label}`);
+                        }}
+                        className={`py-2 px-1.5 rounded-xl border text-xs font-medium transition cursor-pointer text-center ${
+                          isSelected
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold ring-1 ring-emerald-600/30'
+                            : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-750 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                        }`}
+                      >
+                        <span className="block truncate">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-stone-400 dark:text-stone-500">
+                  Como a LEVIA e o LEVE se comunicam com você.
+                </p>
+              </div>
+
               {/* Sync and Logout Actions */}
               <div className="flex flex-col gap-2 pt-2">
                 <button
@@ -538,7 +591,7 @@ export const AuthModal: React.FC = () => {
                 <form onSubmit={handleSignup} className="space-y-3.5">
                   <div>
                     <label htmlFor="signup-name" className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
-                      Como gostaria de ser chamada?
+                      Como gostaria de ser chamado(a)?
                     </label>
                     <div className="relative">
                       <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -551,6 +604,34 @@ export const AuthModal: React.FC = () => {
                         className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#1E2522] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#1F3A34]"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                      Preferência de tratamento
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {TREATMENT_OPTIONS.map((opt) => {
+                        const isSelected = treatmentPreference === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setTreatmentPreference(opt.id)}
+                            className={`py-2 px-1.5 rounded-xl border text-xs font-medium transition cursor-pointer text-center ${
+                              isSelected
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold ring-1 ring-emerald-600/30'
+                                : 'bg-white dark:bg-[#1E2522] border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+                            }`}
+                          >
+                            <span className="block truncate">{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-stone-400 dark:text-stone-500 mt-1">
+                      Como a LEVIA e o LEVE conversam com você (feminino, masculino ou neutro).
+                    </p>
                   </div>
 
                   <div>
