@@ -531,9 +531,14 @@ export async function fetchMyLifeFromSupabase(userId: string): Promise<{ data: M
 export interface UserEntitlements {
   id?: string;
   user_id?: string;
-  leve_access: boolean;
-  special_access: boolean;
+  email?: string;
+  plan_name?: string;
+  leve_gratuito: boolean;
+  leve_especial: boolean;
+  leve_vip: boolean;
   lia_access: boolean;
+  hotmart_status?: string;
+  hotmart_transaction_id?: string;
   created_at?: string;
   updated_at?: string;
   [key: string]: any;
@@ -565,8 +570,9 @@ export function parseBoolean(value: any): boolean {
  * Consulta a tabela `user_entitlements` com a sessão autenticada atual:
  * - Utiliza auth.uid() / session.user.id da sessão ativa
  * - Utiliza o token JWT de autorização Bearer da sessão atual
- * - `leve_access === true` ou `special_access === true`: Libera o LEVE completo
- * - `lia_access === true`: Libera a assistente Lia
+ * - `leve_vip === true` (ou `lia_access === true`): Libera todas as áreas + LEVIA
+ * - `leve_especial === true`: Libera todas as áreas, exceto LEVIA
+ * - `leve_gratuito === true`: Acesso somente ao "Meu Dia"
  */
 export async function fetchUserEntitlements(
   userId?: string,
@@ -716,28 +722,73 @@ export async function fetchUserEntitlements(
     }
 
     if (rows.length === 0) {
-      return { data: null, error: lastError?.message || 'Nenhum registro de permissão encontrado.' };
+      // Usuário autenticado sem registro: concede automaticamente o plano LEVE Gratuito
+      const defaultFree: UserEntitlements = {
+        user_id: effectiveUserId,
+        email: userEmail || '',
+        plan_name: 'gratuito',
+        leve_gratuito: true,
+        leve_especial: false,
+        leve_vip: false,
+        lia_access: false,
+        hotmart_status: 'gratuito'
+      };
+
+      // Tenta gravar o registro inicial gratuito se a tabela permitir
+      try {
+        await client.from('user_entitlements').insert({
+          user_id: effectiveUserId,
+          email: userEmail || '',
+          plan_name: 'gratuito',
+          leve_gratuito: true,
+          leve_especial: false,
+          leve_vip: false,
+          lia_access: false,
+          hotmart_status: 'gratuito'
+        });
+      } catch {}
+
+      return { data: defaultFree };
     }
 
-    // Identificar e consolidar permissões ativas
-    const activeRow = rows.find(r => 
-      parseBoolean(r.leve_access ?? r.leveAccess ?? r.leve) ||
-      parseBoolean(r.special_access ?? r.specialAccess ?? r.special) ||
-      parseBoolean(r.lia_access ?? r.liaAccess ?? r.lia)
-    ) || rows[0];
+    // Identificar e consolidar permissões ativas com base nas colunas atuais do Supabase
+    // 👑 VIP: leve_vip = true OU lia_access = true OU plan_name contendo 'vip'
+    const hasVip = rows.some(r => 
+      parseBoolean(r.leve_vip) || 
+      parseBoolean(r.lia_access) ||
+      String(r.plan_name || r.plan || '').toLowerCase().includes('vip') ||
+      String(r.plan_name || r.plan || '').toLowerCase().includes('completo')
+    );
 
-    // Se houver múltiplos registros vinculados à conta, consolida os acessos concedidos
-    const hasLeve = rows.some(r => parseBoolean(r.leve_access ?? r.leveAccess ?? r.leve));
-    const hasSpecial = rows.some(r => parseBoolean(r.special_access ?? r.specialAccess ?? r.special));
-    const hasLia = rows.some(r => parseBoolean(r.lia_access ?? r.liaAccess ?? r.lia));
+    // ⭐ Especial: leve_especial = true OU plan_name contendo 'especial' ou 'special'
+    const hasSpecial = !hasVip && rows.some(r => 
+      parseBoolean(r.leve_especial) ||
+      String(r.plan_name || r.plan || '').toLowerCase().includes('especial') ||
+      String(r.plan_name || r.plan || '').toLowerCase().includes('special')
+    );
+
+    // 🆓 Gratuito: usuário sem compra de Especial ou VIP
+    const isGratuito = !hasVip && !hasSpecial;
+
+    // Linha ativa prioritária
+    const activeRow = rows.find(r => 
+      parseBoolean(r.leve_vip) || 
+      parseBoolean(r.lia_access) || 
+      parseBoolean(r.leve_especial)
+    ) || rows[0];
 
     const entitlements: UserEntitlements = {
       ...activeRow,
       id: activeRow.id,
       user_id: activeRow.user_id || effectiveUserId,
-      leve_access: hasLeve,
-      special_access: hasSpecial,
-      lia_access: hasLia
+      email: activeRow.email || userEmail,
+      plan_name: hasVip ? 'vip' : hasSpecial ? 'especial' : 'gratuito',
+      leve_gratuito: isGratuito,
+      leve_especial: hasSpecial,
+      leve_vip: hasVip,
+      lia_access: hasVip || parseBoolean(activeRow.lia_access),
+      hotmart_status: activeRow.hotmart_status || (hasVip || hasSpecial ? 'approved' : 'gratuito'),
+      hotmart_transaction_id: activeRow.hotmart_transaction_id
     };
 
     return { data: entitlements };

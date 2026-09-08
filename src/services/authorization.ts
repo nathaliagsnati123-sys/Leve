@@ -12,6 +12,41 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
   vip: 'LEVE VIP'
 };
 
+/**
+ * Ofertas e Links Oficiais de Checkout da Hotmart para o LEVE
+ * Produto base: J107506852L
+ */
+export const HOTMART_CHECKOUT = {
+  // 1. LEVE ESPECIAL (R$ 49,90) - Para usuários Gratuitos liberarem todas as áreas (exceto LEVIA)
+  ESPECIAL: 'https://pay.hotmart.com/J107506852L?off=nve7cj26',
+  ESPECIAL_OFFER_CODE: 'nve7cj26',
+  ESPECIAL_PRICE: 'R$ 49,90',
+  ESPECIAL_NUMERIC_PRICE: 49.9,
+
+  // 2. UPGRADE LEVIA / VIP 1 (R$ 16,00) - Disponível SOMENTE para usuários do LEVE Especial
+  UPGRADE_LEVIA: 'https://pay.hotmart.com/J107506852L?off=0vzkb290',
+  UPGRADE_OFFER_CODE: '0vzkb290',
+  UPGRADE_PRICE: 'R$ 16,00',
+  UPGRADE_NUMERIC_PRICE: 16.0,
+
+  // 3. LEVE VIP DIRETO (R$ 65,90) - Para quem está no Gratuito e quer ir direto para o VIP (Todas as áreas + LEVIA)
+  VIP_DIRECT: 'https://pay.hotmart.com/J107506852L?off=foybxnsq',
+  VIP_OFFER_CODE: 'foybxnsq',
+  VIP_PRICE: 'R$ 65,90',
+  VIP_NUMERIC_PRICE: 65.9,
+};
+
+/**
+ * Constrói a URL do checkout da Hotmart incluindo o e-mail do usuário autenticado como parâmetro
+ * para preencher o checkout e facilitar a sincronização automática com a conta.
+ */
+export function buildHotmartUrl(baseUrl: string, userEmail?: string | null): string {
+  if (!userEmail || !userEmail.trim()) return baseUrl;
+  const cleanEmail = userEmail.trim().toLowerCase();
+  const separator = baseUrl.includes('?') ? '&' : '?';
+  return `${baseUrl}${separator}email=${encodeURIComponent(cleanEmail)}`;
+}
+
 export type AppFeature = 
   | 'my-day'
   | 'calendar'
@@ -47,7 +82,7 @@ export const FEATURE_NAMES: Record<AppFeature | string, string> = {
   'bills': 'Contas & Pendências',
   'cycle': 'Ciclo & Menstruação',
   'progress': 'Meu Progresso',
-  'lia': 'Levia • Mentora IA',
+  'lia': 'LEVIA • Assistente Pessoal',
   'settings': 'Configurações'
 };
 
@@ -55,9 +90,9 @@ export const FEATURE_NAMES: Record<AppFeature | string, string> = {
  * Determina o plano comercial do usuário com base no usuário autenticado e no registro de user_entitlements:
  * - Sem usuário autenticado -> 'free' (LEVE Gratuito)
  * - Sem registro de entitlements -> 'free' (LEVE Gratuito)
- * - VIP ('vip'): lia_access === true OU plan_name/plan === 'vip'/'completo'
- * - Especial ('special'): special_access === true OU leve_access === true OU plan_name/plan === 'special'/'especial'
- * - Gratuito ('free'): padrão seguro
+ * - VIP ('vip'): leve_vip === true OU lia_access === true OU plan_name contendo 'vip'
+ * - Especial ('special'): leve_especial === true OU plan_name contendo 'especial'/'special'
+ * - Gratuito ('free'): leve_gratuito === true ou usuário sem compra
  */
 export function determineUserPlan(user: any | null, entitlements: any | null): PlanTier {
   if (!user) {
@@ -68,7 +103,19 @@ export function determineUserPlan(user: any | null, entitlements: any | null): P
     return 'free';
   }
 
-  // 1. Verificação explícita do campo de plano do banco
+  // 1. Verificação prioritária de colunas de permissão do Supabase (user_entitlements)
+  const isVip = parseBoolean(entitlements.leve_vip) || parseBoolean(entitlements.lia_access);
+  const isSpecial = parseBoolean(entitlements.leve_especial);
+
+  if (isVip) {
+    return 'vip';
+  }
+
+  if (isSpecial) {
+    return 'special';
+  }
+
+  // 2. Verificação pelo campo descritivo de plano do banco (plan_name / plan / plano)
   const rawPlan = (
     entitlements.plan_name ||
     entitlements.plan ||
@@ -80,7 +127,8 @@ export function determineUserPlan(user: any | null, entitlements: any | null): P
     rawPlan === 'vip' ||
     rawPlan === 'leve vip' ||
     rawPlan === 'completo' ||
-    rawPlan === 'leve completo'
+    rawPlan === 'leve completo' ||
+    rawPlan.includes('vip')
   ) {
     return 'vip';
   }
@@ -88,39 +136,13 @@ export function determineUserPlan(user: any | null, entitlements: any | null): P
   if (
     rawPlan === 'special' ||
     rawPlan === 'especial' ||
-    rawPlan === 'leve especial'
+    rawPlan === 'leve especial' ||
+    rawPlan.includes('especial')
   ) {
-    // Se também tiver lia_access ativado, eleva para VIP
-    if (parseBoolean(entitlements.lia_access)) {
-      return 'vip';
-    }
     return 'special';
   }
 
-  if (
-    rawPlan === 'free' ||
-    rawPlan === 'gratuito' ||
-    rawPlan === 'leve gratuito'
-  ) {
-    // Verifica se possui alguma flag de upgrade concedida individualmente
-    if (parseBoolean(entitlements.lia_access)) return 'vip';
-    if (parseBoolean(entitlements.special_access) || parseBoolean(entitlements.leve_access)) return 'special';
-    return 'free';
-  }
-
-  // 2. Verificação pelas colunas booleanas de permissão (user_entitlements)
-  const hasLia = parseBoolean(entitlements.lia_access);
-  const hasSpecial = parseBoolean(entitlements.special_access);
-  const hasLeve = parseBoolean(entitlements.leve_access);
-
-  if (hasLia) {
-    return 'vip';
-  }
-
-  if (hasSpecial || hasLeve) {
-    return 'special';
-  }
-
+  // 3. Usuário Gratuito padrão
   return 'free';
 }
 

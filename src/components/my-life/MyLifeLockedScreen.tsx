@@ -1,15 +1,15 @@
 // Tela de Bloqueio Exclusiva para a Aba Minha Vida - LEVE
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Sparkles, BookOpen, Film, Tv, Heart, MapPin, Compass, RefreshCw, LogIn } from 'lucide-react';
-import { parseBoolean } from '../../services/supabase';
+import { Lock, Sparkles, BookOpen, Film, Tv, Heart, MapPin, Compass, RefreshCw, LogIn, ExternalLink, Star, Crown } from 'lucide-react';
+import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 
 interface MyLifeLockedScreenProps {
   onBypassDemo?: () => void;
 }
 
 export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypassDemo }) => {
-  const { user, entitlements, refreshEntitlements, setIsAuthModalOpen, isCheckingEntitlements } = useAuth();
+  const { user, refreshEntitlements, setIsAuthModalOpen, isCheckingEntitlements } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -21,8 +21,8 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
     }
   };
 
-  const isLeveActive = parseBoolean(entitlements?.leve_access);
-  const isSpecialActive = parseBoolean(entitlements?.special_access);
+  const especialUrl = buildHotmartUrl(HOTMART_CHECKOUT.ESPECIAL, user?.email);
+  const vipDirectUrl = buildHotmartUrl(HOTMART_CHECKOUT.VIP_DIRECT, user?.email);
 
   return (
     <div className="min-h-[75vh] flex items-center justify-center p-4 sm:p-6">
@@ -97,26 +97,52 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+        {/* Checkout Action Buttons */}
+        <div className="space-y-2.5 pt-1">
+          <a
+            id="btn-checkout-especial-my-life"
+            href={especialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-sm font-bold shadow-md hover:shadow-lg transition cursor-pointer"
+          >
+            <Star className="w-4 h-4 text-amber-300" />
+            <span>Adquirir LEVE Especial por R$ 49,90</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+          </a>
+
+          <a
+            id="btn-checkout-vip-from-my-life"
+            href={vipDirectUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition cursor-pointer"
+          >
+            <Crown className="w-3.5 h-3.5 text-amber-500" />
+            <span>Ou assinar LEVE VIP com LEVIA por R$ 65,90</span>
+          </a>
+        </div>
+
+        {/* Auxiliary Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2 border-t border-stone-100 dark:border-stone-800/80">
           {user ? (
             <button
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing || isCheckingEntitlements}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs sm:text-sm font-semibold shadow-md transition disabled:opacity-50 cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-medium transition cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing || isCheckingEntitlements ? 'animate-spin' : ''}`} />
-              <span>Verificar Permissões</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || isCheckingEntitlements ? 'animate-spin' : ''}`} />
+              <span>Já comprei? Verificar permissões</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setIsAuthModalOpen(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs sm:text-sm font-semibold shadow-md transition cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-medium transition cursor-pointer"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Entrar com Conta LEVE</span>
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Já possui conta? Entrar</span>
             </button>
           )}
 
@@ -124,9 +150,9 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
             <button
               type="button"
               onClick={onBypassDemo}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-medium transition cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
               <span>Explorar Demonstração</span>
             </button>
           )}

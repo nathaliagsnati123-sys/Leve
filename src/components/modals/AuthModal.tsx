@@ -4,12 +4,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Mail, Lock, User, Cloud, CheckCircle, AlertCircle, 
   ArrowRight, LogOut, RefreshCw, ShieldCheck, Sparkles,
-  Eye, EyeOff
+  Eye, EyeOff, ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { translateAuthError } from '../../utils/authErrors';
 import { parseBoolean } from '../../services/supabase';
+import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 
 export const AuthModal: React.FC = () => {
   const { 
@@ -273,25 +274,105 @@ export const AuthModal: React.FC = () => {
                 <div className="pt-2.5 border-t border-stone-100 dark:border-stone-800/80 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Meu Dia (Rotina essencial diária)</span>
+                    </span>
+                    <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      Liberado
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
                       <CheckCircle className={`w-3.5 h-3.5 ${hasLeveAccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-300 dark:text-stone-600'}`} />
-                      <span>Acesso LEVE (Rotinas, Hábitos, Metas)</span>
+                      <span>Todas as áreas LEVE (Hábitos, Metas, Finanças, etc.)</span>
                     </span>
                     <span className={`text-[11px] font-semibold ${hasLeveAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-400 dark:text-stone-500'}`}>
-                      {hasLeveAccess ? 'Liberado' : 'Bloqueado'}
+                      {hasLeveAccess ? 'Liberado' : 'Requer Especial ou VIP'}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
                       <CheckCircle className={`w-3.5 h-3.5 ${hasLiaAccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-300 dark:text-stone-600'}`} />
-                      <span>Levia • Mentora de Inteligência Artificial</span>
+                      <span>LEVIA • Mentora de Inteligência Artificial</span>
                     </span>
-                    <span className={`text-[11px] font-semibold ${hasLiaAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-400 dark:text-stone-500'}`}>
-                      {hasLiaAccess ? 'Liberado' : 'Não incluso'}
+                    <span className={`text-[11px] font-semibold ${hasLiaAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                      {hasLiaAccess ? 'Liberado' : 'Exclusivo VIP'}
                     </span>
                   </div>
                 </div>
               </div>
+
+              {/* Oferta de Upgrade Exclusiva para Especial */}
+              {plan === 'special' && (
+                <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-800/80 space-y-2.5 text-left">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-700 dark:text-amber-300">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-amber-950 dark:text-amber-200">
+                        Quer ter a LEVIA?
+                      </h4>
+                      <p className="text-[10px] text-amber-800/80 dark:text-amber-400">
+                        Upgrade exclusivo Especial → VIP
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed">
+                    Você já tem o LEVE Especial. Faça o upgrade e ative a LEVIA por apenas R$16,00.
+                  </p>
+
+                  <a
+                    id="auth-modal-upgrade-levia-btn"
+                    href={buildHotmartUrl(HOTMART_CHECKOUT.UPGRADE_LEVIA, user?.email)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                    <span>Ativar LEVIA por R$16,00</span>
+                    <ExternalLink className="w-3 h-3 opacity-80" />
+                  </a>
+                </div>
+              )}
+
+              {/* Opções de Aquisição para Usuários Gratuitos */}
+              {plan === 'free' && (
+                <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-850/80 border border-stone-200/80 dark:border-stone-800 space-y-2.5 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                      Desbloquear Recursos
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <a
+                      id="auth-modal-buy-especial-btn"
+                      href={buildHotmartUrl(HOTMART_CHECKOUT.ESPECIAL, user?.email)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3.5 rounded-xl bg-[#1F3A34] hover:bg-[#182E29] text-white font-semibold text-xs flex items-center justify-between shadow-2xs transition cursor-pointer"
+                    >
+                      <span>Adquirir LEVE Especial</span>
+                      <span className="font-bold text-emerald-300">R$ 49,90</span>
+                    </a>
+
+                    <a
+                      id="auth-modal-buy-vip-btn"
+                      href={buildHotmartUrl(HOTMART_CHECKOUT.VIP_DIRECT, user?.email)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center justify-between shadow-2xs transition cursor-pointer"
+                    >
+                      <span>Assinar LEVE VIP (com LEVIA)</span>
+                      <span className="font-bold text-amber-200">R$ 65,90</span>
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Sync and Logout Actions */}
               <div className="flex flex-col gap-2 pt-2">

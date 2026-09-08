@@ -33,7 +33,7 @@ export const Sidebar: React.FC = () => {
     },
     { 
       id: 'lia' as ActiveTab, 
-      label: 'Levia • Mentora IA', 
+      label: 'LEVIA • Assistente', 
       icon: Sparkles,
       badge: 'VIP'
     },
@@ -88,6 +88,7 @@ export const Sidebar: React.FC = () => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 const isLocked = !canAccessFeature(item.id);
+                const displayBadge = item.id === 'lia' && plan === 'special' ? 'UPGRADE' : item.badge;
                 return (
                   <button
                     key={item.id}
@@ -101,16 +102,16 @@ export const Sidebar: React.FC = () => {
                   >
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
                     <span className="truncate flex-1">{item.label}</span>
-                    {item.badge && (
+                    {displayBadge && (
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
                         isActive 
                           ? 'bg-amber-400/20 text-amber-200' 
                           : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
                       }`}>
-                        {item.badge}
+                        {displayBadge}
                       </span>
                     )}
-                    {isLocked && !item.badge && (
+                    {isLocked && !displayBadge && (
                       <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
                     )}
                   </button>
