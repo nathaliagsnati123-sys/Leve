@@ -221,13 +221,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT,
   full_name TEXT,
-  treatment_preference TEXT DEFAULT 'neutro' CHECK (treatment_preference IN ('feminino', 'masculino', 'neutro', 'nao_informar')),
+  treatment_preference TEXT DEFAULT 'nao_informar' CHECK (treatment_preference IN ('feminino', 'masculino', 'neutro', 'nao_informar')),
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- Garantir que a coluna exista em tabelas de perfis já existentes sem quebrar dados
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS treatment_preference TEXT DEFAULT 'neutro';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS treatment_preference TEXT DEFAULT 'nao_informar';
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 

@@ -15,6 +15,7 @@ export const SettingsView: React.FC = () => {
     setIsAuthModalOpen, 
     treatmentPreference: authTreatmentPref, 
     updateTreatmentPreference,
+    userProfile,
     plan,
     planLabel,
     refreshEntitlements,
@@ -31,11 +32,11 @@ export const SettingsView: React.FC = () => {
   });
 
   useEffect(() => {
-    const pref = data.user?.treatmentPreference || authTreatmentPref;
+    const pref = data.user?.treatmentPreference || authTreatmentPref || userProfile?.treatment_preference;
     if (pref) {
       setSelectedPreference(normalizeTreatmentPreference(pref));
     }
-  }, [data.user?.treatmentPreference, authTreatmentPref]);
+  }, [data.user?.treatmentPreference, authTreatmentPref, userProfile?.treatment_preference]);
 
   useEffect(() => {
     if (data.user?.name) {
@@ -62,15 +63,14 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleSelectPreference = async (pref: TreatmentPreference) => {
-    setSelectedPreference(pref);
-    updateUser({ treatmentPreference: pref });
+    const normalized = normalizeTreatmentPreference(pref);
+    setSelectedPreference(normalized);
+    updateUser({ treatmentPreference: normalized });
     
-    if (user) {
-      try {
-        await updateTreatmentPreference(pref);
-      } catch (err) {
-        console.warn('Erro ao salvar preferência no Supabase:', err);
-      }
+    try {
+      await updateTreatmentPreference(normalized);
+    } catch (err) {
+      console.warn('Erro ao salvar preferência no Supabase:', err);
     }
     
     showToast('Preferência de tratamento atualizada.');
@@ -171,7 +171,7 @@ export const SettingsView: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {TREATMENT_OPTIONS.map((opt) => {
             const isSelected = selectedPreference === opt.id;
             return (

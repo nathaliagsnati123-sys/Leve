@@ -160,7 +160,7 @@ export const MyDayView: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-lg sm:text-xl">{greetingEmoji}</span>
               <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-emerald-50">
-                {greeting}, {data.user.name || 'amiga'}!
+                {data.user.name ? `${greeting}, ${data.user.name}!` : `${greeting}! 🌿`}
               </h1>
             </div>
             <div className="flex items-start gap-2 max-w-xl">

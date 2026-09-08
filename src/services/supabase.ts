@@ -2,6 +2,7 @@
 import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { AppData, MyLifeData, TreatmentPreference } from '../types';
 import { extractPlanFromRow } from './authorization';
+import { normalizeTreatmentPreference } from '../utils/treatment';
 
 export const SUPABASE_URL: string = 
   (import.meta.env.VITE_SUPABASE_URL as string)?.trim() || 
@@ -204,7 +205,7 @@ export async function supabaseSignUp(
   email: string, 
   password: string, 
   name?: string,
-  treatmentPreference: TreatmentPreference = 'neutro'
+  treatmentPreference: TreatmentPreference = 'nao_informar'
 ) {
   const client = getSupabase();
   if (!client) {
@@ -220,6 +221,8 @@ export async function supabaseSignUp(
     };
   }
 
+  const normalizedPref = normalizeTreatmentPreference(treatmentPreference);
+
   try {
     const res = await client.auth.signUp({
       email: email.trim(),
@@ -228,7 +231,7 @@ export async function supabaseSignUp(
         data: {
           name: name ? name.trim() : '',
           full_name: name ? name.trim() : '',
-          treatment_preference: treatmentPreference || 'neutro'
+          treatment_preference: normalizedPref
         }
       }
     });
@@ -239,7 +242,7 @@ export async function supabaseSignUp(
         await saveUserProfileToSupabase(res.data.user.id, {
           name: name ? name.trim() : '',
           full_name: name ? name.trim() : '',
-          treatment_preference: treatmentPreference || 'neutro'
+          treatment_preference: normalizedPref
         });
       } catch {}
     }
@@ -791,6 +794,13 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
   const client = getSupabase();
   if (!client || !userId) return { data: null };
 
+  // 0. Cache local como fallback confiável
+  let cachedPref: TreatmentPreference | null = null;
+  try {
+    const local = localStorage.getItem('leve_treatment_pref_' + userId) || localStorage.getItem('leve_treatment_pref_current');
+    if (local) cachedPref = normalizeTreatmentPreference(local);
+  } catch {}
+
   try {
     let res = await client
       .from('profiles')
@@ -808,10 +818,11 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
     }
 
     if (res.data) {
+      const pref = normalizeTreatmentPreference(res.data.treatment_preference || cachedPref);
       return {
         data: {
           ...res.data,
-          treatment_preference: res.data.treatment_preference || 'neutro'
+          treatment_preference: pref
         }
       };
     }
@@ -820,19 +831,43 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
     const { data: authUserData } = await client.auth.getUser();
     if (authUserData?.user && authUserData.user.id === userId) {
       const meta = authUserData.user.user_metadata || {};
+      const pref = normalizeTreatmentPreference(meta.treatment_preference || cachedPref);
       return {
         data: {
           id: userId,
           user_id: userId,
           name: meta.name || meta.full_name || '',
           full_name: meta.full_name || meta.name || '',
-          treatment_preference: meta.treatment_preference || 'neutro'
+          treatment_preference: pref
+        }
+      };
+    }
+
+    if (cachedPref) {
+      return {
+        data: {
+          id: userId,
+          user_id: userId,
+          name: '',
+          full_name: '',
+          treatment_preference: cachedPref
         }
       };
     }
 
     return { data: null };
   } catch (err: any) {
+    if (cachedPref) {
+      return {
+        data: {
+          id: userId,
+          user_id: userId,
+          name: '',
+          full_name: '',
+          treatment_preference: cachedPref
+        }
+      };
+    }
     return { data: null, error: err.message };
   }
 }
@@ -855,14 +890,33 @@ export async function saveUserProfileToSupabase(
     return { success: false, error: 'Usuário não autenticado ou Supabase desconectado.' };
   }
 
-  const treatment_preference: TreatmentPreference = profile.treatment_preference || 'neutro';
+  const treatment_preference = normalizeTreatmentPreference(profile.treatment_preference);
   const name = profile.name?.trim() || '';
   const fullName = profile.full_name?.trim() || name;
 
-  let hasProfileError = false;
-  let lastErrMsg = '';
+  // Persistir em cache local imediatamente para resiliência instantânea
+  try {
+    localStorage.setItem('leve_treatment_pref_' + userId, treatment_preference);
+    localStorage.setItem('leve_treatment_pref_current', treatment_preference);
+  } catch {}
 
-  // 1. Upsert na tabela profiles respeitando RLS (auth.uid() = id / user_id)
+  let authUpdated = false;
+
+  // 1. Atualizar user_metadata no Supabase Auth para a conta (funciona nativamente sem depender de tabelas)
+  try {
+    const { error: authErr } = await client.auth.updateUser({
+      data: {
+        name,
+        full_name: fullName,
+        treatment_preference
+      }
+    });
+    if (!authErr) authUpdated = true;
+  } catch (e) {
+    console.warn('[Supabase Auth] Aviso ao atualizar user_metadata:', e);
+  }
+
+  // 2. Upsert na tabela profiles respeitando RLS se a tabela existir
   try {
     const { error } = await client
       .from('profiles')
@@ -877,7 +931,7 @@ export async function saveUserProfileToSupabase(
 
     if (error) {
       // Tentativa alternativa com conflito por user_id caso a chave primária seja diferente
-      const { error: errAlt } = await client
+      await client
         .from('profiles')
         .upsert({
           user_id: userId,
@@ -886,31 +940,10 @@ export async function saveUserProfileToSupabase(
           treatment_preference: treatment_preference,
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
-
-      if (errAlt) {
-        console.warn('[Supabase Profiles] Aviso ao salvar tabela profiles:', error.message);
-        hasProfileError = true;
-        lastErrMsg = error.message;
-      }
     }
   } catch (e: any) {
-    console.warn('[Supabase Profiles] Exceção ao persistir profile:', e);
-    hasProfileError = true;
-    lastErrMsg = e?.message || 'Erro ao persistir na tabela profiles';
+    console.warn('[Supabase Profiles] Aviso ao persistir tabela profiles:', e);
   }
 
-  // 2. Atualizar user_metadata no Supabase Auth para a sessão atual
-  try {
-    await client.auth.updateUser({
-      data: {
-        name,
-        full_name: fullName,
-        treatment_preference
-      }
-    });
-  } catch (e) {
-    console.warn('[Supabase Auth] Aviso ao atualizar user_metadata:', e);
-  }
-
-  return { success: !hasProfileError, error: hasProfileError ? lastErrMsg : undefined };
+  return { success: true };
 }

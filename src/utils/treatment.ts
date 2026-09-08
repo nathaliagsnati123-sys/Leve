@@ -17,6 +17,11 @@ export const TREATMENT_OPTIONS: {
     description: 'Tratamento no masculino (ele/dele)' 
   },
   { 
+    id: 'neutro', 
+    label: 'Neutro', 
+    description: 'Tratamento em linguagem neutra' 
+  },
+  { 
     id: 'nao_informar', 
     label: 'Prefiro não informar', 
     description: 'Linguagem neutra e acolhedora' 
@@ -25,14 +30,15 @@ export const TREATMENT_OPTIONS: {
 
 /**
  * Retorna a preferência normalizada de tratamento.
- * Se nenhuma preferência foi informada, usa 'nao_informar' por padrão.
+ * Suporta 'feminino', 'masculino', 'neutro' e 'nao_informar'.
  */
 export function normalizeTreatmentPreference(raw?: string | null): TreatmentPreference {
   if (!raw) return 'nao_informar';
   const val = String(raw).trim().toLowerCase();
   if (val === 'feminino' || val === 'female') return 'feminino';
   if (val === 'masculino' || val === 'male') return 'masculino';
-  if (val === 'nao_informar' || val === 'none' || val === 'not_specified' || val === 'neutro') return 'nao_informar';
+  if (val === 'neutro' || val === 'neutral') return 'neutro';
+  if (val === 'nao_informar' || val === 'none' || val === 'not_specified' || val === 'prefiro_nao_informar') return 'nao_informar';
   return 'nao_informar';
 }
 
@@ -65,7 +71,17 @@ export function getWelcomeGreeting(name?: string | null): string {
 export function getLeviaInitialGreeting(name?: string | null, preference?: TreatmentPreference): string {
   const cleanName = name?.trim();
   const nameSuffix = cleanName ? `, ${cleanName}` : '';
-  return `Olá${nameSuffix}! Eu sou a Levia, sua mentora e companheira de leveza. Como está seu dia? Se houver coisas demais acumuladas na sua cabeça, podemos organizar tudo com calma, um passo de cada vez.`;
+  const pref = normalizeTreatmentPreference(preference);
+
+  if (pref === 'feminino') {
+    return `Olá${nameSuffix}! Eu sou a Levia, sua companheira de organização e leveza. Se houver coisas demais acumuladas na sua cabeça, podemos organizar tudo com calma, um passo de cada vez. Como posso te ajudar hoje?`;
+  }
+
+  if (pref === 'masculino') {
+    return `Olá${nameSuffix}! Eu sou a Levia, sua companheira de organização e leveza. Se houver coisas demais acumuladas na sua cabeça, podemos organizar tudo com calma, um passo de cada vez. Como posso te ajudar hoje?`;
+  }
+
+  return `Olá${nameSuffix}! Eu sou a Levia, sua companheira de organização e leveza. Se houver coisas demais acumuladas na sua cabeça, podemos organizar tudo com calma, um passo de cada vez. Como está seu dia?`;
 }
 
 /**
@@ -74,16 +90,16 @@ export function getLeviaInitialGreeting(name?: string | null, preference?: Treat
 export function getLeviaSupportReply(name?: string | null, preference?: TreatmentPreference): string {
   const cleanName = name?.trim();
   const nameSuffix = cleanName ? `, ${cleanName}` : '';
+  const pref = normalizeTreatmentPreference(preference);
   
-  // Tratamento específico somente se o usuário escolheu expressamente
-  if (preference === 'feminino') {
+  if (pref === 'feminino') {
     return `Estou aqui com você${nameSuffix}. Cada dia tem seu próprio ritmo e o seu é precioso. O que quer que esteja acontecendo, vamos com calma, um detalhe de cada vez. Como posso te apoiar agora?`;
   }
   
-  if (preference === 'masculino') {
+  if (pref === 'masculino') {
     return `Estou aqui com você${nameSuffix}. Cada dia tem seu próprio ritmo e o seu é precioso. O que quer que esteja acontecendo, vamos com calma, um detalhe de cada vez. Como posso te apoiar agora?`;
   }
 
-  // Padrão neutro e inclusivo (para neutro, nao_informar ou sem preferência cadastrada)
+  // Padrão neutro e acolhedor (para neutro, nao_informar ou sem preferência cadastrada)
   return `Estou aqui com você${nameSuffix}. Cada dia tem seu próprio ritmo e o seu é precioso. O que quer que esteja acontecendo, vamos com calma, um detalhe de cada vez. Como posso te apoiar agora?`;
 }

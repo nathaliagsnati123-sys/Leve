@@ -80,7 +80,7 @@ export const AuthModal: React.FC = () => {
     setIsSubmitting(false);
 
     if (res.success) {
-      showToast('Bem-vinda de volta! Conta sincronizada.', 'success');
+      showToast('Boas-vindas de volta! Conta sincronizada.', 'success');
       handleClose();
     } else {
       setErrorMessage(translateAuthError(res.error) || 'Erro ao entrar. Verifique seus dados.');
@@ -610,7 +610,7 @@ export const AuthModal: React.FC = () => {
                     <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1.5">
                       Preferência de tratamento
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {TREATMENT_OPTIONS.map((opt) => {
                         const isSelected = treatmentPreference === opt.id;
                         return (

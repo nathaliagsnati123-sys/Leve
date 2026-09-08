@@ -26,6 +26,7 @@ import {
 } from '../services/supabase';
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
+import { normalizeTreatmentPreference } from '../utils/treatment';
 import {
   PlanTier,
   AppFeature,
@@ -91,7 +92,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
   const [isCheckingEntitlements, setIsCheckingEntitlements] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<any | null>(null);
-  const [localTreatmentPref, setLocalTreatmentPref] = useState<TreatmentPreference | null>(null);
+  const [localTreatmentPref, setLocalTreatmentPref] = useState<TreatmentPreference | null>(() => {
+    try {
+      const cached = localStorage.getItem('leve_treatment_pref_current');
+      if (cached) return normalizeTreatmentPreference(cached);
+    } catch {}
+    return null;
+  });
 
   const loadEntitlements = useCallback(async (userId?: string, activeSession?: Session | null): Promise<UserEntitlements | null> => {
     setIsCheckingEntitlements(true);
@@ -126,6 +133,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await fetchUserProfile(userId);
       if (res.data) {
         setUserProfile(res.data);
+        if (res.data.treatment_preference) {
+          const pref = normalizeTreatmentPreference(res.data.treatment_preference);
+          setLocalTreatmentPref(pref);
+          try {
+            localStorage.setItem('leve_treatment_pref_' + userId, pref);
+            localStorage.setItem('leve_treatment_pref_current', pref);
+          } catch {}
+        }
       }
     } catch {}
   }, []);
@@ -301,27 +316,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const treatmentPreference: TreatmentPreference =
     localTreatmentPref ||
-    userProfile?.treatment_preference ||
-    (user?.user_metadata?.treatment_preference as TreatmentPreference) ||
+    (userProfile?.treatment_preference ? normalizeTreatmentPreference(userProfile.treatment_preference) : null) ||
+    (user?.user_metadata?.treatment_preference ? normalizeTreatmentPreference(user.user_metadata.treatment_preference) : null) ||
     'nao_informar';
 
   const updateTreatmentPreference = useCallback(async (preference: TreatmentPreference): Promise<boolean> => {
-    setLocalTreatmentPref(preference);
-    if (!user) return true;
+    const normalized = normalizeTreatmentPreference(preference);
+    setLocalTreatmentPref(normalized);
     try {
-      const res = await saveUserProfileToSupabase(user.id, {
-        name: userProfile?.name || user?.user_metadata?.name || '',
-        treatment_preference: preference
-      });
-      if (res.success) {
-        setUserProfile((prev: any) => ({
-          ...(prev || {}),
-          treatment_preference: preference
-        }));
-        return true;
+      localStorage.setItem('leve_treatment_pref_current', normalized);
+      if (user?.id) {
+        localStorage.setItem('leve_treatment_pref_' + user.id, normalized);
       }
     } catch {}
-    return true;
+
+    setUserProfile((prev: any) => ({
+      ...(prev || {}),
+      treatment_preference: normalized
+    }));
+
+    if (!user) return true;
+    try {
+      await saveUserProfileToSupabase(user.id, {
+        name: userProfile?.name || user?.user_metadata?.name || '',
+        treatment_preference: normalized
+      });
+      return true;
+    } catch {
+      return true;
+    }
   }, [user, userProfile]);
 
   const saveProfile = useCallback(async (profile: {
@@ -330,11 +353,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     treatment_preference?: TreatmentPreference;
   }): Promise<boolean> => {
     if (!user) return false;
-    const res = await saveUserProfileToSupabase(user.id, profile);
+    const normalizedPref = profile.treatment_preference 
+      ? normalizeTreatmentPreference(profile.treatment_preference) 
+      : undefined;
+
+    if (normalizedPref) {
+      setLocalTreatmentPref(normalizedPref);
+      try {
+        localStorage.setItem('leve_treatment_pref_' + user.id, normalizedPref);
+        localStorage.setItem('leve_treatment_pref_current', normalizedPref);
+      } catch {}
+    }
+
+    const res = await saveUserProfileToSupabase(user.id, {
+      ...profile,
+      ...(normalizedPref ? { treatment_preference: normalizedPref } : {})
+    });
+
     if (res.success) {
       setUserProfile((prev: any) => ({
         ...(prev || {}),
-        ...profile
+        ...profile,
+        ...(normalizedPref ? { treatment_preference: normalizedPref } : {})
       }));
       return true;
     }
@@ -349,6 +389,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSession(null);
       setEntitlements(null);
       setUserProfile(null);
+      setLocalTreatmentPref(null);
       setSyncStatus('local-only');
 
       // 2. Encerrar sessão no Supabase Auth
@@ -360,6 +401,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.removeItem('supabase.auth.token');
         localStorage.removeItem('sb-refresh-token');
         localStorage.removeItem('sb-access-token');
+        localStorage.removeItem('leve_treatment_pref_current');
       } catch {}
     } catch (err) {
       console.error('Logout error:', err);

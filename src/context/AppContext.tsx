@@ -12,6 +12,7 @@ import {
 } from '../services/storage';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
+import { normalizeTreatmentPreference } from '../utils/treatment';
 
 export type ActiveTab = 
   | 'my-day' 
@@ -255,7 +256,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (userProfile) {
       const profileName = (userProfile.name || userProfile.full_name || '').trim();
-      const pref = userProfile.treatment_preference;
+      const rawPref = userProfile.treatment_preference;
+      const pref = rawPref ? normalizeTreatmentPreference(rawPref) : undefined;
+      
+      if (pref) {
+        try {
+          localStorage.setItem('leve_treatment_pref_current', pref);
+          if (user?.id) {
+            localStorage.setItem('leve_treatment_pref_' + user.id, pref);
+          }
+        } catch {}
+      }
+
       setData((prev) => {
         const needsNameUpdate = profileName && prev.user.name !== profileName;
         const needsPrefUpdate = pref && prev.user.treatmentPreference !== pref;
@@ -272,7 +284,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return updated;
       });
     }
-  }, [userProfile]);
+  }, [userProfile, user?.id]);
 
   // On user login: pull from Supabase if available, or sync initial data
   useEffect(() => {
@@ -352,16 +364,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const updateUser = useCallback((profile: Partial<UserProfile>) => {
+    const normalizedPref = profile.treatmentPreference !== undefined
+      ? normalizeTreatmentPreference(profile.treatmentPreference)
+      : undefined;
+
+    if (normalizedPref) {
+      try {
+        localStorage.setItem('leve_treatment_pref_current', normalizedPref);
+        if (user?.id) {
+          localStorage.setItem('leve_treatment_pref_' + user.id, normalizedPref);
+        }
+      } catch {}
+    }
+
     updateData((prev) => ({
       ...prev,
-      user: { ...prev.user, ...profile }
+      user: { 
+        ...prev.user, 
+        ...profile,
+        ...(normalizedPref ? { treatmentPreference: normalizedPref } : {})
+      }
     }));
 
     // Se o usuário estiver autenticado e alterou nome ou preferência de gênero, salva no Supabase
     if (user && (profile.treatmentPreference !== undefined || profile.name !== undefined)) {
       saveProfile({
         name: profile.name,
-        treatment_preference: profile.treatmentPreference
+        treatment_preference: normalizedPref || profile.treatmentPreference
       }).catch((e) => {
         console.warn('Erro ao sincronizar preferência no Supabase:', e);
       });
