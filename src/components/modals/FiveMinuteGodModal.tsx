@@ -213,7 +213,7 @@ export const FiveMinuteGodModal: React.FC = () => {
                 rows={3}
                 value={reflection}
                 onChange={(e) => setReflection(e.target.value)}
-                placeholder="Essa mensagem me lembra que não estou sozinha e que posso descansar..."
+                placeholder="Essa mensagem me lembra que posso respirar com calma e descansar..."
                 className="w-full p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600/50 resize-none"
               />
             </div>

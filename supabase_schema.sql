@@ -97,3 +97,36 @@ CREATE POLICY "Usuários autenticados podem ler suas próprias permissões"
 CREATE INDEX IF NOT EXISTS idx_leve_user_data_user_id ON public.leve_user_data(user_id);
 CREATE INDEX IF NOT EXISTS idx_leve_my_life_user_category ON public.leve_my_life(user_id, category);
 CREATE INDEX IF NOT EXISTS idx_user_entitlements_user_id ON public.user_entitlements(user_id);
+
+-- 5. Tabela de perfis do usuário (profiles) com preferência de tratamento
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT,
+  full_name TEXT,
+  treatment_preference TEXT DEFAULT 'neutro' CHECK (treatment_preference IN ('feminino', 'masculino', 'neutro', 'nao_informar')),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- Garantir que a coluna exista em tabelas de perfis já existentes sem quebrar dados
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS treatment_preference TEXT DEFAULT 'neutro';
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Usuários podem ver seu próprio perfil" ON public.profiles;
+CREATE POLICY "Usuários podem ver seu próprio perfil"
+  ON public.profiles
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = id OR auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Usuários podem atualizar seu próprio perfil" ON public.profiles;
+CREATE POLICY "Usuários podem atualizar seu próprio perfil"
+  ON public.profiles
+  FOR ALL
+  TO authenticated
+  USING (auth.uid() = id OR auth.uid() = user_id)
+  WITH CHECK (auth.uid() = id OR auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);

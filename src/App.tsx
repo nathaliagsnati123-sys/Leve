@@ -4,7 +4,6 @@ import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { MobileMenuDrawer } from './components/common/MobileMenuDrawer';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
-import { PWAInstallBanner } from './components/common/PWAInstallBanner';
 
 // Modals
 import { BrainDumpModal } from './components/modals/BrainDumpModal';
@@ -135,9 +134,6 @@ const AppContent: React.FC = () => {
 
       {/* Mobile Menu Drawer (All options identical to desktop) */}
       <MobileMenuDrawer />
-
-      {/* PWA Discreet Installation Banner */}
-      <PWAInstallBanner />
 
       {/* Global Modals */}
       <BrainDumpModal />

@@ -238,6 +238,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [data.user.hasCompletedOnboarding]);
 
+  // Synchronize Dark Mode with document.documentElement
+  useEffect(() => {
+    const isDark = data.user?.theme === 'dark';
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [data.user?.theme]);
+
   // Supabase Cloud Sync Integration
   const { user, syncDataNow, pullCloudData, userProfile, saveProfile } = useAuth();
 
@@ -245,7 +255,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (userProfile) {
       const profileName = (userProfile.name || userProfile.full_name || '').trim();
-      const pref = userProfile.treatment_preference || 'neutro';
+      const pref = userProfile.treatment_preference;
       setData((prev) => {
         const needsNameUpdate = profileName && prev.user.name !== profileName;
         const needsPrefUpdate = pref && prev.user.treatmentPreference !== pref;

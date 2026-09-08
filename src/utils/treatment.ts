@@ -4,7 +4,7 @@ import { TreatmentPreference } from '../types';
 export const TREATMENT_OPTIONS: { 
   id: TreatmentPreference; 
   label: string; 
-  description: string;
+  description: string; 
 }[] = [
   { 
     id: 'feminino', 
@@ -17,11 +17,6 @@ export const TREATMENT_OPTIONS: {
     description: 'Tratamento no masculino (ele/dele)' 
   },
   { 
-    id: 'neutro', 
-    label: 'Neutro', 
-    description: 'Linguagem neutra e natural, sem gênero' 
-  },
-  { 
     id: 'nao_informar', 
     label: 'Prefiro não informar', 
     description: 'Linguagem neutra e acolhedora' 
@@ -30,16 +25,15 @@ export const TREATMENT_OPTIONS: {
 
 /**
  * Retorna a preferência normalizada de tratamento.
- * Se nenhuma preferência foi informada, NUNCA tenta adivinhar pelo nome;
- * usa 'neutro' por padrão para respeitar a privacidade e neutralidade.
+ * Se nenhuma preferência foi informada, usa 'nao_informar' por padrão.
  */
 export function normalizeTreatmentPreference(raw?: string | null): TreatmentPreference {
-  if (!raw) return 'neutro';
+  if (!raw) return 'nao_informar';
   const val = String(raw).trim().toLowerCase();
   if (val === 'feminino' || val === 'female') return 'feminino';
   if (val === 'masculino' || val === 'male') return 'masculino';
-  if (val === 'nao_informar' || val === 'none' || val === 'not_specified') return 'nao_informar';
-  return 'neutro';
+  if (val === 'nao_informar' || val === 'none' || val === 'not_specified' || val === 'neutro') return 'nao_informar';
+  return 'nao_informar';
 }
 
 /**

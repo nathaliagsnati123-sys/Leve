@@ -158,12 +158,12 @@ export const JournalView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 3 Coisas pelas quais sou grata */}
+            {/* 3 Coisas pelas quais tenho gratidão */}
             <div className="bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
               <div className="flex items-center gap-2">
                 <Heart className="w-4 h-4 text-rose-500 fill-rose-400" />
                 <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-                  3 coisas pelas quais sou grata 🤍
+                  3 coisas pelas quais tenho gratidão 🤍
                 </h3>
               </div>
               <div className="space-y-2">
@@ -171,21 +171,21 @@ export const JournalView: React.FC = () => {
                   type="text"
                   value={gratitude1}
                   onChange={(e) => setGratitude1(e.target.value)}
-                  placeholder="1. Sou grata por..."
+                  placeholder="1. Gratidão por..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                 />
                 <input
                   type="text"
                   value={gratitude2}
                   onChange={(e) => setGratitude2(e.target.value)}
-                  placeholder="2. Sou grata por..."
+                  placeholder="2. Gratidão por..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                 />
                 <input
                   type="text"
                   value={gratitude3}
                   onChange={(e) => setGratitude3(e.target.value)}
-                  placeholder="3. Sou grata por..."
+                  placeholder="3. Gratidão por..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                 />
               </div>

@@ -60,14 +60,6 @@ export const ProgressView: React.FC = () => {
         </button>
       </div>
 
-      {/* Gentle encouragement banner */}
-      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 p-5 rounded-3xl border border-emerald-200/60 dark:border-emerald-900/40 flex items-center gap-3">
-        <span className="text-2xl">🌿</span>
-        <div className="text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 leading-relaxed">
-          <strong>Lembre-se:</strong> Progresso não é ser perfeita todos os dias. Progresso é voltar a cuidar de si mesma com carinho sempre que a vida ficar pesada.
-        </div>
-      </div>
-
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-1">

@@ -136,14 +136,6 @@ export const HabitsView: React.FC = () => {
         </button>
       </div>
 
-      {/* Gentle Motivation Banner */}
-      <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 flex items-center gap-3 text-xs text-stone-700 dark:text-stone-300">
-        <Sparkles className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-        <p>
-          Lembre-se: não há problema em falhar um dia. O segredo da constância é voltar com ternura no dia seguinte.
-        </p>
-      </div>
-
       {/* Habits List with Weekly Grid */}
       <div className="space-y-4">
         {data.habits.length === 0 && (

@@ -91,6 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
   const [isCheckingEntitlements, setIsCheckingEntitlements] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [localTreatmentPref, setLocalTreatmentPref] = useState<TreatmentPreference | null>(null);
 
   const loadEntitlements = useCallback(async (userId?: string, activeSession?: Session | null): Promise<UserEntitlements | null> => {
     setIsCheckingEntitlements(true);
@@ -299,24 +300,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [loadEntitlements, loadProfile]);
 
   const treatmentPreference: TreatmentPreference =
+    localTreatmentPref ||
     userProfile?.treatment_preference ||
     (user?.user_metadata?.treatment_preference as TreatmentPreference) ||
-    'neutro';
+    'nao_informar';
 
   const updateTreatmentPreference = useCallback(async (preference: TreatmentPreference): Promise<boolean> => {
-    if (!user) return false;
-    const res = await saveUserProfileToSupabase(user.id, {
-      name: userProfile?.name || user?.user_metadata?.name || '',
-      treatment_preference: preference
-    });
-    if (res.success) {
-      setUserProfile((prev: any) => ({
-        ...(prev || {}),
+    setLocalTreatmentPref(preference);
+    if (!user) return true;
+    try {
+      const res = await saveUserProfileToSupabase(user.id, {
+        name: userProfile?.name || user?.user_metadata?.name || '',
         treatment_preference: preference
-      }));
-      return true;
-    }
-    return false;
+      });
+      if (res.success) {
+        setUserProfile((prev: any) => ({
+          ...(prev || {}),
+          treatment_preference: preference
+        }));
+        return true;
+      }
+    } catch {}
+    return true;
   }, [user, userProfile]);
 
   const saveProfile = useCallback(async (profile: {
