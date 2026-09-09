@@ -231,7 +231,7 @@ export const HabitsView: React.FC = () => {
 
               {/* Weekly Tracker Grid (Past 7 days) */}
               <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
-                <span className="text-[11px] text-stone-400 font-medium block mb-2">
+                <span className="text-[11px] text-stone-500 dark:text-stone-300 font-medium block mb-2">
                   Últimos 7 dias (toque para marcar ou desmarcar):
                 </span>
                 <div className="grid grid-cols-7 gap-2 text-center">
@@ -246,12 +246,12 @@ export const HabitsView: React.FC = () => {
                       <button
                         key={dStr}
                         onClick={() => toggleHabitCompletion(habit.id, dStr)}
-                        className={`p-2 rounded-2xl border transition flex flex-col items-center justify-between gap-1.5 ${
+                        className={`p-2 rounded-2xl border transition flex flex-col items-center justify-between gap-1.5 cursor-pointer ${
                           isDone
                             ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                             : isToday
-                            ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 text-stone-700 dark:text-stone-300'
-                            : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/40 text-stone-500 hover:border-stone-400'
+                            ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 text-stone-800 dark:text-stone-200'
+                            : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/40 text-stone-700 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-600'
                         }`}
                       >
                         <span className="text-[10px] uppercase font-bold opacity-80">{dayInitial}</span>

@@ -352,7 +352,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     full_name?: string;
     treatment_preference?: TreatmentPreference;
   }): Promise<boolean> => {
-    if (!user) return false;
     const normalizedPref = profile.treatment_preference 
       ? normalizeTreatmentPreference(profile.treatment_preference) 
       : undefined;
@@ -360,25 +359,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (normalizedPref) {
       setLocalTreatmentPref(normalizedPref);
       try {
-        localStorage.setItem('leve_treatment_pref_' + user.id, normalizedPref);
+        if (user?.id) {
+          localStorage.setItem('leve_treatment_pref_' + user.id, normalizedPref);
+        }
         localStorage.setItem('leve_treatment_pref_current', normalizedPref);
       } catch {}
     }
 
-    const res = await saveUserProfileToSupabase(user.id, {
+    setUserProfile((prev: any) => ({
+      ...(prev || {}),
       ...profile,
       ...(normalizedPref ? { treatment_preference: normalizedPref } : {})
-    });
+    }));
 
-    if (res.success) {
-      setUserProfile((prev: any) => ({
-        ...(prev || {}),
+    if (!user) return true;
+
+    try {
+      const res = await saveUserProfileToSupabase(user.id, {
         ...profile,
         ...(normalizedPref ? { treatment_preference: normalizedPref } : {})
-      }));
+      });
+      return res.success;
+    } catch {
       return true;
     }
-    return false;
   }, [user]);
 
   const logout = useCallback(async () => {

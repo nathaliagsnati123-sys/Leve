@@ -269,8 +269,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setData((prev) => {
-        const needsNameUpdate = profileName && prev.user.name !== profileName;
-        const needsPrefUpdate = pref && prev.user.treatmentPreference !== pref;
+        const needsNameUpdate = Boolean(profileName && prev.user.name !== profileName);
+        const hasExplicitLocalPref = Boolean(prev.user.treatmentPreference && prev.user.treatmentPreference !== 'nao_informar');
+        const isMeaningfulCloudPref = Boolean(pref && pref !== 'nao_informar');
+        const needsPrefUpdate = isMeaningfulCloudPref 
+          ? prev.user.treatmentPreference !== pref
+          : (!hasExplicitLocalPref && Boolean(pref) && prev.user.treatmentPreference !== pref);
+
         if (!needsNameUpdate && !needsPrefUpdate) return prev;
         const updated = {
           ...prev,
@@ -296,10 +301,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const cloudData = await pullCloudData();
         if (cloudData && !isCancelled) {
           setData((prev) => {
+            const cloudUser = (cloudData.user || {}) as Partial<UserProfile>;
+            const hasExplicitLocalPref = Boolean(prev.user.treatmentPreference && prev.user.treatmentPreference !== 'nao_informar');
+            const cloudPref = cloudUser.treatmentPreference ? normalizeTreatmentPreference(cloudUser.treatmentPreference) : undefined;
+            const chosenPref = (cloudPref && cloudPref !== 'nao_informar')
+              ? cloudPref
+              : (hasExplicitLocalPref ? prev.user.treatmentPreference : (cloudPref || prev.user.treatmentPreference || 'nao_informar'));
+
             const merged: AppData = {
               ...prev,
               ...cloudData,
-              user: { ...prev.user, ...(cloudData.user || {}) }
+              user: { 
+                ...prev.user, 
+                ...cloudUser,
+                treatmentPreference: chosenPref
+              }
             };
             saveAppData(merged);
             return merged;

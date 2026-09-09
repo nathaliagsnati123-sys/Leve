@@ -35,11 +35,44 @@ export const TREATMENT_OPTIONS: {
 export function normalizeTreatmentPreference(raw?: string | null): TreatmentPreference {
   if (!raw) return 'nao_informar';
   const val = String(raw).trim().toLowerCase();
-  if (val === 'feminino' || val === 'female') return 'feminino';
-  if (val === 'masculino' || val === 'male') return 'masculino';
-  if (val === 'neutro' || val === 'neutral') return 'neutro';
-  if (val === 'nao_informar' || val === 'none' || val === 'not_specified' || val === 'prefiro_nao_informar') return 'nao_informar';
+  if (val === 'feminino' || val === 'female' || val === 'ela' || val === 'ela/dela') return 'feminino';
+  if (val === 'masculino' || val === 'male' || val === 'ele' || val === 'ele/dele') return 'masculino';
+  if (val === 'neutro' || val === 'neutral' || val === 'elu' || val === 'elu/delu') return 'neutro';
+  if (val === 'nao_informar' || val === 'none' || val === 'not_specified' || val === 'prefiro_nao_informar' || val === 'prefiro não informar') return 'nao_informar';
   return 'nao_informar';
+}
+
+/**
+ * Retorna um termo adaptado ao gênero configurado pelo usuário.
+ */
+export function getGenderedTerm(
+  preference: TreatmentPreference | undefined | null,
+  feminine: string,
+  masculine: string,
+  neutral: string
+): string {
+  const pref = normalizeTreatmentPreference(preference);
+  if (pref === 'feminino') return feminine;
+  if (pref === 'masculino') return masculine;
+  return neutral;
+}
+
+/**
+ * Boas-vindas adaptadas ao gênero do usuário.
+ * Ex: "Bem-vinda de volta, Nathália!" ou "Boas-vindas!"
+ */
+export function getWelcomeTitle(preference?: TreatmentPreference | null, name?: string | null): string {
+  const cleanName = name?.trim();
+  const namePart = cleanName ? `, ${cleanName}` : '';
+  const pref = normalizeTreatmentPreference(preference);
+
+  if (pref === 'feminino') {
+    return `Bem-vinda${namePart}! 🌿`;
+  }
+  if (pref === 'masculino') {
+    return `Bem-vindo${namePart}! 🌿`;
+  }
+  return cleanName ? `Boas-vindas, ${cleanName}! 🌿` : 'Boas-vindas ao LEVE! 🌿';
 }
 
 /**
@@ -57,8 +90,15 @@ export function formatGreetingWithName(greeting: string, name?: string | null): 
 /**
  * Mensagem de boas-vindas sem presunção de gênero
  */
-export function getWelcomeGreeting(name?: string | null): string {
+export function getWelcomeGreeting(name?: string | null, preference?: TreatmentPreference | null): string {
   const cleanName = name?.trim();
+  const pref = normalizeTreatmentPreference(preference);
+  if (pref === 'feminino') {
+    return cleanName ? `Que bom ter você aqui, querida ${cleanName}!` : 'Que bom ter você aqui, bem-vinda!';
+  }
+  if (pref === 'masculino') {
+    return cleanName ? `Que bom ter você aqui, ${cleanName}!` : 'Que bom ter você aqui, bem-vindo!';
+  }
   if (cleanName) {
     return `Que bom ter você aqui, ${cleanName}!`;
   }

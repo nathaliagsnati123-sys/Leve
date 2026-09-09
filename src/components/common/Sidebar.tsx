@@ -56,30 +56,30 @@ export const Sidebar: React.FC = () => {
   const unlockedCount = Object.keys(data.unlockedAchievements).length;
 
   return (
-    <aside aria-label="Navegação principal" className="hidden md:flex flex-col w-64 lg:w-72 bg-[#F6F7F4] dark:bg-[#111714] border-r border-stone-200/80 dark:border-stone-800/80 min-h-screen p-4 justify-between transition-colors">
-      <div className="space-y-6">
+    <aside aria-label="Navegação principal" className="flex flex-col w-full bg-white dark:bg-stone-900 rounded-3xl border border-stone-200/80 dark:border-stone-800 p-3.5 sm:p-4 justify-between shadow-xs transition-colors max-h-[calc(100vh-6.5rem)] overflow-hidden">
+      <div className="space-y-4 min-h-0 flex-1 flex flex-col">
         {/* Brand header */}
-        <div className="flex items-center justify-between px-2 pt-1">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-sm ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
+        <div className="flex items-center justify-between px-2 pt-1 pb-1 shrink-0 border-b border-stone-100 dark:border-stone-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
               <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="font-serif font-bold text-xl tracking-widest text-stone-900 dark:text-stone-100">
+              <h2 className="font-serif font-bold text-base tracking-wider text-stone-900 dark:text-stone-100 leading-tight">
                 LEVE
-              </h1>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                Tire da cabeça. Coloque em ordem.
+              </h2>
+              <p className="text-[10px] text-stone-500 dark:text-stone-300 leading-none">
+                Ordem e leveza
               </p>
             </div>
           </div>
         </div>
 
         {/* Navigation list */}
-        <nav aria-label="Seções do aplicativo" className="space-y-4 px-1 text-xs sm:text-sm overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
+        <nav aria-label="Seções do aplicativo" className="space-y-4 px-1 text-xs sm:text-sm overflow-y-auto flex-1 pr-1.5 custom-scrollbar">
           {/* Main group */}
           <div>
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-400">
               Principal
             </span>
             <div className="mt-1 space-y-0.5">
@@ -93,16 +93,16 @@ export const Sidebar: React.FC = () => {
                     key={item.id}
                     id={`sidebar-link-${item.id}`}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition text-left ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition text-left cursor-pointer ${
                       isActive
                         ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
-                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
+                        : 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-300'}`} />
                     <span className="truncate flex-1">{item.label}</span>
                     {displayBadge && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
                         isActive 
                           ? 'bg-amber-400/20 text-amber-200' 
                           : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
@@ -111,7 +111,7 @@ export const Sidebar: React.FC = () => {
                       </span>
                     )}
                     {isLocked && !displayBadge && (
-                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                      <Lock className="w-3.5 h-3.5 text-stone-400 dark:text-stone-400 shrink-0" />
                     )}
                   </button>
                 );
@@ -121,7 +121,7 @@ export const Sidebar: React.FC = () => {
 
           {/* Wellness group */}
           <div>
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-400">
               Corpo & Cuidado
             </span>
             <div className="mt-1 space-y-0.5">
@@ -134,16 +134,16 @@ export const Sidebar: React.FC = () => {
                     key={item.id}
                     id={`sidebar-link-${item.id}`}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition text-left ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition text-left cursor-pointer ${
                       isActive
                         ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
-                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
+                        : 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-300'}`} />
                     <span className="truncate flex-1">{item.label}</span>
                     {isLocked && (
-                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                      <Lock className="w-3.5 h-3.5 text-stone-400 dark:text-stone-400 shrink-0" />
                     )}
                   </button>
                 );
@@ -153,7 +153,7 @@ export const Sidebar: React.FC = () => {
 
           {/* Management group */}
           <div>
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-400">
               Controle & Avanço
             </span>
             <div className="mt-1 space-y-0.5">
@@ -166,16 +166,16 @@ export const Sidebar: React.FC = () => {
                     key={item.id}
                     id={`sidebar-link-${item.id}`}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition text-left ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition text-left cursor-pointer ${
                       isActive
                         ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
-                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
+                        : 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-300'}`} />
                     <span className="truncate flex-1">{item.label}</span>
                     {isLocked && (
-                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                      <Lock className="w-3.5 h-3.5 text-stone-400 dark:text-stone-400 shrink-0" />
                     )}
                   </button>
                 );
@@ -186,29 +186,29 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Footer Profile, Supabase & Conquistas card */}
-      <div className="pt-3 border-t border-stone-200/80 dark:border-stone-800/80 space-y-2">
+      <div className="pt-3 shrink-0 border-t border-stone-200/80 dark:border-stone-800/80 space-y-2">
         {/* Cloud Sync button */}
         <button
           id="sidebar-auth-btn"
           onClick={() => setIsAuthModalOpen(true)}
-          className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition text-xs ${
+          className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition text-xs cursor-pointer ${
             user 
-              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200' 
-              : 'bg-stone-100 dark:bg-stone-850 border border-stone-200/70 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200/60'
+              ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-100' 
+              : 'bg-stone-50 dark:bg-stone-800/80 border border-stone-200/70 dark:border-stone-700 text-stone-800 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-750'
           }`}
         >
           <div className="flex items-center gap-2 truncate">
-            <Cloud className={`w-3.5 h-3.5 shrink-0 ${user ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500'}`} />
+            <Cloud className={`w-3.5 h-3.5 shrink-0 ${user ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500 dark:text-stone-300'}`} />
             <div className="truncate">
               <p className="text-[11px] font-semibold truncate">
                 {user ? planLabel : 'Acessar Conta'}
               </p>
-              <p className="text-[9px] text-stone-500 dark:text-stone-400 truncate">
+              <p className="text-[9px] text-stone-500 dark:text-stone-300 truncate">
                 {user ? user.email : 'Acesse de qualquer dispositivo'}
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-stone-800/80 shadow-2xs shrink-0">
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-stone-800 text-stone-700 dark:text-stone-200 shadow-2xs shrink-0 border border-stone-200/60 dark:border-stone-700">
             {user ? 'Online' : 'Entrar'}
           </span>
         </button>
@@ -216,16 +216,16 @@ export const Sidebar: React.FC = () => {
         {/* Achievements trigger */}
         <button
           onClick={() => setIsAchievementsOpen(true)}
-          className="w-full flex items-center justify-between p-2 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-left hover:bg-amber-100/60 transition"
+          className="w-full flex items-center justify-between p-2 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-900/60 text-left hover:bg-amber-100/70 dark:hover:bg-amber-950/60 transition cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <span className="text-base">🏆</span>
             <div>
               <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200">Minhas Conquistas</p>
-              <p className="text-[10px] text-amber-700 dark:text-amber-400">{unlockedCount} medalhas desbloqueadas</p>
+              <p className="text-[10px] text-amber-800 dark:text-amber-300">{unlockedCount} medalhas desbloqueadas</p>
             </div>
           </div>
-          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+          <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
         </button>
 
         {/* User Mini Card / Configurações */}
@@ -235,7 +235,7 @@ export const Sidebar: React.FC = () => {
           className={`w-full flex items-center justify-between p-2 rounded-2xl border transition cursor-pointer text-left ${
             activeTab === 'settings'
               ? 'bg-[#1F3A34] text-white border-[#1F3A34] shadow-xs'
-              : 'bg-white dark:bg-stone-900 border-stone-200/60 dark:border-stone-800/60 hover:bg-stone-50 dark:hover:bg-stone-850 shadow-xs'
+              : 'bg-stone-50 dark:bg-stone-800/80 border-stone-200/70 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750 shadow-xs'
           }`}
           title="Abrir Configurações do Perfil"
         >
@@ -243,7 +243,7 @@ export const Sidebar: React.FC = () => {
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${
               activeTab === 'settings'
                 ? 'bg-emerald-800 text-emerald-100'
-                : 'bg-emerald-100 dark:bg-emerald-950'
+                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200'
             }`}>
               {data.user.avatar || '🌿'}
             </div>
@@ -254,7 +254,7 @@ export const Sidebar: React.FC = () => {
                 {data.user.name || 'Você'}
               </p>
               <p className={`text-[10px] truncate ${
-                activeTab === 'settings' ? 'text-emerald-200' : 'text-stone-500 dark:text-stone-400'
+                activeTab === 'settings' ? 'text-emerald-200' : 'text-stone-500 dark:text-stone-300'
               }`}>
                 Dia {todayCompletionPercentage}% concluído
               </p>
@@ -263,7 +263,7 @@ export const Sidebar: React.FC = () => {
           <div className={`p-1.5 rounded-lg ${
             activeTab === 'settings'
               ? 'text-emerald-200 bg-white/10'
-              : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+              : 'text-stone-400 hover:text-stone-700 dark:text-stone-300 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-700'
           }`}>
             <Settings className="w-4 h-4" />
           </div>

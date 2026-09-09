@@ -63,47 +63,47 @@ export const ProgressView: React.FC = () => {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-1">
-          <div className="flex items-center gap-1.5 text-stone-400 text-xs">
+          <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-300 text-xs">
             <Flame className="w-4 h-4 text-orange-500" />
             <span>Sequência Atual</span>
           </div>
           <p className="text-2xl font-serif font-bold text-stone-900 dark:text-stone-100">
             {streakDays} {streakDays === 1 ? 'dia' : 'dias'}
           </p>
-          <span className="text-[10px] text-stone-400">De consistência e presença</span>
+          <span className="text-[10px] text-stone-500 dark:text-stone-300">De consistência e presença</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-1">
-          <div className="flex items-center gap-1.5 text-stone-400 text-xs">
+          <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-300 text-xs">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>Tarefas Concluídas</span>
           </div>
           <p className="text-2xl font-serif font-bold text-stone-900 dark:text-stone-100">
             {totalTasksCompleted}
           </p>
-          <span className="text-[10px] text-stone-400">Tiradas da mente e feitas</span>
+          <span className="text-[10px] text-stone-500 dark:text-stone-300">Tiradas da mente e feitas</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-1">
-          <div className="flex items-center gap-1.5 text-stone-400 text-xs">
+          <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-300 text-xs">
             <Target className="w-4 h-4 text-indigo-500" />
             <span>Metas Alcançadas</span>
           </div>
           <p className="text-2xl font-serif font-bold text-stone-900 dark:text-stone-100">
             {totalGoalsReached}
           </p>
-          <span className="text-[10px] text-stone-400">Sonhos materializados</span>
+          <span className="text-[10px] text-stone-500 dark:text-stone-300">Sonhos materializados</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-1">
-          <div className="flex items-center gap-1.5 text-stone-400 text-xs">
+          <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-300 text-xs">
             <Award className="w-4 h-4 text-amber-500" />
             <span>Medalhas</span>
           </div>
           <p className="text-2xl font-serif font-bold text-stone-900 dark:text-stone-100">
             {unlockedBadgesCount}
           </p>
-          <span className="text-[10px] text-stone-400">Marcos de autocuidado</span>
+          <span className="text-[10px] text-stone-500 dark:text-stone-300">Marcos de autocuidado</span>
         </div>
       </div>
 

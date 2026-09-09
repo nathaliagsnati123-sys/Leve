@@ -120,11 +120,11 @@ const AppContent: React.FC = () => {
       <Header />
 
       {/* Main Body Layout */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 gap-6">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 gap-6 items-start">
         {/* Desktop Left Sidebar */}
-        <aside className="hidden md:block w-64 flex-shrink-0">
+        <div className="hidden md:block w-64 lg:w-72 shrink-0 sticky top-20">
           <Sidebar />
-        </aside>
+        </div>
 
         {/* Dynamic Center View Container */}
         <main className="flex-1 min-w-0 pb-safe pb-8 md:pb-6">

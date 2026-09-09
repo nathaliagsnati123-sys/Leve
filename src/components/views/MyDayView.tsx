@@ -208,10 +208,10 @@ export const MyDayView: React.FC = () => {
                 : 'Dando um passo de cada vez 🌿'}
             </span>
           </div>
-          <div className="w-full sm:w-44 h-1.5 bg-emerald-950/80 rounded-full overflow-hidden">
+          <div className="w-full sm:w-44 h-1.5 bg-emerald-950/80 rounded-full overflow-hidden shrink-0">
             <div 
               className="h-full bg-gradient-to-r from-emerald-400 to-teal-200 rounded-full transition-all duration-500"
-              style={{ width: `${todayCompletionPercentage}%` }}
+              style={{ width: `${Math.min(Math.max(todayCompletionPercentage, 0), 100)}%` }}
             />
           </div>
         </div>
@@ -338,7 +338,7 @@ export const MyDayView: React.FC = () => {
                 className={`group relative p-2.5 sm:p-3 rounded-xl border transition flex flex-col justify-between gap-1.5 ${
                   t.completed 
                     ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 dark:bg-emerald-950/20' 
-                    : 'border-stone-200/70 dark:border-stone-700/60 bg-stone-50/60 dark:bg-stone-800/40 hover:border-amber-400 dark:hover:border-amber-600'
+                    : 'border-stone-200/70 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800 hover:border-amber-400 dark:hover:border-amber-500'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -397,7 +397,7 @@ export const MyDayView: React.FC = () => {
                   }`}>
                     {t.title}
                   </p>
-                  <span className="text-[10px] text-stone-400 block">
+                  <span className="text-[10px] text-stone-500 dark:text-stone-300 block">
                     {t.category} {t.time ? `• ${t.time}` : ''}
                   </span>
                 </div>
@@ -409,7 +409,7 @@ export const MyDayView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAddingPriority(true)}
-                className="p-2.5 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-600/60 bg-transparent hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition flex flex-row sm:flex-col items-center justify-center text-center gap-1 text-stone-400 hover:text-amber-700 dark:hover:text-amber-400 min-h-[52px]"
+                className="p-2.5 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-600/60 bg-transparent hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition flex flex-row sm:flex-col items-center justify-center text-center gap-1 text-stone-500 dark:text-stone-300 hover:text-amber-700 dark:hover:text-amber-400 min-h-[52px]"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">
@@ -419,8 +419,8 @@ export const MyDayView: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/30 border border-stone-200/60 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            <p className="text-xs text-stone-500">
+          <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/60 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <p className="text-xs text-stone-600 dark:text-stone-300">
               Você ainda não definiu as prioridades de hoje. Foque no que traz mais leveza e resultado!
             </p>
             <button
@@ -441,7 +441,7 @@ export const MyDayView: React.FC = () => {
             <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
               Tarefas de Hoje ({todayTasks.filter((t) => t.completed).length}/{todayTasks.length})
             </h2>
-            <p className="text-[11px] text-stone-400">
+            <p className="text-[11px] text-stone-500 dark:text-stone-300">
               Tudo o que você planejou para o seu dia
             </p>
           </div>
@@ -506,8 +506,8 @@ export const MyDayView: React.FC = () => {
                   key={task.id}
                   className={`group p-2.5 sm:p-3 rounded-xl border transition flex items-center justify-between gap-2.5 ${
                     task.completed
-                      ? 'bg-stone-50/70 dark:bg-stone-850/40 border-stone-200/50 dark:border-stone-800 text-stone-400 dark:text-stone-500'
-                      : 'bg-white dark:bg-stone-800/80 border-stone-200/80 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:border-emerald-300 dark:hover:border-emerald-700'
+                      ? 'bg-stone-50/70 dark:bg-stone-800/40 border-stone-200/50 dark:border-stone-800 text-stone-400 dark:text-stone-400'
+                      : 'bg-white dark:bg-stone-800 border-stone-200/80 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:border-emerald-300 dark:hover:border-emerald-700'
                   }`}
                 >
                   <div 
@@ -544,8 +544,8 @@ export const MyDayView: React.FC = () => {
                           {task.category}
                         </span>
                         {task.time && (
-                          <span className="flex items-center gap-1 text-[10px] text-stone-400">
-                            <Clock className="w-3 h-3" />
+                          <span className="flex items-center gap-1 text-[10px] text-stone-500 dark:text-stone-300 font-medium">
+                            <Clock className="w-3 h-3 text-stone-400 dark:text-stone-400" />
                             {task.time}
                           </span>
                         )}
@@ -560,7 +560,7 @@ export const MyDayView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => openEditTaskModal(task)}
-                      className="opacity-80 sm:opacity-0 sm:group-hover:opacity-100 text-xs text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700 transition touch-manipulation"
+                      className="opacity-80 sm:opacity-0 sm:group-hover:opacity-100 text-xs text-stone-500 dark:text-stone-300 hover:text-stone-800 dark:hover:text-white px-2 py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700 transition touch-manipulation"
                       title="Editar tarefa"
                     >
                       Editar
@@ -646,7 +646,7 @@ export const MyDayView: React.FC = () => {
                     className={`group p-2.5 rounded-xl border transition flex items-center justify-between gap-2.5 ${
                       isDoneToday
                         ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40 text-stone-900 dark:text-stone-100'
-                        : 'bg-stone-50/50 dark:bg-stone-800/50 border-stone-200/70 dark:border-stone-700/60 text-stone-800 dark:text-stone-200 hover:border-emerald-300'
+                        : 'bg-stone-50/50 dark:bg-stone-800 border-stone-200/70 dark:border-stone-700 text-stone-800 dark:text-stone-100 hover:border-emerald-300'
                     }`}
                   >
                     <div 
@@ -658,7 +658,7 @@ export const MyDayView: React.FC = () => {
                         <p className={`text-xs sm:text-sm font-semibold truncate ${isDoneToday ? 'line-through opacity-70' : ''}`}>
                           {habit.name}
                         </p>
-                        <p className="text-[10px] text-stone-400">{habit.category}</p>
+                        <p className="text-[10px] text-stone-500 dark:text-stone-400">{habit.category}</p>
                       </div>
                     </div>
 
@@ -832,8 +832,8 @@ export const MyDayView: React.FC = () => {
       </div>
 
       {/* 6. Quick Gratitude Widget */}
-      <section className="bg-stone-100/70 dark:bg-stone-850/60 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 space-y-2">
-        <h3 className="font-serif text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200">
+      <section className="bg-stone-100/70 dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 space-y-2">
+        <h3 className="font-serif text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-100">
           Uma coisa boa que aconteceu hoje 🤍
         </h3>
         <form onSubmit={handleSaveQuickGratitude} className="flex gap-2">
