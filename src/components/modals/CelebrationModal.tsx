@@ -25,7 +25,7 @@ export const CelebrationModal: React.FC = () => {
 
   if (!celebrationAchievement) return null;
 
-  const userName = data.user?.name || 'amiga';
+  const userName = data.user?.name?.trim() || '';
 
   const handleViewAllAchievements = () => {
     closeCelebration();
@@ -81,7 +81,7 @@ export const CelebrationModal: React.FC = () => {
 
         {/* Big Congratulations Title */}
         <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-50 mt-1">
-          Parabéns, {userName}! 🎉
+          {userName ? `Parabéns, ${userName}! 🎉` : 'Parabéns pela conquista! 🎉'}
         </h2>
 
         {/* Achievement Card Content */}

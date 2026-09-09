@@ -392,7 +392,7 @@ export const AuthModal: React.FC = () => {
                     Preferência de Tratamento
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {TREATMENT_OPTIONS.map((opt) => {
                     const currentPref = data.user?.treatmentPreference || authTreatmentPref || 'nao_informar';
                     const isSelected = currentPref === opt.id;

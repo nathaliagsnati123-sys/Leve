@@ -904,12 +904,16 @@ export async function saveUserProfileToSupabase(
 
   // 1. Atualizar user_metadata no Supabase Auth para a conta (funciona nativamente sem depender de tabelas)
   try {
+    const metaPayload: Record<string, any> = {
+      treatment_preference
+    };
+    if (name) {
+      metaPayload.name = name;
+      metaPayload.full_name = fullName;
+    }
+
     const { error: authErr } = await client.auth.updateUser({
-      data: {
-        name,
-        full_name: fullName,
-        treatment_preference
-      }
+      data: metaPayload
     });
     if (!authErr) authUpdated = true;
   } catch (e) {
@@ -918,28 +922,26 @@ export async function saveUserProfileToSupabase(
 
   // 2. Upsert na tabela profiles respeitando RLS se a tabela existir
   try {
+    const profilePayload: Record<string, any> = {
+      id: userId,
+      user_id: userId,
+      treatment_preference: treatment_preference,
+      updated_at: new Date().toISOString()
+    };
+    if (name) {
+      profilePayload.name = name;
+      profilePayload.full_name = fullName;
+    }
+
     const { error } = await client
       .from('profiles')
-      .upsert({
-        id: userId,
-        user_id: userId,
-        name: name,
-        full_name: fullName,
-        treatment_preference: treatment_preference,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .upsert(profilePayload, { onConflict: 'id' });
 
     if (error) {
       // Tentativa alternativa com conflito por user_id caso a chave primária seja diferente
       await client
         .from('profiles')
-        .upsert({
-          user_id: userId,
-          name: name,
-          full_name: fullName,
-          treatment_preference: treatment_preference,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+        .upsert(profilePayload, { onConflict: 'user_id' });
     }
   } catch (e: any) {
     console.warn('[Supabase Profiles] Aviso ao persistir tabela profiles:', e);

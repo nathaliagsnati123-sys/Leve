@@ -56,7 +56,7 @@ export const Header: React.FC = () => {
             id="header-auth-btn"
             onClick={() => setIsAuthModalOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100 dark:bg-stone-800/70 hover:bg-stone-200/70 dark:hover:bg-stone-700/60 border border-stone-200/70 dark:border-stone-700/60 transition cursor-pointer"
-            title={user ? `Conectada: ${user.email}` : 'Acessar de qualquer dispositivo'}
+            title={user ? `Conectado como ${user.email}` : 'Acessar de qualquer dispositivo'}
           >
             {user ? (
               <>

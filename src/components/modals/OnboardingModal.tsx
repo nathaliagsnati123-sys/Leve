@@ -147,7 +147,7 @@ export const OnboardingModal: React.FC = () => {
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-1.5">
                   Preferência de tratamento
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {TREATMENT_OPTIONS.map((opt) => {
                     const isSelected = treatmentPreference === opt.id;
                     return (

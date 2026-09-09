@@ -8,9 +8,16 @@ export const SleepView: React.FC = () => {
   const { data, updateSleep } = useApp();
   const todayStr = getTodayDateString();
 
+  const pref = data.user?.treatmentPreference;
+  const qualityOptions: SleepQuality[] = pref === 'masculino'
+    ? ['Descansado e disposto', 'Sono picado / acordei algumas vezes', 'Cansado / precisava de mais']
+    : pref === 'feminino'
+    ? ['Descansada e disposta', 'Sono picado / acordei algumas vezes', 'Cansada / precisava de mais']
+    : ['Com descanso e disposição', 'Sono picado / acordei algumas vezes', 'Com cansaço / precisava de mais sono'];
+
   const [bedtime, setBedtime] = useState('23:00');
   const [wakeTime, setWakeTime] = useState('07:00');
-  const [quality, setQuality] = useState<SleepQuality>('Descansada e disposta');
+  const [quality, setQuality] = useState<SleepQuality>(qualityOptions[0]);
   const [date, setDate] = useState(todayStr);
 
   // Calculate duration in hours
@@ -124,7 +131,7 @@ export const SleepView: React.FC = () => {
           <div className="space-y-1">
             <label className="font-medium text-stone-700 dark:text-stone-300">Como acordei?</label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(['Descansada e disposta', 'Sono picado / acordei algumas vezes', 'Cansada / precisava de mais'] as SleepQuality[]).map((q) => (
+              {qualityOptions.map((q) => (
                 <button
                   key={q}
                   type="button"

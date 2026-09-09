@@ -16,6 +16,7 @@ export const SettingsView: React.FC = () => {
     treatmentPreference: authTreatmentPref, 
     updateTreatmentPreference,
     userProfile,
+    saveProfile,
     plan,
     planLabel,
     refreshEntitlements,
@@ -52,13 +53,25 @@ export const SettingsView: React.FC = () => {
 
   const avatarOptions = ['🌿', '🌸', '✨', '☕', '🕊️', '🧘‍♀️', '📖', '🌊', '🦋', '🌱'];
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
+    const normalizedPref = normalizeTreatmentPreference(selectedPreference);
     updateUser({
       name: cleanName,
-      avatar: selectedAvatar
+      avatar: selectedAvatar,
+      treatmentPreference: normalizedPref
     });
+    if (user) {
+      try {
+        await saveProfile({
+          name: cleanName,
+          treatment_preference: normalizedPref
+        });
+      } catch (err) {
+        console.warn('Erro ao salvar perfil no Supabase:', err);
+      }
+    }
     showToast('Perfil atualizado com sucesso! ✨');
   };
 
