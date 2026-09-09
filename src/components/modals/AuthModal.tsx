@@ -13,6 +13,7 @@ import { parseBoolean } from '../../services/supabase';
 import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
+import { trackPixelEvent } from '../../utils/pixel';
 
 export const AuthModal: React.FC = () => {
   const { 
@@ -107,6 +108,8 @@ export const AuthModal: React.FC = () => {
     setIsSubmitting(false);
 
     if (res.success) {
+      trackPixelEvent('CompleteRegistration');
+      trackPixelEvent('Lead');
       updateUser({
         name: name.trim() || data.user.name,
         treatmentPreference

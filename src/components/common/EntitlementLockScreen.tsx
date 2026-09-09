@@ -27,6 +27,7 @@ import {
   HOTMART_CHECKOUT,
   buildHotmartUrl
 } from '../../services/authorization';
+import { trackPixelEvent } from '../../utils/pixel';
 
 interface EntitlementLockScreenProps {
   feature?: AppFeature | string;
@@ -216,6 +217,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                 href={upgradeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: 'Upgrade LEVIA', value: 16.0, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold shadow-lg shadow-amber-600/20 hover:shadow-xl transition-all cursor-pointer group"
               >
                 <Sparkles className="w-4 h-4 text-amber-200 group-hover:rotate-12 transition-transform" />
@@ -236,6 +238,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                 href={vipDirectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: 'LEVE VIP Anual', value: 65.9, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-sm font-bold shadow-md hover:shadow-lg transition cursor-pointer"
               >
                 <Crown className="w-4 h-4 text-amber-400" />
@@ -248,6 +251,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                 href={especialUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: 'LEVE Especial Vitalício', value: 49.9, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold transition cursor-pointer"
               >
                 <span>Ou adquirir LEVE Especial por R$ 49,90</span>
@@ -261,6 +265,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                 href={especialUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: `LEVE Especial - ${featureTitle}`, value: 49.9, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-sm font-bold shadow-md hover:shadow-lg transition cursor-pointer"
               >
                 <Star className="w-4 h-4 text-amber-300" />
@@ -273,6 +278,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                 href={vipDirectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: `LEVE VIP - ${featureTitle}`, value: 65.9, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition cursor-pointer"
               >
                 <span>Ou assinar LEVE VIP com LEVIA por R$ 65,90</span>

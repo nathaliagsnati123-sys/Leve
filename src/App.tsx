@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { trackPixelPageView } from './utils/pixel';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { MobileMenuDrawer } from './components/common/MobileMenuDrawer';
@@ -42,6 +43,10 @@ import { useAuth } from './context/AuthContext';
 const AppContent: React.FC = () => {
   const { activeTab, setActiveTab, toastMessage } = useApp();
   const { user, canAccessFeature, isCheckingEntitlements, isLoading } = useAuth();
+
+  useEffect(() => {
+    trackPixelPageView(activeTab);
+  }, [activeTab]);
 
   const renderActiveView = () => {
     // 1. "Meu Dia" é SEMPRE liberado para qualquer plano e visitantes
