@@ -53,8 +53,8 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
             <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-stone-900 p-6 shadow-2xl border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#1F3A34] flex items-center justify-center text-emerald-200 font-bold text-sm">
-                    L
+                  <div className="w-8 h-8 rounded-lg overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
+                    <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
                   </div>
                   <h3 className="font-serif text-lg font-semibold">Instalar LEVE no iPhone</h3>
                 </div>
