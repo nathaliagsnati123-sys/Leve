@@ -159,11 +159,45 @@ export const INITIAL_APP_DATA: AppData = {
 };
 
 export const USER_IDENTITY_KEY = 'leve_user_identity_v1';
+export const REMEMBERED_EMAIL_KEY = 'leve_remembered_email';
+export const PRESENTATION_COMPLETED_KEY = 'leve_presentation_completed_v1';
+
+export function getRememberedEmail(): string {
+  try {
+    return (localStorage.getItem(REMEMBERED_EMAIL_KEY) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+export function saveRememberedEmail(email: string): void {
+  try {
+    const clean = (email || '').trim().toLowerCase();
+    if (clean) {
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, clean);
+    }
+  } catch {}
+}
+
+export function isPresentationAlreadyCompleted(): boolean {
+  try {
+    return localStorage.getItem(PRESENTATION_COMPLETED_KEY) === 'true' || Boolean(getRememberedEmail());
+  } catch {
+    return false;
+  }
+}
+
+export function markPresentationCompleted(): void {
+  try {
+    localStorage.setItem(PRESENTATION_COMPLETED_KEY, 'true');
+  } catch {}
+}
 
 export interface PersistentUserIdentity {
   name: string;
   avatar: string;
   treatmentPreference?: any;
+  hasCompletedOnboarding?: boolean;
 }
 
 export function getSavedUserIdentity(): PersistentUserIdentity | null {
@@ -175,7 +209,8 @@ export function getSavedUserIdentity(): PersistentUserIdentity | null {
         return {
           name: typeof parsed.name === 'string' ? parsed.name : '',
           avatar: typeof parsed.avatar === 'string' && parsed.avatar ? parsed.avatar : '🌿',
-          treatmentPreference: parsed.treatmentPreference || 'nao_informar'
+          treatmentPreference: parsed.treatmentPreference || 'nao_informar',
+          hasCompletedOnboarding: Boolean(parsed.hasCompletedOnboarding)
         };
       }
     }
@@ -185,12 +220,13 @@ export function getSavedUserIdentity(): PersistentUserIdentity | null {
 
 export function saveUserIdentity(identity: Partial<PersistentUserIdentity>): void {
   try {
-    const existing = getSavedUserIdentity() || { name: '', avatar: '🌿', treatmentPreference: 'nao_informar' };
+    const existing = getSavedUserIdentity() || { name: '', avatar: '🌿', treatmentPreference: 'nao_informar', hasCompletedOnboarding: false };
     const updated = {
       ...existing,
       ...(identity.name !== undefined ? { name: identity.name } : {}),
       ...(identity.avatar !== undefined ? { avatar: identity.avatar } : {}),
-      ...(identity.treatmentPreference !== undefined ? { treatmentPreference: identity.treatmentPreference } : {})
+      ...(identity.treatmentPreference !== undefined ? { treatmentPreference: identity.treatmentPreference } : {}),
+      ...(identity.hasCompletedOnboarding !== undefined ? { hasCompletedOnboarding: identity.hasCompletedOnboarding } : {})
     };
     localStorage.setItem(USER_IDENTITY_KEY, JSON.stringify(updated));
   } catch (err) {
@@ -208,6 +244,9 @@ export function loadAppData(): AppData {
 
     const savedIdentity = getSavedUserIdentity();
 
+    const presentationAlreadyDone = isPresentationAlreadyCompleted();
+    const hasCompletedOnboardingVal = Boolean(savedIdentity?.hasCompletedOnboarding || presentationAlreadyDone);
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial: AppData = {
@@ -216,7 +255,8 @@ export function loadAppData(): AppData {
           ...INITIAL_APP_DATA.user,
           ...(savedIdentity?.name ? { name: savedIdentity.name } : {}),
           ...(savedIdentity?.avatar ? { avatar: savedIdentity.avatar } : {}),
-          ...(savedIdentity?.treatmentPreference ? { treatmentPreference: savedIdentity.treatmentPreference } : {})
+          ...(savedIdentity?.treatmentPreference ? { treatmentPreference: savedIdentity.treatmentPreference } : {}),
+          hasCompletedOnboarding: hasCompletedOnboardingVal
         },
         unlockedAchievements: {}
       };
@@ -230,7 +270,8 @@ export function loadAppData(): AppData {
       ...parsed.user,
       ...(savedIdentity?.name && !parsed.user?.name ? { name: savedIdentity.name } : {}),
       ...(savedIdentity?.avatar && (!parsed.user?.avatar || parsed.user.avatar === '🌿') ? { avatar: savedIdentity.avatar } : {}),
-      ...(savedIdentity?.treatmentPreference && (!parsed.user?.treatmentPreference || parsed.user.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {})
+      ...(savedIdentity?.treatmentPreference && (!parsed.user?.treatmentPreference || parsed.user.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {}),
+      hasCompletedOnboarding: Boolean(parsed.user?.hasCompletedOnboarding || hasCompletedOnboardingVal)
     };
 
     return {

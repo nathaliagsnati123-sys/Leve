@@ -8,13 +8,21 @@ import {
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 import { trackPixelEvent } from '../../utils/pixel';
+import { 
+  getRememberedEmail, saveRememberedEmail, 
+  isPresentationAlreadyCompleted, markPresentationCompleted, 
+  saveUserIdentity 
+} from '../../services/storage';
 
 export const OnboardingModal: React.FC = () => {
-  const { isOnboardingOpen, setIsOnboardingOpen, updateUser, data, startTour, showToast } = useApp();
-  const { user, login, signup, updateTreatmentPreference, saveProfile } = useAuth();
+  const { isOnboardingOpen, setIsOnboardingOpen, updateUser, data, showToast } = useApp();
+  const { login, signup } = useAuth();
+
+  const savedEmail = getRememberedEmail();
+  const presentationAlreadyDone = isPresentationAlreadyCompleted();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>(() => (savedEmail ? 'login' : 'signup'));
 
   // Form states
   const [name, setName] = useState(data.user.name || '');
@@ -23,13 +31,18 @@ export const OnboardingModal: React.FC = () => {
     return normalizeTreatmentPreference(data.user.treatmentPreference || 'feminino');
   });
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => savedEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!isOnboardingOpen) return null;
+  if (!isOnboardingOpen || presentationAlreadyDone) return null;
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    saveRememberedEmail(val);
+  };
 
   const avatarOptions = ['🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', '🧘‍♀️', '🌊'];
 
@@ -64,7 +77,18 @@ export const OnboardingModal: React.FC = () => {
         trackPixelEvent('CompleteRegistration');
         trackPixelEvent('Lead');
 
+        // Salvar e-mail no dispositivo e marcar apresentação como concluída
+        saveRememberedEmail(email);
+        markPresentationCompleted();
+
         // Salva perfil persistente
+        saveUserIdentity({
+          name: cleanName,
+          avatar,
+          treatmentPreference,
+          hasCompletedOnboarding: true
+        });
+
         updateUser({
           name: cleanName,
           avatar,
@@ -74,11 +98,6 @@ export const OnboardingModal: React.FC = () => {
 
         setIsOnboardingOpen(false);
         showToast('Conta criada com sucesso! Boas-vindas ao LEVE.', 'success');
-
-        // Inicia o Tour do App para quem acabou de criar a conta
-        setTimeout(() => {
-          startTour();
-        }, 500);
       } else {
         setErrorMessage(res.error || 'Não foi possível criar a conta. Verifique os dados.');
       }
@@ -104,6 +123,13 @@ export const OnboardingModal: React.FC = () => {
       setIsSubmitting(false);
 
       if (res.success) {
+        saveRememberedEmail(email);
+        markPresentationCompleted();
+
+        saveUserIdentity({
+          hasCompletedOnboarding: true
+        });
+
         updateUser({
           hasCompletedOnboarding: true
         });
@@ -118,9 +144,18 @@ export const OnboardingModal: React.FC = () => {
     }
   };
 
-  // Entrada como visitante / salvar perfil local e iniciar tour
+  // Entrada como visitante / salvar perfil local e concluir apresentação
   const handleContinueAsGuest = () => {
     const cleanName = name.trim();
+    markPresentationCompleted();
+
+    saveUserIdentity({
+      name: cleanName,
+      avatar,
+      treatmentPreference,
+      hasCompletedOnboarding: true
+    });
+
     updateUser({
       name: cleanName,
       avatar,
@@ -129,9 +164,6 @@ export const OnboardingModal: React.FC = () => {
     });
     setIsOnboardingOpen(false);
     showToast('Preferências salvas! Boas-vindas ao LEVE.', 'success');
-    setTimeout(() => {
-      startTour();
-    }, 400);
   };
 
   return (
@@ -373,11 +405,26 @@ export const OnboardingModal: React.FC = () => {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => handleEmailChange(e.target.value)}
                       placeholder="seu@email.com"
                       className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                     />
                   </div>
+                  {savedEmail && email === savedEmail && (
+                    <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 pt-0.5 px-1">
+                      <span className="flex items-center gap-1 font-medium">
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        E-mail salvo neste aparelho
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleEmailChange('')}
+                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline cursor-pointer"
+                      >
+                        Trocar e-mail
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 5. Senha */}
@@ -421,7 +468,7 @@ export const OnboardingModal: React.FC = () => {
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 text-emerald-300" />
-                        <span>Criar Conta & Fazer Tour</span>
+                        <span>Criar Minha Conta e Começar</span>
                       </>
                     )}
                   </button>
@@ -450,11 +497,26 @@ export const OnboardingModal: React.FC = () => {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => handleEmailChange(e.target.value)}
                       placeholder="seu@email.com"
                       className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                     />
                   </div>
+                  {savedEmail && email === savedEmail && (
+                    <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 pt-0.5 px-1">
+                      <span className="flex items-center gap-1 font-medium">
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        E-mail salvo neste aparelho
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleEmailChange('')}
+                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline cursor-pointer"
+                      >
+                        Trocar e-mail
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">

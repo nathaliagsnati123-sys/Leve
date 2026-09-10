@@ -4,9 +4,33 @@ import { AppData, MyLifeData, TreatmentPreference } from '../types';
 import { extractPlanFromRow } from './authorization';
 import { normalizeTreatmentPreference } from '../utils/treatment';
 
-export const SUPABASE_URL: string = 
-  (import.meta.env.VITE_SUPABASE_URL as string)?.trim() || 
-  'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+export function cleanSupabaseUrl(raw?: string | null): string {
+  const fallback = 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+  if (!raw) return fallback;
+  let cleaned = String(raw).trim();
+  cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+  cleaned = cleaned.replace(/^(?:export\s+)?(?:VITE_)?SUPABASE_URL\s*[:=]\s*/i, '').trim();
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  if (cleaned.endsWith(';')) {
+    cleaned = cleaned.slice(0, -1).trim();
+  }
+  try {
+    const parsed = new URL(cleaned.startsWith('http') ? cleaned : `https://${cleaned}`);
+    return parsed.origin;
+  } catch {
+    return fallback;
+  }
+}
+
+let runtimeSupabaseUrl: string = cleanSupabaseUrl(import.meta.env.VITE_SUPABASE_URL as string);
+
+export function getSupabaseUrl(): string {
+  return runtimeSupabaseUrl || 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+}
+
+export const SUPABASE_URL: string = cleanSupabaseUrl(import.meta.env.VITE_SUPABASE_URL as string);
 
 const LOCAL_STORAGE_ANON_KEY = 'leve_supabase_anon_key';
 
@@ -39,16 +63,30 @@ export async function fetchServerAuthConfig(): Promise<string | null> {
     const res = await fetch('/api/auth/config');
     if (res.ok) {
       const data = await res.json();
-      if (data.supabaseAnonKey && typeof data.supabaseAnonKey === 'string') {
-        const cleaned = cleanEnvKey(data.supabaseAnonKey);
-        if (cleaned && cleaned !== runtimePublishableKey) {
-          runtimePublishableKey = cleaned;
-          // Invalidate cached client to recreate with verified public key
-          cachedClient = null;
-          lastUsedAnonKey = null;
+      let changed = false;
+
+      if (data.supabaseUrl && typeof data.supabaseUrl === 'string') {
+        const cleanedUrl = cleanSupabaseUrl(data.supabaseUrl);
+        if (cleanedUrl && cleanedUrl !== runtimeSupabaseUrl) {
+          runtimeSupabaseUrl = cleanedUrl;
+          changed = true;
         }
-        return cleaned;
       }
+
+      if (data.supabaseAnonKey && typeof data.supabaseAnonKey === 'string') {
+        const cleanedKey = cleanEnvKey(data.supabaseAnonKey);
+        if (cleanedKey && cleanedKey !== runtimePublishableKey) {
+          runtimePublishableKey = cleanedKey;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        cachedClient = null;
+        lastUsedAnonKey = null;
+        lastUsedUrl = null;
+      }
+      return runtimePublishableKey;
     }
   } catch {
     // Graceful offline fallback
@@ -89,23 +127,28 @@ export function saveStoredAnonKey(key: string): void {
     // Invalidate cached client to recreate with new key
     cachedClient = null;
     lastUsedAnonKey = null;
+    lastUsedUrl = null;
   } catch {}
 }
 
 let cachedClient: SupabaseClient | null = null;
 let lastUsedAnonKey: string | null = null;
+let lastUsedUrl: string | null = null;
 
 export function getSupabase(): SupabaseClient | null {
   const anonKey = getSupabaseAnonKey();
-  if (!anonKey) {
+  const targetUrl = getSupabaseUrl();
+
+  if (!anonKey || !targetUrl) {
     cachedClient = null;
     lastUsedAnonKey = null;
+    lastUsedUrl = null;
     return null;
   }
 
-  if (!cachedClient || lastUsedAnonKey !== anonKey) {
+  if (!cachedClient || lastUsedAnonKey !== anonKey || lastUsedUrl !== targetUrl) {
     try {
-      cachedClient = createClient(SUPABASE_URL, anonKey, {
+      cachedClient = createClient(targetUrl, anonKey, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
@@ -114,6 +157,7 @@ export function getSupabase(): SupabaseClient | null {
         }
       });
       lastUsedAnonKey = anonKey;
+      lastUsedUrl = targetUrl;
     } catch (err) {
       console.error('[Supabase Client] Falha na inicialização do cliente:', err);
       return null;

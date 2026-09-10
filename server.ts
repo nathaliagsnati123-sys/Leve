@@ -15,6 +15,26 @@ if ((global as any).__dirname === ".") {
 
 dotenv.config();
 
+function cleanSupabaseUrl(raw?: string | null): string {
+  const fallback = "https://ozzlnqlhrythvjdrdgwe.supabase.co";
+  if (!raw) return fallback;
+  let cleaned = String(raw).trim();
+  cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "").trim();
+  cleaned = cleaned.replace(/^(?:export\s+)?(?:VITE_)?SUPABASE_URL\s*[:=]\s*/i, "").trim();
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  if (cleaned.endsWith(";")) {
+    cleaned = cleaned.slice(0, -1).trim();
+  }
+  try {
+    const parsed = new URL(cleaned.startsWith("http") ? cleaned : `https://${cleaned}`);
+    return parsed.origin;
+  } catch {
+    return fallback;
+  }
+}
+
 let aiClient: GoogleGenAI | null = null;
 
 function getAIClient(): GoogleGenAI | null {
@@ -56,7 +76,7 @@ async function startServer() {
 
   // Supabase public configuration endpoint (detects and fixes inverted keys safely)
   app.get("/api/auth/config", (_req, res) => {
-    const supabaseUrl = (process.env.VITE_SUPABASE_URL || "https://ozzlnqlhrythvjdrdgwe.supabase.co").trim();
+    const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
     const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
     const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
@@ -466,7 +486,7 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
       }
 
       // Se chave de serviço estiver disponível, sincroniza com o banco
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://ozzlnqlhrythvjdrdgwe.supabase.co";
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
       const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
       const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
       let supabaseServiceKey = "";

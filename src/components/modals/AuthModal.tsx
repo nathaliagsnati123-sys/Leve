@@ -14,6 +14,10 @@ import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization'
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 import { trackPixelEvent } from '../../utils/pixel';
+import { 
+  getRememberedEmail, saveRememberedEmail, 
+  markPresentationCompleted, saveUserIdentity 
+} from '../../services/storage';
 
 export const AuthModal: React.FC = () => {
   const { 
@@ -44,9 +48,9 @@ export const AuthModal: React.FC = () => {
     updateTreatmentPreference
   } = useAuth();
 
-  const { data, showToast, updateUser, startTour } = useApp();
+  const { data, showToast, updateUser } = useApp();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => getRememberedEmail());
   const [password, setPassword] = useState('');
   const [name, setName] = useState(data.user?.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(data.user?.avatar || '🌿');
@@ -84,6 +88,9 @@ export const AuthModal: React.FC = () => {
     setIsSubmitting(false);
 
     if (res.success) {
+      saveRememberedEmail(email);
+      markPresentationCompleted();
+      updateUser({ hasCompletedOnboarding: true });
       showToast('Boas-vindas de volta! Conta sincronizada.', 'success');
       handleClose();
     } else {
@@ -114,10 +121,19 @@ export const AuthModal: React.FC = () => {
     if (res.success) {
       trackPixelEvent('CompleteRegistration');
       trackPixelEvent('Lead');
+      saveRememberedEmail(email);
+      markPresentationCompleted();
+      saveUserIdentity({
+        name: cleanName || data.user.name,
+        avatar: selectedAvatar,
+        treatmentPreference,
+        hasCompletedOnboarding: true
+      });
       updateUser({
         name: cleanName || data.user.name,
         avatar: selectedAvatar,
-        treatmentPreference
+        treatmentPreference,
+        hasCompletedOnboarding: true
       });
       setSuccessMessage(res.message || 'Conta criada com sucesso!');
       showToast('Conta criada com sucesso!', 'success');
@@ -127,7 +143,6 @@ export const AuthModal: React.FC = () => {
       }
       setTimeout(() => {
         handleClose();
-        startTour();
       }, 900);
     } else {
       setErrorMessage(translateAuthError(res.error) || 'Não foi possível criar a conta.');
@@ -143,6 +158,8 @@ export const AuthModal: React.FC = () => {
       setErrorMessage('Por favor, digite o e-mail cadastrado para recuperação.');
       return;
     }
+
+    saveRememberedEmail(email);
 
     setIsSubmitting(true);
     const res = await resetPassword(email);

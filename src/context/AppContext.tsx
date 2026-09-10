@@ -8,7 +8,8 @@ import {
   LeviaMyLifeAction, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS
 } from '../types';
 import { 
-  loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity 
+  loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity,
+  isPresentationAlreadyCompleted, markPresentationCompleted 
 } from '../services/storage';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
@@ -256,9 +257,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCelebrationAchievement(null);
   }, []);
 
-  // Check onboarding on mount
+  // Check onboarding on mount - apresentação exibida estritamente apenas 1 vez
   useEffect(() => {
-    if (!data.user.hasCompletedOnboarding) {
+    const alreadyCompleted = isPresentationAlreadyCompleted();
+    if (data.user.hasCompletedOnboarding || alreadyCompleted) {
+      setIsOnboardingOpen(false);
+      if (!data.user.hasCompletedOnboarding && alreadyCompleted) {
+        setData((prev) => {
+          const updated = {
+            ...prev,
+            user: { ...prev.user, hasCompletedOnboarding: true }
+          };
+          saveAppData(updated);
+          return updated;
+        });
+      }
+    } else {
       setIsOnboardingOpen(true);
     }
   }, [data.user.hasCompletedOnboarding]);

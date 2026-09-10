@@ -9,6 +9,11 @@ import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 import { trackPixelEvent } from '../../utils/pixel';
 import { translateAuthError } from '../../utils/authErrors';
+import { 
+  getRememberedEmail, saveRememberedEmail, 
+  isPresentationAlreadyCompleted, markPresentationCompleted, 
+  saveUserIdentity 
+} from '../../services/storage';
 
 interface WelcomeAccessScreenProps {
   onOpenLogin?: () => void;
@@ -17,11 +22,19 @@ interface WelcomeAccessScreenProps {
 
 export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
   const { login, signup, resetPassword } = useAuth();
-  const { data, updateUser, startTour, showToast } = useApp();
+  const { data, updateUser, showToast } = useApp();
+
+  const savedEmail = getRememberedEmail();
+  const presentationAlreadyDone = isPresentationAlreadyCompleted();
 
   // Step 1, 2, 3: Apresentação | Step 4: Login ou Cadastro
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [authMode, setAuthMode] = useState<'signup' | 'login' | 'reset'>('signup');
+  // Se a apresentação já foi feita ou se já existe e-mail salvo no aparelho, exibe diretamente a tela de acesso (Step 4)
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    return presentationAlreadyDone || Boolean(savedEmail) ? 4 : 1;
+  });
+  const [authMode, setAuthMode] = useState<'signup' | 'login' | 'reset'>(() => {
+    return savedEmail ? 'login' : 'signup';
+  });
 
   // Form states
   const [name, setName] = useState(data.user.name || '');
@@ -30,17 +43,24 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
     return normalizeTreatmentPreference(data.user.treatmentPreference || 'feminino');
   });
 
-  const [email, setEmail] = useState('');
+  // E-mail preenchido automaticamente com o e-mail salvo neste dispositivo
+  const [email, setEmail] = useState(() => savedEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    saveRememberedEmail(val);
+  };
+
   const avatarOptions = ['🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', '🧘‍♀️', '🌊'];
 
   // Pular direto para o Login para quem já tem conta
   const handleGoToLogin = () => {
+    markPresentationCompleted();
     setAuthMode('login');
     setStep(4);
     setErrorMessage(null);
@@ -79,7 +99,18 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
         trackPixelEvent('CompleteRegistration');
         trackPixelEvent('Lead');
 
+        // Salvar e-mail no dispositivo e marcar apresentação concluída (apenas 1 vez)
+        saveRememberedEmail(email);
+        markPresentationCompleted();
+
         // Salvar permanentemente nome, avatar e forma de tratamento
+        saveUserIdentity({
+          name: cleanName,
+          avatar,
+          treatmentPreference,
+          hasCompletedOnboarding: true
+        });
+
         updateUser({
           name: cleanName,
           avatar,
@@ -88,11 +119,6 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
         });
 
         showToast('Conta criada com sucesso! Boas-vindas ao LEVE.', 'success');
-
-        // Inicia automaticamente o Tour do App para quem acabou de criar a conta
-        setTimeout(() => {
-          startTour();
-        }, 600);
       } else {
         setErrorMessage(translateAuthError(res.error) || 'Não foi possível criar a conta. Verifique os dados.');
       }
@@ -119,6 +145,11 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
       setIsSubmitting(false);
 
       if (res.success) {
+        saveRememberedEmail(email);
+        markPresentationCompleted();
+        saveUserIdentity({
+          hasCompletedOnboarding: true
+        });
         updateUser({
           hasCompletedOnboarding: true
         });
@@ -145,6 +176,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
 
     setIsSubmitting(true);
     try {
+      saveRememberedEmail(email);
       const res = await resetPassword(email);
       setIsSubmitting(false);
       if (res.success) {
@@ -326,7 +358,10 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStep(4)}
+                  onClick={() => {
+                    markPresentationCompleted();
+                    setStep(4);
+                  }}
                   className="flex-1 py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] active:scale-[0.99] font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
                   <span>Começar no LEVE</span>
@@ -479,11 +514,26 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                         type="email"
                         required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => handleEmailChange(e.target.value)}
                         placeholder="seu@email.com"
                         className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                       />
                     </div>
+                    {savedEmail && email === savedEmail && (
+                      <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 pt-0.5 px-1">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          E-mail salvo neste aparelho
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleEmailChange('')}
+                          className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline cursor-pointer"
+                        >
+                          Trocar e-mail
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* 5. Senha */}
@@ -547,11 +597,26 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                         type="email"
                         required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => handleEmailChange(e.target.value)}
                         placeholder="seu@email.com"
                         className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                       />
                     </div>
+                    {savedEmail && email === savedEmail && (
+                      <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 pt-0.5 px-1">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          E-mail salvo neste aparelho
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleEmailChange('')}
+                          className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline cursor-pointer"
+                        >
+                          Trocar e-mail
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -621,7 +686,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                         type="email"
                         required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => handleEmailChange(e.target.value)}
                         placeholder="seu@email.com"
                         className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                       />

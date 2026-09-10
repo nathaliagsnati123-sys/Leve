@@ -28,6 +28,7 @@ import {
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
 import { normalizeTreatmentPreference } from '../utils/treatment';
+import { saveRememberedEmail, markPresentationCompleted } from '../services/storage';
 import {
   PlanTier,
   AppFeature,
@@ -182,6 +183,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(currentSession?.user || null);
           setSyncStatus(currentSession?.user ? 'synced' : 'local-only');
           if (currentSession?.user) {
+            if (currentSession.user.email) {
+              saveRememberedEmail(currentSession.user.email);
+            }
+            markPresentationCompleted();
             await Promise.all([
               loadEntitlements(currentSession.user.id, currentSession),
               loadProfile(currentSession.user.id)
@@ -205,6 +210,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSession(newSession);
       setUser(newSession?.user || null);
       if (newSession?.user) {
+        if (newSession.user.email) {
+          saveRememberedEmail(newSession.user.email);
+        }
+        markPresentationCompleted();
         setSyncStatus('synced');
         await Promise.all([
           loadEntitlements(newSession.user.id, newSession),
@@ -260,6 +269,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
+        saveRememberedEmail(email);
+        markPresentationCompleted();
         setUser(data.user);
         setSession(data.session);
         setSyncStatus('synced');
@@ -297,6 +308,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
+        saveRememberedEmail(email);
+        markPresentationCompleted();
         if (cleanName) {
           try { localStorage.setItem('leve_user_name', cleanName); } catch {}
         }
