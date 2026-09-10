@@ -14,6 +14,7 @@ import { SearchModal } from './components/modals/SearchModal';
 import { AchievementsModal } from './components/modals/AchievementsModal';
 import { CelebrationModal } from './components/modals/CelebrationModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
+import { AppTourModal } from './components/modals/AppTourModal';
 import { FiveMinuteGodModal } from './components/modals/FiveMinuteGodModal';
 import { AuthModal } from './components/modals/AuthModal';
 import { AuthProvider } from './context/AuthContext';
@@ -183,6 +184,7 @@ const AppContent: React.FC = () => {
       <AchievementsModal />
       <CelebrationModal />
       <OnboardingModal />
+      <AppTourModal />
       <FiveMinuteGodModal />
       <AuthModal />
     </div>

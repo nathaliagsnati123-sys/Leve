@@ -153,6 +153,46 @@ export const INITIAL_APP_DATA: AppData = {
   }
 };
 
+export const USER_IDENTITY_KEY = 'leve_user_identity_v1';
+
+export interface PersistentUserIdentity {
+  name: string;
+  avatar: string;
+  treatmentPreference?: any;
+}
+
+export function getSavedUserIdentity(): PersistentUserIdentity | null {
+  try {
+    const raw = localStorage.getItem(USER_IDENTITY_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          name: typeof parsed.name === 'string' ? parsed.name : '',
+          avatar: typeof parsed.avatar === 'string' && parsed.avatar ? parsed.avatar : '🌿',
+          treatmentPreference: parsed.treatmentPreference || 'nao_informar'
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+export function saveUserIdentity(identity: Partial<PersistentUserIdentity>): void {
+  try {
+    const existing = getSavedUserIdentity() || { name: '', avatar: '🌿', treatmentPreference: 'nao_informar' };
+    const updated = {
+      ...existing,
+      ...(identity.name !== undefined ? { name: identity.name } : {}),
+      ...(identity.avatar !== undefined ? { avatar: identity.avatar } : {}),
+      ...(identity.treatmentPreference !== undefined ? { treatmentPreference: identity.treatmentPreference } : {})
+    };
+    localStorage.setItem(USER_IDENTITY_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.warn('Erro ao salvar identidade permanente do usuário:', err);
+  }
+}
+
 export function loadAppData(): AppData {
   try {
     // Purge old versions to ensure users get a completely fresh, zeroed start
@@ -161,10 +201,18 @@ export function loadAppData(): AppData {
       localStorage.removeItem(OLD_STORAGE_KEY_V2);
     } catch {}
 
+    const savedIdentity = getSavedUserIdentity();
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial: AppData = {
         ...INITIAL_APP_DATA,
+        user: {
+          ...INITIAL_APP_DATA.user,
+          ...(savedIdentity?.name ? { name: savedIdentity.name } : {}),
+          ...(savedIdentity?.avatar ? { avatar: savedIdentity.avatar } : {}),
+          ...(savedIdentity?.treatmentPreference ? { treatmentPreference: savedIdentity.treatmentPreference } : {})
+        },
         unlockedAchievements: {}
       };
       saveAppData(initial);
@@ -172,23 +220,13 @@ export function loadAppData(): AppData {
     }
     const parsed = JSON.parse(raw) as AppData;
 
-    const userObj = { ...INITIAL_APP_DATA.user, ...parsed.user };
-
-    // Recupera nome, avatar e preferência salvos de forma permanente até o usuário alterar
-    try {
-      const storedName = localStorage.getItem('leve_user_name');
-      if (storedName && storedName.trim()) {
-        userObj.name = storedName.trim();
-      }
-      const storedAvatar = localStorage.getItem('leve_user_avatar');
-      if (storedAvatar && storedAvatar.trim()) {
-        userObj.avatar = storedAvatar.trim();
-      }
-      const storedPref = localStorage.getItem('leve_treatment_pref_current');
-      if (storedPref && storedPref.trim()) {
-        userObj.treatmentPreference = storedPref as any;
-      }
-    } catch {}
+    const userObj = { 
+      ...INITIAL_APP_DATA.user, 
+      ...parsed.user,
+      ...(savedIdentity?.name && !parsed.user?.name ? { name: savedIdentity.name } : {}),
+      ...(savedIdentity?.avatar && (!parsed.user?.avatar || parsed.user.avatar === '🌿') ? { avatar: savedIdentity.avatar } : {}),
+      ...(savedIdentity?.treatmentPreference && (!parsed.user?.treatmentPreference || parsed.user.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {})
+    };
 
     return {
       ...INITIAL_APP_DATA,
@@ -236,15 +274,11 @@ export function saveAppData(data: AppData): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     if (data.user) {
-      if (data.user.name && data.user.name.trim()) {
-        localStorage.setItem('leve_user_name', data.user.name.trim());
-      }
-      if (data.user.avatar && data.user.avatar.trim()) {
-        localStorage.setItem('leve_user_avatar', data.user.avatar.trim());
-      }
-      if (data.user.treatmentPreference) {
-        localStorage.setItem('leve_treatment_pref_current', data.user.treatmentPreference);
-      }
+      saveUserIdentity({
+        name: data.user.name,
+        avatar: data.user.avatar,
+        treatmentPreference: data.user.treatmentPreference
+      });
     }
   } catch (err) {
     console.error('Failed to save AppData to localStorage', err);

@@ -8,7 +8,7 @@ import {
   LeviaMyLifeAction
 } from '../types';
 import { 
-  loadAppData, saveAppData, getTodayDateString, resetAllData, INITIAL_APP_DATA 
+  loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity 
 } from '../services/storage';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
@@ -61,6 +61,9 @@ interface AppContextType {
   setIsFiveMinGodOpen: (open: boolean) => void;
   isOnboardingOpen: boolean;
   setIsOnboardingOpen: (open: boolean) => void;
+  isTourOpen: boolean;
+  setIsTourOpen: (open: boolean) => void;
+  startTour: () => void;
   isAchievementsOpen: boolean;
   setIsAchievementsOpen: (open: boolean) => void;
   celebrationAchievement: Achievement | null;
@@ -222,9 +225,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isDayClosingOpen, setIsDayClosingOpen] = useState(false);
   const [isFiveMinGodOpen, setIsFiveMinGodOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
   const [isAchievementsOpen, setIsAchievementsOpen] = useState(false);
   const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const startTour = useCallback(() => {
+    setIsTourOpen(true);
+  }, []);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -342,20 +350,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, [data, user, syncDataNow]);
 
-  // Limpa dados em memória e reseta navegação caso o usuário deslogue
-  const lastUserIdRef = React.useRef<string | null>(null);
-  useEffect(() => {
-    const currentId = user?.id || null;
-    if (lastUserIdRef.current && !currentId) {
-      setData({
-        ...INITIAL_APP_DATA,
-        unlockedAchievements: {}
-      });
-      setActiveTabState('my-day');
-    }
-    lastUserIdRef.current = currentId;
-  }, [user]);
-
   // Persist state
   const updateData = useCallback((updater: (prev: AppData) => AppData) => {
     setData((prev) => {
@@ -406,6 +400,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch {}
     }
+
+    // Salvar na persistência dedicada para que nunca se perca
+    saveUserIdentity({
+      name: profile.name,
+      avatar: profile.avatar,
+      treatmentPreference: normalizedPref || profile.treatmentPreference
+    });
 
     updateData((prev) => ({
       ...prev,
@@ -1541,6 +1542,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsFiveMinGodOpen,
         isOnboardingOpen,
         setIsOnboardingOpen,
+        isTourOpen,
+        setIsTourOpen,
+        startTour,
         isAchievementsOpen,
         setIsAchievementsOpen,
         celebrationAchievement,

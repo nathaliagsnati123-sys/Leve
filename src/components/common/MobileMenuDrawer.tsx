@@ -18,7 +18,8 @@ export const MobileMenuDrawer: React.FC = () => {
     setIsBrainDumpOpen, 
     setIsDayClosingOpen,
     setIsAchievementsOpen,
-    todayCompletionPercentage
+    todayCompletionPercentage,
+    startTour
   } = useApp();
 
   const { user, setIsAuthModalOpen, plan, planLabel, canAccessFeature } = useAuth();
@@ -290,6 +291,25 @@ export const MobileMenuDrawer: React.FC = () => {
               </div>
             </div>
             <Sparkles className="w-4 h-4 text-amber-600" />
+          </button>
+
+          {/* Tour do App button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              startTour();
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/25 border border-emerald-200/70 dark:border-emerald-900/40 text-left hover:bg-emerald-100/60 transition cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">✨</span>
+              <div>
+                <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200">Tour pelo LEVE</p>
+                <p className="text-[10px] text-emerald-800 dark:text-emerald-400">Aprenda a usar o app passo a passo</p>
+              </div>
+            </div>
+            <Sparkles className="w-4 h-4 text-emerald-600" />
           </button>
 
           {/* User Mini Card / Configurações */}

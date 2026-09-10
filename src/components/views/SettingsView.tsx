@@ -8,7 +8,7 @@ import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 
 export const SettingsView: React.FC = () => {
-  const { data, updateUser, showToast } = useApp();
+  const { data, updateUser, showToast, startTour } = useApp();
   const { 
     user, 
     logout, 
@@ -204,7 +204,7 @@ export const SettingsView: React.FC = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
           {TREATMENT_OPTIONS.map((opt) => {
             const isSelected = selectedPreference === opt.id;
             return (
@@ -212,7 +212,7 @@ export const SettingsView: React.FC = () => {
                 key={opt.id}
                 type="button"
                 onClick={() => handleSelectPreference(opt.id)}
-                className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
+                className={`p-3.5 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
                   isSelected
                     ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold shadow-xs ring-1 ring-emerald-600/30'
                     : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
@@ -227,7 +227,7 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
+                  className={`w-5 h-5 rounded-full flex items-center justify-center border shrink-0 transition ${
                     isSelected
                       ? 'bg-emerald-700 border-emerald-700 text-white'
                       : 'border-stone-300 dark:border-stone-600'
@@ -238,6 +238,30 @@ export const SettingsView: React.FC = () => {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Tour Guiado do Aplicativo */}
+      <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>Tour pelo LEVE</span>
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 max-w-md">
+              Quer relembrar como usar cada cantinho do app? Faça o tour guiado e conheça as ferramentas de foco, hábitos, espiritualidade e apoio da LEVIA.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={startTour}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold shadow-xs transition cursor-pointer shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Fazer Tour pelo App</span>
+          </button>
         </div>
       </div>
 
