@@ -19,6 +19,7 @@ export interface Task {
   date: string; // YYYY-MM-DD
   time?: string; // HH:mm
   priority: Priority;
+  isPriority?: boolean; // Somente quando marcado explicitamente aparece em Prioridades
   category: TaskCategory;
   repeat: TaskRepeat;
   completed: boolean;
@@ -360,7 +361,7 @@ export interface UserProfile {
   name: string;
   avatar: string;
   accentColor: string;
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark' | 'auto' | 'system';
   hasCompletedOnboarding: boolean;
   dailyIntention?: string;
   lastClosedDay?: string;

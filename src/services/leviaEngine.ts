@@ -387,6 +387,7 @@ export function processLeviaInputLocally(
           displayDate: taskData.displayDate,
           time: taskData.time,
           priority: taskData.priority,
+          isPriority: false,
           category: taskData.category
         },
         payload: {
@@ -394,6 +395,7 @@ export function processLeviaInputLocally(
           date: taskData.date,
           time: taskData.time,
           priority: taskData.priority,
+          isPriority: false,
           category: taskData.category,
           repeat: 'none',
           notes: 'Organizado pela LEVIA'

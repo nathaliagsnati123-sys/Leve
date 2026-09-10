@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Calendar, Clock, Tag, Repeat, Flag, Trash2, Copy, Check } from 'lucide-react';
+import { X, Calendar, Clock, Tag, Repeat, Flag, Trash2, Copy, Check, Star } from 'lucide-react';
 import { Priority, TaskCategory, TaskRepeat } from '../../types';
 import { getTodayDateString } from '../../services/storage';
 
@@ -20,6 +20,7 @@ export const TaskModal: React.FC = () => {
   const [date, setDate] = useState(getTodayDateString());
   const [time, setTime] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
+  const [isPriority, setIsPriority] = useState(false);
   const [category, setCategory] = useState<TaskCategory>('Pessoal');
   const [customCategory, setCustomCategory] = useState('');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
@@ -31,6 +32,7 @@ export const TaskModal: React.FC = () => {
       setDate(editingTask.date || getTodayDateString());
       setTime(editingTask.time || '');
       setPriority(editingTask.priority || 'medium');
+      setIsPriority(Boolean(editingTask.isPriority));
       const standardCategories = ['Estudos', 'Trabalho', 'Casa', 'Pessoal', 'Saúde', 'Financeiro', 'Família', 'Outros'];
       if (standardCategories.includes(editingTask.category)) {
         setCategory(editingTask.category);
@@ -45,6 +47,7 @@ export const TaskModal: React.FC = () => {
       setDate(getTodayDateString());
       setTime('');
       setPriority('medium');
+      setIsPriority(false);
       setCategory('Pessoal');
       setIsCustomCategory(false);
       setCustomCategory('');
@@ -67,6 +70,7 @@ export const TaskModal: React.FC = () => {
         date,
         time: time || undefined,
         priority,
+        isPriority,
         category: finalCategory,
         repeat
       });
@@ -76,6 +80,7 @@ export const TaskModal: React.FC = () => {
         date,
         time: time || undefined,
         priority,
+        isPriority,
         category: finalCategory,
         repeat
       });
@@ -268,6 +273,36 @@ export const TaskModal: React.FC = () => {
               <option value="weekly">Toda semana</option>
               <option value="monthly">Todo mês</option>
             </select>
+          </div>
+
+          {/* Marcar explicitamente como Prioridade do Dia */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <Star className={`w-4 h-4 ${isPriority ? 'text-amber-500 fill-amber-400' : 'text-stone-400'}`} />
+              <div>
+                <p className="font-semibold text-xs sm:text-sm text-stone-900 dark:text-stone-100">
+                  Marcar como Prioridade do Dia
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  Aparece com destaque em "Prioridades do Dia"
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPriority(!isPriority)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                isPriority ? 'bg-amber-500' : 'bg-stone-300 dark:bg-stone-700'
+              }`}
+              role="switch"
+              aria-checked={isPriority}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                  isPriority ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Actions */}

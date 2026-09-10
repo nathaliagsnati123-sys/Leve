@@ -32,7 +32,43 @@ function cleanEnvKey(raw?: string | null): string {
   return cleaned;
 }
 
+let runtimePublishableKey: string | null = null;
+
+export async function fetchServerAuthConfig(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/auth/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.supabaseAnonKey && typeof data.supabaseAnonKey === 'string') {
+        const cleaned = cleanEnvKey(data.supabaseAnonKey);
+        if (cleaned && cleaned !== runtimePublishableKey) {
+          runtimePublishableKey = cleaned;
+          // Invalidate cached client to recreate with verified public key
+          cachedClient = null;
+          lastUsedAnonKey = null;
+        }
+        return cleaned;
+      }
+    }
+  } catch {
+    // Graceful offline fallback
+  }
+  return null;
+}
+
 export function getSupabaseAnonKey(): string {
+  // 1. Chave verificada recebida do servidor via /api/auth/config (resolve inversão de chaves)
+  if (runtimePublishableKey) return runtimePublishableKey;
+
+  // 2. Chave armazenada localmente se houver
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = cleanEnvKey(localStorage.getItem(LOCAL_STORAGE_ANON_KEY));
+      if (stored) return stored;
+    } catch {}
+  }
+
+  // 3. Chave do ambiente Vite
   const envKey = cleanEnvKey(
     import.meta.env.VITE_SUPABASE_ANON_KEY as string
   );
@@ -205,7 +241,8 @@ export async function supabaseSignUp(
   email: string, 
   password: string, 
   name?: string,
-  treatmentPreference: TreatmentPreference = 'nao_informar'
+  treatmentPreference: TreatmentPreference = 'nao_informar',
+  avatar?: string
 ) {
   const client = getSupabase();
   if (!client) {
@@ -222,15 +259,18 @@ export async function supabaseSignUp(
   }
 
   const normalizedPref = normalizeTreatmentPreference(treatmentPreference);
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanAvatar = avatar ? avatar.trim() : '';
 
   try {
     const res = await client.auth.signUp({
-      email: email.trim(),
+      email: cleanEmail,
       password,
       options: {
         data: {
           name: name ? name.trim() : '',
           full_name: name ? name.trim() : '',
+          avatar: cleanAvatar,
           treatment_preference: normalizedPref
         }
       }
@@ -242,6 +282,7 @@ export async function supabaseSignUp(
         await saveUserProfileToSupabase(res.data.user.id, {
           name: name ? name.trim() : '',
           full_name: name ? name.trim() : '',
+          avatar: cleanAvatar,
           treatment_preference: normalizedPref
         });
       } catch {}
@@ -269,9 +310,11 @@ export async function supabaseSignIn(email: string, password: string) {
     };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
   try {
     const res = await client.auth.signInWithPassword({
-      email: email.trim(),
+      email: cleanEmail,
       password,
     });
     return res;
@@ -307,9 +350,11 @@ export async function supabaseResetPassword(email: string) {
     };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
   try {
     const redirectUrl = window.location.origin;
-    const res = await client.auth.resetPasswordForEmail(email.trim(), {
+    const res = await client.auth.resetPasswordForEmail(cleanEmail, {
       redirectTo: redirectUrl
     });
     return res;
@@ -758,6 +803,23 @@ export async function fetchUserEntitlements(
       return plan.isSpecial;
     }) || rows[0];
 
+    // Se o registro foi localizado por e-mail mas ainda não estava vinculado ao user_id atual,
+    // associa automaticamente a compra à conta criada posteriormente (sem exigir ação do admin)
+    if (activeRow.id && effectiveUserId && (!activeRow.user_id || activeRow.user_id !== effectiveUserId)) {
+      client
+        .from('user_entitlements')
+        .update({ user_id: effectiveUserId, updated_at: new Date().toISOString() })
+        .eq('id', activeRow.id)
+        .then(
+          ({ error }: any) => {
+            if (!error) {
+              console.log('[Supabase Entitlements] Compra Hotmart vinculada automaticamente ao usuário criado:', effectiveUserId);
+            }
+          },
+          () => {}
+        );
+    }
+
     // Extração rigorosa respeitando as regras manuais da administradora
     const planInfo = extractPlanFromRow(activeRow);
 
@@ -822,6 +884,7 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
       return {
         data: {
           ...res.data,
+          avatar: res.data.avatar || '',
           treatment_preference: pref
         }
       };
@@ -838,6 +901,7 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
           user_id: userId,
           name: meta.name || meta.full_name || '',
           full_name: meta.full_name || meta.name || '',
+          avatar: meta.avatar || '',
           treatment_preference: pref
         }
       };
@@ -850,6 +914,7 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
           user_id: userId,
           name: '',
           full_name: '',
+          avatar: '',
           treatment_preference: cachedPref
         }
       };
@@ -864,6 +929,7 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
           user_id: userId,
           name: '',
           full_name: '',
+          avatar: '',
           treatment_preference: cachedPref
         }
       };
@@ -882,6 +948,7 @@ export async function saveUserProfileToSupabase(
   profile: {
     name?: string;
     full_name?: string;
+    avatar?: string;
     treatment_preference?: TreatmentPreference;
   }
 ): Promise<{ success: boolean; error?: string }> {
@@ -893,11 +960,18 @@ export async function saveUserProfileToSupabase(
   const treatment_preference = normalizeTreatmentPreference(profile.treatment_preference);
   const name = profile.name?.trim() || '';
   const fullName = profile.full_name?.trim() || name;
+  const avatar = profile.avatar?.trim() || '';
 
   // Persistir em cache local imediatamente para resiliência instantânea
   try {
     localStorage.setItem('leve_treatment_pref_' + userId, treatment_preference);
     localStorage.setItem('leve_treatment_pref_current', treatment_preference);
+    if (name) {
+      localStorage.setItem('leve_user_name', name);
+    }
+    if (avatar) {
+      localStorage.setItem('leve_user_avatar', avatar);
+    }
   } catch {}
 
   let authUpdated = false;
@@ -910,6 +984,9 @@ export async function saveUserProfileToSupabase(
     if (name) {
       metaPayload.name = name;
       metaPayload.full_name = fullName;
+    }
+    if (avatar) {
+      metaPayload.avatar = avatar;
     }
 
     const { error: authErr } = await client.auth.updateUser({
@@ -931,6 +1008,9 @@ export async function saveUserProfileToSupabase(
     if (name) {
       profilePayload.name = name;
       profilePayload.full_name = fullName;
+    }
+    if (avatar) {
+      profilePayload.avatar = avatar;
     }
 
     const { error } = await client

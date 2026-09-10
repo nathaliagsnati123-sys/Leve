@@ -22,7 +22,8 @@ import {
   UserEntitlements,
   SUPABASE_URL,
   getSupabaseDiagnostics,
-  SupabaseAuthDiagnostics
+  SupabaseAuthDiagnostics,
+  fetchServerAuthConfig
 } from '../services/supabase';
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
@@ -54,7 +55,7 @@ interface AuthContextType {
   anonKey: string;
   saveAnonKey: (key: string) => void;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, password: string, name?: string, treatmentPreference?: TreatmentPreference) => Promise<{ success: boolean; error?: string; message?: string }>;
+  signup: (email: string, password: string, name?: string, treatmentPreference?: TreatmentPreference, avatar?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   syncDataNow: (data: AppData) => Promise<boolean>;
@@ -72,7 +73,7 @@ interface AuthContextType {
   userProfile: any | null;
   treatmentPreference: TreatmentPreference;
   updateTreatmentPreference: (preference: TreatmentPreference) => Promise<boolean>;
-  saveProfile: (profile: { name?: string; full_name?: string; treatment_preference?: TreatmentPreference }) => Promise<boolean>;
+  saveProfile: (profile: { name?: string; full_name?: string; avatar?: string; treatment_preference?: TreatmentPreference }) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -133,6 +134,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await fetchUserProfile(userId);
       if (res.data) {
         setUserProfile(res.data);
+        if (res.data.name && res.data.name.trim()) {
+          try {
+            localStorage.setItem('leve_user_name', res.data.name.trim());
+          } catch {}
+        }
+        if (res.data.avatar && res.data.avatar.trim()) {
+          try {
+            localStorage.setItem('leve_user_avatar', res.data.avatar.trim());
+          } catch {}
+        }
         if (res.data.treatment_preference) {
           const pref = normalizeTreatmentPreference(res.data.treatment_preference);
           setLocalTreatmentPref(pref);
@@ -151,6 +162,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     async function initAuth() {
       setIsLoading(true);
+      try {
+        await fetchServerAuthConfig();
+      } catch {}
+
       const configured = isSupabaseConfigured();
       setIsConfigured(configured);
 
@@ -235,13 +250,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [loadEntitlements, loadProfile]);
 
   const login = useCallback(async (email: string, password: string) => {
-    setIsLoading(true);
+    // Note: Do NOT set setIsLoading(true) here! AuthModal has its own isSubmitting spinner.
+    // Setting isLoading=true would unmount the AuthModal and erase the error message!
     setIsCheckingEntitlements(true);
-    // Limpeza rigorosa antes de autenticar outro usuário
-    setUser(null);
-    setSession(null);
-    setEntitlements(null);
-    setUserProfile(null);
 
     try {
       const { data, error } = await supabaseSignIn(email, password);
@@ -264,7 +275,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('[AuthContext] Exceção capturada durante login:', err);
       return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar login' };
     } finally {
-      setIsLoading(false);
       setIsCheckingEntitlements(false);
     }
   }, [loadEntitlements, loadProfile]);
@@ -273,21 +283,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     email: string, 
     password: string, 
     name?: string,
-    preference: TreatmentPreference = 'neutro'
+    preference: TreatmentPreference = 'nao_informar',
+    avatar?: string
   ) => {
-    setIsLoading(true);
+    // Note: Do NOT set setIsLoading(true) here! AuthModal has its own isSubmitting spinner.
     setIsCheckingEntitlements(true);
-    setUser(null);
-    setSession(null);
-    setEntitlements(null);
-    setUserProfile(null);
 
     try {
-      const { data, error } = await supabaseSignUp(email, password, name, preference);
+      const cleanName = name ? name.trim() : '';
+      const cleanAvatar = avatar ? avatar.trim() : '';
+      const { data, error } = await supabaseSignUp(email, password, cleanName, preference, cleanAvatar);
       if (error) {
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
+        if (cleanName) {
+          try { localStorage.setItem('leve_user_name', cleanName); } catch {}
+        }
+        if (cleanAvatar) {
+          try { localStorage.setItem('leve_user_avatar', cleanAvatar); } catch {}
+        }
         setUser(data.user);
         setSession(data.session);
         const needsConfirmation = !data.session;
@@ -309,7 +324,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('[AuthContext] Exceção capturada durante cadastro:', err);
       return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar cadastro' };
     } finally {
-      setIsLoading(false);
       setIsCheckingEntitlements(false);
     }
   }, [loadEntitlements, loadProfile]);
@@ -350,6 +364,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const saveProfile = useCallback(async (profile: {
     name?: string;
     full_name?: string;
+    avatar?: string;
     treatment_preference?: TreatmentPreference;
   }): Promise<boolean> => {
     const normalizedPref = profile.treatment_preference 
@@ -363,6 +378,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           localStorage.setItem('leve_treatment_pref_' + user.id, normalizedPref);
         }
         localStorage.setItem('leve_treatment_pref_current', normalizedPref);
+      } catch {}
+    }
+
+    if (profile.name && profile.name.trim()) {
+      try {
+        localStorage.setItem('leve_user_name', profile.name.trim());
+      } catch {}
+    }
+
+    if (profile.avatar && profile.avatar.trim()) {
+      try {
+        localStorage.setItem('leve_user_avatar', profile.avatar.trim());
       } catch {}
     }
 
@@ -388,7 +415,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1. Limpar imediatamente o usuário atual e todas as permissões em memória
+      // 1. Limpar imediatamente o usuário atual, perfil e todas as permissões em memória
       setUser(null);
       setSession(null);
       setEntitlements(null);
@@ -399,13 +426,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // 2. Encerrar sessão no Supabase Auth
       await supabaseSignOut();
 
-      // 3. Limpeza de eventuais tokens de sessão no storage para evitar vazamento entre contas
+      // 3. Limpeza profunda de dados temporários, LEVIA, cache de plano e dados de aplicativo
       try {
         sessionStorage.clear();
+        localStorage.removeItem('levia_chat_history');
         localStorage.removeItem('supabase.auth.token');
         localStorage.removeItem('sb-refresh-token');
         localStorage.removeItem('sb-access-token');
         localStorage.removeItem('leve_treatment_pref_current');
+        localStorage.removeItem('leve_active_tab');
+        localStorage.removeItem('leve_entitlements_cache');
+        localStorage.removeItem('leve_app_data_v3');
+        localStorage.removeItem('leve_app_data_v2');
+        localStorage.removeItem('leve_app_data_v1');
       } catch {}
     } catch (err) {
       console.error('Logout error:', err);
@@ -415,7 +448,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
-    setIsLoading(true);
     try {
       const { error } = await supabaseResetPassword(email);
       if (error) {
@@ -427,8 +459,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
     } catch (err: any) {
       return { success: false, error: translateAuthError(err.message) || 'Erro ao solicitar recuperação' };
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

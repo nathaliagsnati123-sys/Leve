@@ -25,6 +25,7 @@ export interface LeviaProposedAction {
     displayDate?: string;
     time?: string;
     priority?: Priority;
+    isPriority?: boolean;
     category?: string;
     steps?: string[];
     amount?: number;

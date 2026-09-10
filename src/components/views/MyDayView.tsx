@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Plus, Check, Star, Sparkles, Brain, Moon, Droplets, 
   Sprout, Heart, HeartHandshake, ChevronRight, Clock, 
-  Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw
+  Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw, Lock
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { 
@@ -12,6 +13,7 @@ import {
   SELF_CARE_SUGGESTIONS, 
   getRandomMotivationalQuote 
 } from '../../services/quotesAndVerses';
+import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 import { Priority, Task } from '../../types';
 
 export const MyDayView: React.FC = () => {
@@ -32,8 +34,23 @@ export const MyDayView: React.FC = () => {
     saveJournalEntry,
     todayCompletionPercentage,
     setActiveTab,
-    showToast
+    showToast,
+    updateTask
   } = useApp();
+
+  const { user, hasLeveAccess, refreshEntitlements, isCheckingEntitlements } = useAuth();
+  const [isRefreshingPlan, setIsRefreshingPlan] = useState(false);
+
+  const handleRefreshPlan = async () => {
+    setIsRefreshingPlan(true);
+    try {
+      await refreshEntitlements();
+    } finally {
+      setIsRefreshingPlan(false);
+    }
+  };
+
+  const especialCheckoutUrl = buildHotmartUrl(HOTMART_CHECKOUT.ESPECIAL, user?.email);
 
   const todayStr = getTodayDateString();
   const todayBrazilian = formatDateToBrazilian(todayStr);
@@ -90,15 +107,14 @@ export const MyDayView: React.FC = () => {
     return true;
   });
 
-  // Priorities of the day (up to 3: tasks flagged high priority or prioritized tasks)
-  const priorityTasks = [...todayTasks]
+  // Priorities of the day: SOMENTE tarefas explicitamente marcadas com isPriority: true
+  const priorityTasks = todayTasks
+    .filter((t) => Boolean(t.isPriority) === true)
     .sort((a, b) => {
-      // Pending tasks first, then by priority weight
+      // Pending first
       if (a.completed !== b.completed) return a.completed ? 1 : -1;
-      const pMap: Record<Priority, number> = { high: 3, medium: 2, low: 1 };
-      return pMap[b.priority] - pMap[a.priority];
+      return 0;
     })
-    .filter((t) => t.priority === 'high' || !t.completed)
     .slice(0, 3);
 
   const handleAddPriority = (e?: React.FormEvent) => {
@@ -108,7 +124,8 @@ export const MyDayView: React.FC = () => {
     addTask({
       title: newPriorityTitle.trim(),
       date: todayStr,
-      priority: 'high',
+      priority: 'medium',
+      isPriority: true, // Marcada explicitamente como prioridade
       category: newPriorityCategory || 'Trabalho',
       repeat: 'none',
       time: newPriorityTime.trim() || undefined
@@ -120,9 +137,32 @@ export const MyDayView: React.FC = () => {
     showToast('Prioridade adicionada ao seu dia! ⭐', 'success');
   };
 
+  // Desmarcar de Prioridades: continua existindo em Tarefas, mas sai de Prioridades
+  const handleRemovePriority = (task: Task) => {
+    updateTask({
+      ...task,
+      isPriority: false
+    });
+    showToast(`"${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" removida de Prioridades (mantida em Tarefas).`, 'info');
+  };
+
+  // Alterna o status de prioridade da tarefa
+  const handleTogglePriority = (task: Task) => {
+    const willBePriority = !task.isPriority;
+    updateTask({
+      ...task,
+      isPriority: willBePriority
+    });
+    if (willBePriority) {
+      showToast(`"${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" marcada como Prioridade do dia! ⭐`, 'success');
+    } else {
+      showToast(`"${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" desmarcada de Prioridades (mantida em Tarefas).`, 'info');
+    }
+  };
+
   const handleDeletePriority = (taskId: string, taskTitle: string) => {
     deleteTask(taskId);
-    showToast(`Prioridade "${taskTitle.length > 20 ? taskTitle.slice(0, 20) + '...' : taskTitle}" apagada.`, 'info');
+    showToast(`Tarefa "${taskTitle.length > 20 ? taskTitle.slice(0, 20) + '...' : taskTitle}" apagada.`, 'info');
   };
 
   // Water data
@@ -346,8 +386,22 @@ export const MyDayView: React.FC = () => {
                     Foco {idx + 1}
                   </span>
 
-                  {/* Actions: delete priority and toggle complete */}
+                  {/* Actions: unmark priority, delete, and toggle complete */}
                   <div className="flex items-center gap-1">
+                    {/* Unmark from priorities (keeps in tasks) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemovePriority(t);
+                      }}
+                      className="p-1.5 rounded-lg text-amber-500 hover:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 transition touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
+                      title="Remover de Prioridades (mantém em Tarefas)"
+                      aria-label={`Remover prioridade ${t.title}`}
+                    >
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                    </button>
+
                     {/* Delete button */}
                     <button
                       type="button"
@@ -356,8 +410,8 @@ export const MyDayView: React.FC = () => {
                         handleDeletePriority(t.id, t.title);
                       }}
                       className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
-                      title="Apagar prioridade"
-                      aria-label={`Apagar prioridade ${t.title}`}
+                      title="Apagar tarefa"
+                      aria-label={`Apagar tarefa ${t.title}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -552,11 +606,35 @@ export const MyDayView: React.FC = () => {
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${priorityColors[task.priority]}`}>
                           {priorityLabels[task.priority]}
                         </span>
+                        {task.isPriority && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
+                            Prioridade
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Botão de alternar prioridade explicitamente */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTogglePriority(task);
+                      }}
+                      className={`p-1.5 rounded-lg transition touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center ${
+                        task.isPriority
+                          ? 'text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/40'
+                          : 'text-stone-300 dark:text-stone-600 hover:text-amber-500 hover:bg-stone-100 dark:hover:bg-stone-700'
+                      }`}
+                      title={task.isPriority ? 'Prioridade do dia ativa (clique para desmarcar)' : 'Marcar explicitamente como Prioridade do Dia'}
+                      aria-label={task.isPriority ? 'Desmarcar prioridade' : 'Marcar como prioridade'}
+                    >
+                      <Star className={`w-4 h-4 ${task.isPriority ? 'fill-amber-400 text-amber-500' : ''}`} />
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => openEditTaskModal(task)}
@@ -615,16 +693,62 @@ export const MyDayView: React.FC = () => {
                 Hábitos de Hoje
               </h2>
             </div>
-            <button
-              onClick={() => setActiveTab('habits')}
-              className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
-            >
-              <span>Ver todos</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            {hasLeveAccess ? (
+              <button
+                onClick={() => setActiveTab('habits')}
+                className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+              >
+                <span>Ver todos</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <Lock className="w-2.5 h-2.5" />
+                <span>LEVE Especial</span>
+              </span>
+            )}
           </div>
 
-          {data.habits.length === 0 ? (
+          {!hasLeveAccess ? (
+            <div className="py-4 px-3.5 rounded-xl bg-stone-50/80 dark:bg-stone-800/60 border border-stone-200/70 dark:border-stone-700 text-center space-y-3">
+              <div className="w-10 h-10 mx-auto rounded-xl bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 text-amber-800 dark:text-amber-300 flex items-center justify-center shadow-2xs">
+                <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
+                  Rastreador de Hábitos Exclusivo
+                </p>
+                <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto leading-relaxed">
+                  O acompanhamento diário de hábitos não está incluso na função gratuita. Desbloqueie o <strong>LEVE Especial</strong> para cultivar sua rotina com consistência e sem cobrança.
+                </p>
+              </div>
+
+              <div className="pt-1">
+                <a
+                  href={especialCheckoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162924] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Liberar Hábitos no LEVE Especial • R$ 49,90</span>
+                </a>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-[11px] text-stone-400 dark:text-stone-300">
+                <button
+                  type="button"
+                  onClick={handleRefreshPlan}
+                  disabled={isRefreshingPlan || isCheckingEntitlements}
+                  className="hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 text-stone-500 dark:text-stone-300 font-medium"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isRefreshingPlan || isCheckingEntitlements ? 'animate-spin' : ''}`} />
+                  <span>{isRefreshingPlan ? 'Atualizando...' : 'Já é assinante? Atualizar plano'}</span>
+                </button>
+              </div>
+            </div>
+          ) : data.habits.length === 0 ? (
             <div className="text-center py-4 px-3 rounded-xl bg-stone-50/50 dark:bg-stone-850/40 border border-dashed border-stone-200 dark:border-stone-700">
               <p className="text-xs text-stone-500 dark:text-stone-400 mb-1.5">
                 Nenhum hábito cadastrado ainda.

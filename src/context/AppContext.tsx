@@ -8,7 +8,7 @@ import {
   LeviaMyLifeAction
 } from '../types';
 import { 
-  loadAppData, saveAppData, getTodayDateString, resetAllData 
+  loadAppData, saveAppData, getTodayDateString, resetAllData, INITIAL_APP_DATA 
 } from '../services/storage';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
@@ -341,6 +341,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 2500);
     return () => clearTimeout(timer);
   }, [data, user, syncDataNow]);
+
+  // Limpa dados em memória e reseta navegação caso o usuário deslogue
+  const lastUserIdRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    const currentId = user?.id || null;
+    if (lastUserIdRef.current && !currentId) {
+      setData({
+        ...INITIAL_APP_DATA,
+        unlockedAchievements: {}
+      });
+      setActiveTabState('my-day');
+    }
+    lastUserIdRef.current = currentId;
+  }, [user]);
 
   // Persist state
   const updateData = useCallback((updater: (prev: AppData) => AppData) => {

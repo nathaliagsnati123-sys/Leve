@@ -89,6 +89,7 @@ export function executeProposedActions(
             date: act.payload.date || new Date().toISOString().split('T')[0],
             time: act.payload.time || undefined,
             priority: act.payload.priority || 'medium',
+            isPriority: Boolean(act.payload.isPriority), // Somente se marcado explicitamente
             category: act.payload.category || 'Pessoal',
             repeat: act.payload.repeat || 'none',
             notes: act.payload.notes || 'Organizado pela LEVIA'

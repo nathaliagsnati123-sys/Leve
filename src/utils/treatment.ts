@@ -9,22 +9,17 @@ export const TREATMENT_OPTIONS: {
   { 
     id: 'feminino', 
     label: 'Feminino', 
-    description: 'Tratamento no feminino (ela/dela)' 
+    description: 'Tratamento no feminino (ex: bem-vinda, querida)' 
   },
   { 
     id: 'masculino', 
     label: 'Masculino', 
-    description: 'Tratamento no masculino (ele/dele)' 
-  },
-  { 
-    id: 'neutro', 
-    label: 'Neutro', 
-    description: 'Tratamento em linguagem neutra' 
+    description: 'Tratamento no masculino (ex: bem-vindo, querido)' 
   },
   { 
     id: 'nao_informar', 
-    label: 'Prefiro não informar', 
-    description: 'Linguagem neutra e acolhedora' 
+    label: 'Desejo não informar', 
+    description: 'Tratamento acolhedor e neutro (sem presunção de gênero)' 
   }
 ];
 
@@ -38,7 +33,19 @@ export function normalizeTreatmentPreference(raw?: string | null): TreatmentPref
   if (val === 'feminino' || val === 'female' || val === 'ela' || val === 'ela/dela') return 'feminino';
   if (val === 'masculino' || val === 'male' || val === 'ele' || val === 'ele/dele') return 'masculino';
   if (val === 'neutro' || val === 'neutral' || val === 'elu' || val === 'elu/delu') return 'neutro';
-  if (val === 'nao_informar' || val === 'none' || val === 'not_specified' || val === 'prefiro_nao_informar' || val === 'prefiro não informar') return 'nao_informar';
+  if (
+    val === 'nao_informar' || 
+    val === 'none' || 
+    val === 'not_specified' || 
+    val === 'prefiro_nao_informar' || 
+    val === 'prefiro não informar' ||
+    val === 'desejo_nao_informar' ||
+    val === 'desejo não informar' ||
+    val === 'desejo nao informar' ||
+    val.includes('desejo')
+  ) {
+    return 'nao_informar';
+  }
   return 'nao_informar';
 }
 

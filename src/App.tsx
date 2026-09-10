@@ -38,18 +38,53 @@ import { RefreshCw } from 'lucide-react';
 import { LiaView } from './components/views/LiaView';
 import { MyLifeView } from './components/views/MyLifeView';
 import { EntitlementLockScreen } from './components/common/EntitlementLockScreen';
+import { WelcomeAccessScreen } from './components/auth/WelcomeAccessScreen';
 import { useAuth } from './context/AuthContext';
 
 const AppContent: React.FC = () => {
-  const { activeTab, setActiveTab, toastMessage } = useApp();
-  const { user, canAccessFeature, isCheckingEntitlements, isLoading } = useAuth();
+  const { activeTab, setActiveTab } = useApp();
+  const { user, canAccessFeature, isCheckingEntitlements, isLoading, setIsAuthModalOpen, setAuthTab } = useAuth();
+
+  // 1. Enquanto carrega a sessão do Supabase, exibe tela de carregamento suave
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-xs ring-1 ring-stone-200 dark:ring-stone-700 bg-white">
+          <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
+        </div>
+        <RefreshCw className="w-5 h-5 text-[#1F3A34] dark:text-emerald-400 animate-spin" />
+        <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">Carregando o LEVE...</p>
+      </div>
+    );
+  }
+
+  // 2. Se NÃO estiver autenticado: exibe obrigatoriamente a tela inicial de acesso
+  // Não permite acesso nem navegação às áreas internas sem login/cadastro
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col font-sans">
+        <OfflineIndicator />
+        <WelcomeAccessScreen 
+          onOpenLogin={() => {
+            setAuthTab('login');
+            setIsAuthModalOpen(true);
+          }}
+          onOpenSignup={() => {
+            setAuthTab('signup');
+            setIsAuthModalOpen(true);
+          }}
+        />
+        <AuthModal />
+      </div>
+    );
+  }
 
   useEffect(() => {
     trackPixelPageView(activeTab);
   }, [activeTab]);
 
   const renderActiveView = () => {
-    // 1. "Meu Dia" é SEMPRE liberado para qualquer plano e visitantes
+    // 1. "Meu Dia" é a tela principal de rotina
     if (activeTab === 'my-day') {
       return <MyDayView />;
     }
@@ -150,13 +185,6 @@ const AppContent: React.FC = () => {
       <OnboardingModal />
       <FiveMinuteGodModal />
       <AuthModal />
-
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-[#1F3A34] text-white text-xs sm:text-sm font-medium shadow-xl border border-emerald-800/40 animate-in fade-in slide-in-from-bottom-2 flex items-center gap-2">
-          <span>{toastMessage}</span>
-        </div>
-      )}
     </div>
   );
 };

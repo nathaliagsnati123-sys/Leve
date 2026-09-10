@@ -225,7 +225,21 @@ export const AuthModal: React.FC = () => {
               className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5"
             >
               <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-relaxed">{translateAuthError(errorMessage)}</div>
+              <div className="flex-1 leading-relaxed">
+                <div>{translateAuthError(errorMessage)}</div>
+                {authTab === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthTab('reset');
+                      setErrorMessage(null);
+                    }}
+                    className="mt-1.5 text-[11px] font-semibold text-rose-900 dark:text-rose-300 underline cursor-pointer hover:opacity-80 block text-left"
+                  >
+                    Esqueceu sua senha? Clique aqui para recuperá-la
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
 
@@ -392,10 +406,10 @@ export const AuthModal: React.FC = () => {
               <div className="p-4 rounded-2xl bg-white dark:bg-[#1A211D] border border-stone-200/80 dark:border-stone-800/80 space-y-2.5 text-left">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                    Preferência de Tratamento
+                    Como você prefere ser tratado?
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                   {TREATMENT_OPTIONS.map((opt) => {
                     const currentPref = data.user?.treatmentPreference || authTreatmentPref || 'nao_informar';
                     const isSelected = currentPref === opt.id;
@@ -611,9 +625,9 @@ export const AuthModal: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1.5">
-                      Preferência de tratamento
+                      Como você prefere ser tratado?
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                       {TREATMENT_OPTIONS.map((opt) => {
                         const isSelected = treatmentPreference === opt.id;
                         return (
@@ -633,7 +647,7 @@ export const AuthModal: React.FC = () => {
                       })}
                     </div>
                     <p className="text-[10px] text-stone-400 dark:text-stone-500 mt-1">
-                      Como a LEVIA e o LEVE conversam com você (feminino, masculino ou neutro).
+                      Como a LEVIA e o LEVE se comunicam com você (não presumimos gênero).
                     </p>
                   </div>
 

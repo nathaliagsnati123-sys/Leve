@@ -173,9 +173,22 @@ export function loadAppData(): AppData {
     const parsed = JSON.parse(raw) as AppData;
 
     const userObj = { ...INITIAL_APP_DATA.user, ...parsed.user };
-    if (userObj.name === 'Nathália') {
-      userObj.name = '';
-    }
+
+    // Recupera nome, avatar e preferência salvos de forma permanente até o usuário alterar
+    try {
+      const storedName = localStorage.getItem('leve_user_name');
+      if (storedName && storedName.trim()) {
+        userObj.name = storedName.trim();
+      }
+      const storedAvatar = localStorage.getItem('leve_user_avatar');
+      if (storedAvatar && storedAvatar.trim()) {
+        userObj.avatar = storedAvatar.trim();
+      }
+      const storedPref = localStorage.getItem('leve_treatment_pref_current');
+      if (storedPref && storedPref.trim()) {
+        userObj.treatmentPreference = storedPref as any;
+      }
+    } catch {}
 
     return {
       ...INITIAL_APP_DATA,
@@ -222,6 +235,17 @@ export function loadAppData(): AppData {
 export function saveAppData(data: AppData): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (data.user) {
+      if (data.user.name && data.user.name.trim()) {
+        localStorage.setItem('leve_user_name', data.user.name.trim());
+      }
+      if (data.user.avatar && data.user.avatar.trim()) {
+        localStorage.setItem('leve_user_avatar', data.user.avatar.trim());
+      }
+      if (data.user.treatmentPreference) {
+        localStorage.setItem('leve_treatment_pref_current', data.user.treatmentPreference);
+      }
+    }
   } catch (err) {
     console.error('Failed to save AppData to localStorage', err);
   }

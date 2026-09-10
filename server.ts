@@ -24,6 +24,25 @@ function getAIClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+const SUPPORTED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite"];
+
+async function generateGeminiContentWithFallback(ai: GoogleGenAI, params: { contents: any; config?: any }) {
+  let lastError: any = null;
+  for (const model of SUPPORTED_GEMINI_MODELS) {
+    try {
+      return await ai.models.generateContent({
+        model,
+        contents: params.contents,
+        config: params.config
+      });
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[Gemini] Modelo ${model} falhou, tentando próximo modelo:`, err?.message || err);
+    }
+  }
+  throw lastError;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -33,6 +52,30 @@ async function startServer() {
   // Health check
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "LEVE" });
+  });
+
+  // Supabase public configuration endpoint (detects and fixes inverted keys safely)
+  app.get("/api/auth/config", (_req, res) => {
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || "https://ozzlnqlhrythvjdrdgwe.supabase.co").trim();
+    const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+    const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+    // Determine the true publishable / anon key
+    let publishableKey = "";
+    if (kAnon.startsWith("sb_publishable_")) {
+      publishableKey = kAnon;
+    } else if (kService.startsWith("sb_publishable_")) {
+      publishableKey = kService;
+    } else if (kAnon) {
+      publishableKey = kAnon;
+    } else if (kService) {
+      publishableKey = kService;
+    }
+
+    res.json({
+      supabaseUrl,
+      supabaseAnonKey: publishableKey
+    });
   });
 
   // LEVIA Chat API endpoint (Gemini 3.8 Flash)
@@ -58,7 +101,14 @@ async function startServer() {
 Conceito principal: “Você fala. A LEVIA organiza.”
 Propósito principal: “Você não precisa lembrar de tudo. O LEVE lembra por você.” e “Tire da cabeça. Coloque em ordem.”
 
-Sua função é receber o que o usuário está pensando, desabafando ou precisa fazer em linguagem natural e transformar isso em organização prática dentro do LEVE.
+Sua função é receber o que o usuário está pensando, falando ou precisa fazer em linguagem natural e ajudar a estruturar isso em organização prática dentro do LEVE:
+- tarefas
+- hábitos
+- compromissos
+- metas
+- notas
+- organização da rotina
+- itens de Minha Vida (livros, filmes, séries, hobbies, lugares, sonhos)
 
 PERSONALIDADE:
 - Inteligente, organizada, prática, gentil, natural, objetiva e acolhedora sem ser exageradamente informal.
@@ -78,12 +128,16 @@ Exemplo:
 "Entendi. Posso organizar assim:
 • Pagar a conta de luz — amanhã
 • Estudar para a faculdade — hoje à noite
-• Comprar ração para o cachorro — sem data definida
 
 Quer que eu salve?"
 
+REGRA DE PRIORIDADES:
+- NUNCA marque uma tarefa como prioridade automaticamente (mesmo que seja urgente, com prazo próximo ou importante).
+- O campo "isPriority" nas tarefas criadas pela LEVIA DEVE SER SEMPRE false por padrão.
+- Se identificar algo que parece ser de extrema importância ou urgência, pergunte no texto: "Quer marcar isso como prioridade?". NUNCA marque automaticamente.
+
 Ações possíveis para propor:
-1. TAREFAS (type: 'create_task' | 'complete_task'): título, data (YYYY-MM-DD), horário (HH:mm), prioridade ('low'|'medium'|'high'), categoria ('Trabalho'|'Estudos'|'Casa'|'Pessoal'|'Saúde'|'Financeiro')
+1. TAREFAS (type: 'create_task' | 'complete_task'): título, data (YYYY-MM-DD), horário (HH:mm), prioridade ('low'|'medium'|'high'), isPriority (sempre false por padrão), categoria ('Trabalho'|'Estudos'|'Casa'|'Pessoal'|'Saúde'|'Financeiro')
 2. HÁBITOS (type: 'create_habit'): nome, frequência, período do dia
 3. METAS (type: 'create_goal'): nome, categoria, etapas
 4. CONTAS (type: 'create_bill'): nome, valor, data de vencimento
@@ -105,20 +159,21 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
         "displayDate": "Amanhã",
         "time": "19:00",
         "priority": "medium",
+        "isPriority": false,
         "category": "Financeiro"
       },
       "payload": {
         "title": "Pagar a conta de luz",
         "date": "YYYY-MM-DD",
         "priority": "medium",
+        "isPriority": false,
         "category": "Financeiro"
       }
     }
   ]
 }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateGeminiContentWithFallback(ai, {
         contents: [
           {
             role: "user",
@@ -145,6 +200,71 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
       console.error("Erro na rota /api/levia/chat:", err);
       // Fallback gracioso para que o cliente use o motor local
       return res.json({ fallbackToLocal: true, error: err.message });
+    }
+  });
+
+  // ============================================================================
+  // Tirar da Cabeça API endpoint (Espaço de acolhimento e escuta compassiva)
+  // ============================================================================
+  app.post("/api/tirar-da-cabeca", async (req, res) => {
+    try {
+      const { text, treatmentPreference, userName } = req.body;
+      if (!text || typeof text !== "string" || !text.trim()) {
+        return res.status(400).json({ error: "Texto vazio" });
+      }
+
+      const ai = getAIClient();
+      if (!ai) {
+        return res.json({ fallbackToLocal: true });
+      }
+
+      const systemInstruction = `Você é o acolhedor espaço "Tirar da Cabeça" do aplicativo LEVE.
+Propósito: A pessoa acabou de colocar para fora aquilo que está pesando na mente dela ("Você não precisa organizar. Apenas escreva.").
+
+REGRAS RÍGIDAS E INVIOLÁVEIS:
+1. NÃO transforme o conteúdo em tarefas, metas, hábitos, prioridades ou compromissos.
+2. NÃO aja como terapeuta, psicólogo ou médico.
+3. NÃO faça diagnósticos nem utilize termos clínicos (como "ansiedade patológica", "depressão", "burnout", "transtorno", etc.).
+4. A linguagem deve transmitir acolhimento caloroso, leveza, respeito e alívio genuíno.
+5. Preferência de tratamento do usuário: "${treatmentPreference || 'nao_informar'}". Nome do usuário: "${userName || ''}".
+   - Se "feminino": use tratamento feminino natural quando adequado (ex: querida, acolhida). Evite repetições excessivas.
+   - Se "masculino": use tratamento masculino natural quando adequado.
+   - Se "neutro" ou "nao_informar": use linguagem neutra, calorosa e gentil sem marcar gênero.
+
+Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
+{
+  "mensagem": "Uma mensagem curta, acolhedora, bonita e contextualizada ao que a pessoa desabafou. Deve trazer acolhimento e alívio imediato.",
+  "sugestao": "Uma sugestão simples e prática que possa ajudar naquele exato momento (ex: respirar fundo, tomar uma água, escolher só 1 pequena coisa e deixar o restante para depois)."
+}`;
+
+      const response = await generateGeminiContentWithFallback(ai, {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `O que está pesando:\n"${text.trim()}"` }]
+          }
+        ],
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const raw = response.text?.trim() || "{}";
+      try {
+        const parsed = JSON.parse(raw);
+        return res.json({
+          success: true,
+          mensagem: parsed.mensagem,
+          sugestao: parsed.sugestao
+        });
+      } catch {
+        return res.json({ fallbackToLocal: true });
+      }
+    } catch (err: any) {
+      console.warn("Erro ao gerar reflexão de Tirar da Cabeça:", err);
+      return res.json({ fallbackToLocal: true });
     }
   });
 
@@ -345,9 +465,18 @@ Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
         }
       }
 
-      // Se SUPABASE_SERVICE_ROLE_KEY estiver disponível, sincroniza com o banco
+      // Se chave de serviço estiver disponível, sincroniza com o banco
       const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://ozzlnqlhrythvjdrdgwe.supabase.co";
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+      const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      let supabaseServiceKey = "";
+      if (kService.startsWith("sb_secret_")) {
+        supabaseServiceKey = kService;
+      } else if (kAnon.startsWith("sb_secret_")) {
+        supabaseServiceKey = kAnon;
+      } else {
+        supabaseServiceKey = kService || kAnon;
+      }
 
       if (supabaseUrl && supabaseServiceKey) {
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {

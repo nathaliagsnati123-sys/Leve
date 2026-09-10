@@ -176,31 +176,65 @@ CREATE POLICY "Usuários autenticados podem ler suas próprias permissões"
     OR (email IS NOT NULL AND lower(email) = lower(auth.jwt() ->> 'email'))
   );
 
--- Trigger: Todo novo usuário cadastrado recebe automaticamente o plano LEVE Gratuito
+DROP POLICY IF EXISTS "Usuários autenticados podem associar seu user_id à sua compra por email" ON public.user_entitlements;
+CREATE POLICY "Usuários autenticados podem associar seu user_id à sua compra por email"
+  ON public.user_entitlements
+  FOR UPDATE
+  TO authenticated
+  USING (
+    auth.uid() = user_id 
+    OR (email IS NOT NULL AND lower(email) = lower(auth.jwt() ->> 'email'))
+  )
+  WITH CHECK (auth.uid() = user_id);
+
+-- Trigger: Se já existir compra Hotmart prévia para o e-mail, associa ao novo usuário; caso contrário, cria LEVE Gratuito
 CREATE OR REPLACE FUNCTION public.handle_new_user_entitlements()
 RETURNS trigger AS $$
+DECLARE
+  existing_row_id UUID;
 BEGIN
-  INSERT INTO public.user_entitlements (
-    user_id,
-    email,
-    plan_name,
-    leve_gratuito,
-    leve_especial,
-    leve_vip,
-    lia_access,
-    hotmart_status
-  )
-  VALUES (
-    NEW.id,
-    NEW.email,
-    'gratuito',
-    true,
-    false,
-    false,
-    false,
-    'gratuito'
-  )
-  ON CONFLICT (user_id) DO NOTHING;
+  -- 1. Verifica se já existe registro prévio (ex: webhook Hotmart antes do cadastro) para este e-mail
+  SELECT id INTO existing_row_id 
+  FROM public.user_entitlements 
+  WHERE lower(email) = lower(NEW.email) 
+  ORDER BY 
+    CASE 
+      WHEN leve_vip = true OR plan_name = 'vip' THEN 1
+      WHEN leve_especial = true OR plan_name = 'especial' THEN 2
+      ELSE 3
+    END
+  LIMIT 1;
+
+  IF existing_row_id IS NOT NULL THEN
+    -- Associa a compra existente ao novo usuário criado automaticamente
+    UPDATE public.user_entitlements 
+    SET user_id = NEW.id, updated_at = now() 
+    WHERE id = existing_row_id;
+  ELSE
+    -- Caso não exista compra prévia, cadastra o plano LEVE Gratuito padrão
+    INSERT INTO public.user_entitlements (
+      user_id,
+      email,
+      plan_name,
+      leve_gratuito,
+      leve_especial,
+      leve_vip,
+      lia_access,
+      hotmart_status
+    )
+    VALUES (
+      NEW.id,
+      NEW.email,
+      'gratuito',
+      true,
+      false,
+      false,
+      false,
+      'gratuito'
+    )
+    ON CONFLICT (user_id) DO NOTHING;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
