@@ -1,6 +1,7 @@
 // Serviço Completo de Notificações e Lembretes - LEVE
 import { AppData, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS } from '../types';
 import { getTodayDateString } from './storage';
+import { getDailyMotivationalQuote } from './quotesAndVerses';
 
 export type NotificationPermissionStatus = 'granted' | 'denied' | 'default' | 'unsupported';
 
@@ -350,7 +351,30 @@ export function checkAndTriggerReminders(
   }
 
   // =========================================================================
-  // 5. FECHAMENTO DO DIA
+  // 5. MENSAGEM MOTIVADORA DIÁRIA (1 VEZ AO DIA)
+  // =========================================================================
+  if (settings.dailyMotivationEnabled) {
+    const motivationTime = settings.dailyMotivationTime || '09:00';
+    const motivationKey = `daily_motivation_${todayDateStr}`;
+
+    const motivationMinutes = timeStringToMinutes(motivationTime);
+    // Dispara no minuto exato do horário ou na primeira abertura do app caso já tenha passado do horário definido e ainda não tenha sido enviada hoje
+    const isExactMinute = currentFormattedTime === motivationTime;
+    const isPastToday = currentMinutes >= motivationMinutes && currentMinutes <= motivationMinutes + 180;
+
+    if ((isExactMinute || isPastToday) && !hasNotifiedToday(motivationKey, todayDateStr)) {
+      const quote = getDailyMotivationalQuote(todayDateStr, data.user?.treatmentPreference);
+      notify(
+        '✨ Inspiração do seu Dia • LEVE',
+        quote,
+        `motivation-${todayDateStr}`
+      );
+      markNotifiedToday(motivationKey, todayDateStr);
+    }
+  }
+
+  // =========================================================================
+  // 6. FECHAMENTO DO DIA
   // =========================================================================
   if (settings.dayClosingEnabled) {
     const closingTime = settings.dayClosingReminderTime || '21:30';
@@ -367,4 +391,31 @@ export function checkAndTriggerReminders(
       markNotifiedToday(closingKey, todayDateStr);
     }
   }
+}
+
+/**
+ * Dispara imediatamente a mensagem motivadora de hoje (para teste ou prévia)
+ */
+export async function sendDailyMotivationalNotification(
+  data: AppData,
+  onInAppNotice?: (message: string, type?: 'info' | 'success') => void
+): Promise<boolean> {
+  const todayDateStr = getTodayDateString();
+  const quote = getDailyMotivationalQuote(todayDateStr, data.user?.treatmentPreference);
+  const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+
+  const title = '✨ Inspiração do seu Dia • LEVE';
+  const body = quote;
+
+  if (onInAppNotice) {
+    onInAppNotice(`${title} • "${body}"`, 'success');
+  }
+
+  const sent = await sendSystemNotification(title, {
+    body,
+    tag: `motivation-preview-${Date.now()}`,
+    sound: settings.soundEnabled
+  });
+
+  return sent;
 }

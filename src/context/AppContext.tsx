@@ -18,6 +18,7 @@ import {
   requestNotificationPermission as requestPermService,
   sendSystemNotification,
   checkAndTriggerReminders,
+  sendDailyMotivationalNotification,
   NotificationPermissionStatus
 } from '../services/notificationService';
 
@@ -203,6 +204,7 @@ interface AppContextType {
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   requestNotificationPermission: () => Promise<boolean>;
   sendTestNotification: () => Promise<boolean>;
+  sendDailyMotivationalNotificationNow: () => Promise<boolean>;
 
   // Stats
   todayCompletionPercentage: number;
@@ -496,6 +498,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     return sent;
   }, [data.notificationSettings, requestNotificationPermission, showToast]);
+
+  const sendDailyMotivationalNotificationNow = useCallback(async (): Promise<boolean> => {
+    const perm = getNotificationPermission();
+    if (perm !== 'granted') {
+      await requestNotificationPermission();
+    }
+    return sendDailyMotivationalNotification(data, (msg) => showToast(msg, 'success'));
+  }, [data, requestNotificationPermission, showToast]);
 
   // Verificador em segundo plano para lembretes de tarefas, água, hábitos, fé e fechamento
   useEffect(() => {
@@ -1729,6 +1739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateNotificationSettings,
         requestNotificationPermission,
         sendTestNotification,
+        sendDailyMotivationalNotificationNow,
         todayCompletionPercentage
       }}
     >

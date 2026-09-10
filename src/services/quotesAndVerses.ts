@@ -40,6 +40,26 @@ export const MOTIVATIONAL_QUOTES: string[] = [
 ];
 
 /**
+ * Retorna a frase motivacional específica do dia atual (consistente ao longo do dia)
+ */
+export function getDailyMotivationalQuote(dateStr?: string, treatment?: string): string {
+  const dateKey = dateStr || new Date().toISOString().split('T')[0];
+  let hash = 0;
+  for (let i = 0; i < dateKey.length; i++) {
+    hash = (hash * 31 + dateKey.charCodeAt(i)) % MOTIVATIONAL_QUOTES.length;
+  }
+  let quote = MOTIVATIONAL_QUOTES[Math.abs(hash) % MOTIVATIONAL_QUOTES.length];
+
+  if (treatment === 'male') {
+    quote = quote.replace(/mesma\b/g, 'mesmo').replace(/grata\b/g, 'grato');
+  } else if (treatment === 'unspecified') {
+    quote = quote.replace(/com você mesma\b/g, 'consigo').replace(/Seja grata\b/g, 'Pratique a gratidão');
+  }
+
+  return quote;
+}
+
+/**
  * Retorna uma frase motivacional aleatória diferente a cada vez que a pessoa entra
  */
 export function getRandomMotivationalQuote(excludeQuote?: string): string {

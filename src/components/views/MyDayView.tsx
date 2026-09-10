@@ -221,9 +221,20 @@ export const MyDayView: React.FC = () => {
                 <RefreshCw className="w-3 h-3" />
               </button>
             </div>
-            <p className="text-[10px] uppercase tracking-widest text-emerald-300 font-semibold">
-              — Lembrete de leveza
-            </p>
+            <div className="flex items-center gap-2 pt-0.5 text-[10px] text-emerald-300 font-semibold tracking-wide">
+              <span className="uppercase tracking-widest">— Lembrete de leveza</span>
+              {notificationSettings.enabled && notificationSettings.dailyMotivationEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-200 transition font-normal"
+                  title="Ajustar horário do lembrete diário motivador"
+                >
+                  <Bell className="w-2.5 h-2.5 text-emerald-300" />
+                  <span>Notificação diária às {notificationSettings.dailyMotivationTime || '09:00'}</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex-shrink-0 flex items-center gap-2">

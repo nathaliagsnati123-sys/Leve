@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
 import { 
   Bell, BellRing, BellOff, Droplets, CheckSquare, Sparkles, 
-  Clock, Volume2, Moon, Sun, ShieldCheck, AlertCircle, Check 
+  Clock, Volume2, Moon, Sun, ShieldCheck, AlertCircle, Check,
+  Quote, Send, HeartHandshake
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { playZenBellSound } from '../../services/notificationService';
+import { getDailyMotivationalQuote } from '../../services/quotesAndVerses';
 
 export const NotificationSettingsCard: React.FC = () => {
   const { 
+    data,
     notificationSettings, 
     updateNotificationSettings, 
     notificationPermission, 
     requestNotificationPermission, 
-    sendTestNotification 
+    sendTestNotification,
+    sendDailyMotivationalNotificationNow
   } = useApp();
 
   const [isTesting, setIsTesting] = useState(false);
+  const [isSendingMotivation, setIsSendingMotivation] = useState(false);
 
   const handleToggleGlobal = (enabled: boolean) => {
     updateNotificationSettings({ enabled });
@@ -30,9 +35,20 @@ export const NotificationSettingsCard: React.FC = () => {
     }
   };
 
+  const handleSendMotivationPreview = async () => {
+    setIsSendingMotivation(true);
+    try {
+      await sendDailyMotivationalNotificationNow();
+    } finally {
+      setTimeout(() => setIsSendingMotivation(false), 1000);
+    }
+  };
+
   const handlePlaySoundPreview = () => {
     playZenBellSound();
   };
+
+  const todayMotivationalQuote = getDailyMotivationalQuote(undefined, data.user?.treatmentPreference);
 
   const isGranted = notificationPermission === 'granted';
   const isDenied = notificationPermission === 'denied';
@@ -341,6 +357,78 @@ export const NotificationSettingsCard: React.FC = () => {
                   onChange={(e) => updateNotificationSettings({ eveningHabitsReminderTime: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
                 />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Mensagem Motivadora Diária (1 por dia) */}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/40 dark:from-amber-950/20 dark:to-orange-950/10 border border-amber-200/80 dark:border-amber-900/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                <Quote className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100">
+                    Mensagem Motivadora Diária
+                  </h4>
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded-full">
+                    1 por dia
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  Receba uma dose diária de carinho, acolhimento e ânimo para manter seu dia leve.
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={notificationSettings.dailyMotivationEnabled}
+                onChange={(e) => updateNotificationSettings({ dailyMotivationEnabled: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-emerald-700"></div>
+            </label>
+          </div>
+
+          {notificationSettings.dailyMotivationEnabled && (
+            <div className="space-y-3 pt-1 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="w-full sm:w-60">
+                  <label className="block text-stone-600 dark:text-stone-400 font-medium mb-1">
+                    Horário da mensagem diária
+                  </label>
+                  <input
+                    type="time"
+                    value={notificationSettings.dailyMotivationTime || '09:00'}
+                    onChange={(e) => updateNotificationSettings({ dailyMotivationTime: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendMotivationPreview}
+                  disabled={isSendingMotivation}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shadow-xs transition cursor-pointer self-start sm:self-end disabled:opacity-60"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSendingMotivation ? 'Enviando...' : 'Receber Mensagem de Hoje Agora'}</span>
+                </button>
+              </div>
+
+              {/* Prévia da mensagem de hoje */}
+              <div className="p-3 rounded-xl bg-white/80 dark:bg-stone-800/80 border border-amber-200/50 dark:border-amber-900/30">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-amber-800 dark:text-amber-300 block mb-1">
+                  Mensagem reservada para o seu dia de hoje:
+                </span>
+                <p className="font-serif italic text-xs sm:text-sm text-stone-800 dark:text-stone-200 leading-relaxed">
+                  "{todayMotivationalQuote}"
+                </p>
               </div>
             </div>
           )}

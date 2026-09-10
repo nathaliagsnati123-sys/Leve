@@ -398,6 +398,10 @@ export interface NotificationSettings {
   spiritualityEnabled: boolean;
   spiritualityReminderTime: string; // Ex: "07:30"
 
+  // Mensagem Motivadora Diária
+  dailyMotivationEnabled: boolean;
+  dailyMotivationTime: string; // Ex: "09:00"
+
   // Fechamento do Dia
   dayClosingEnabled: boolean;
   dayClosingReminderTime: string; // Ex: "21:30"
@@ -419,6 +423,8 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   eveningHabitsReminderTime: '20:30',
   spiritualityEnabled: true,
   spiritualityReminderTime: '07:30',
+  dailyMotivationEnabled: true,
+  dailyMotivationTime: '09:00',
   dayClosingEnabled: true,
   dayClosingReminderTime: '21:30',
 };
