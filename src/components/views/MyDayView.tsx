@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Plus, Check, Star, Sparkles, Brain, Moon, Droplets, 
   Sprout, Heart, HeartHandshake, ChevronRight, Clock, 
-  Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw, Lock
+  Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw, Lock,
+  Bell, BellRing
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { 
@@ -35,7 +36,10 @@ export const MyDayView: React.FC = () => {
     todayCompletionPercentage,
     setActiveTab,
     showToast,
-    updateTask
+    updateTask,
+    notificationSettings,
+    notificationPermission,
+    requestNotificationPermission
   } = useApp();
 
   const { user, hasLeveAccess, refreshEntitlements, isCheckingEntitlements } = useAuth();
@@ -530,6 +534,16 @@ export const MyDayView: React.FC = () => {
             </div>
 
             <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition shrink-0"
+              title="Ajustar lembretes e notificações"
+              aria-label="Ajustar lembretes e notificações"
+            >
+              <Bell className="w-3.5 h-3.5" />
+            </button>
+
+            <button
               id="my-day-add-task-btn"
               onClick={openNewTaskModal}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition shadow-xs"
@@ -832,13 +846,28 @@ export const MyDayView: React.FC = () => {
                 Minha Água
               </h2>
             </div>
-            <button
-              onClick={() => setActiveTab('hydration')}
-              className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline flex items-center gap-0.5"
-            >
-              <span>Detalhes</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="text-[11px] text-cyan-800 dark:text-cyan-300 hover:text-cyan-950 flex items-center gap-1 bg-cyan-100/70 dark:bg-cyan-900/40 px-2 py-0.5 rounded-md font-medium transition"
+                title="Configurar lembretes de hidratação"
+              >
+                <Bell className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
+                <span>
+                  {notificationSettings.enabled && notificationSettings.hydrationEnabled 
+                    ? `Lembrete ${notificationSettings.hydrationIntervalMinutes}m` 
+                    : 'Lembrete'}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('hydration')}
+                className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline flex items-center gap-0.5"
+              >
+                <span>Detalhes</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/40">

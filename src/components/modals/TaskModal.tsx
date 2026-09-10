@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Calendar, Clock, Tag, Repeat, Flag, Trash2, Copy, Check, Star } from 'lucide-react';
+import { X, Calendar, Clock, Tag, Repeat, Flag, Trash2, Copy, Check, Star, Bell } from 'lucide-react';
 import { Priority, TaskCategory, TaskRepeat } from '../../types';
 import { getTodayDateString } from '../../services/storage';
 
@@ -13,7 +13,10 @@ export const TaskModal: React.FC = () => {
     addTask, 
     updateTask, 
     deleteTask, 
-    duplicateTask 
+    duplicateTask,
+    notificationSettings,
+    notificationPermission,
+    requestNotificationPermission
   } = useApp();
 
   const [title, setTitle] = useState('');
@@ -166,6 +169,23 @@ export const TaskModal: React.FC = () => {
                 onChange={(e) => setTime(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
               />
+              {time && (
+                <div className="pt-1 flex items-center justify-between gap-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+                  <span className="flex items-center gap-1 font-medium">
+                    <Bell className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>Lembrete ativo para {time}</span>
+                  </span>
+                  {notificationPermission !== 'granted' && (
+                    <button
+                      type="button"
+                      onClick={requestNotificationPermission}
+                      className="underline font-semibold hover:text-emerald-800 text-[10px] cursor-pointer"
+                    >
+                      Permitir no aparelho
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

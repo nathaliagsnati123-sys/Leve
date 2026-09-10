@@ -373,6 +373,56 @@ export interface UserStats {
   tasksCompletedCount: number;
 }
 
+export interface NotificationSettings {
+  enabled: boolean;
+  soundEnabled: boolean;
+  
+  // Água / Hidratação
+  hydrationEnabled: boolean;
+  hydrationIntervalMinutes: number; // Ex: 60, 90, 120, 180 min
+  hydrationStartTime: string; // Ex: "08:00"
+  hydrationEndTime: string; // Ex: "22:00"
+
+  // Tarefas
+  tasksEnabled: boolean;
+  taskReminderMinutesBefore: number; // Ex: 0 (na hora), 10, 15, 30 min antes
+  dailyTasksSummaryEnabled: boolean;
+  dailyTasksSummaryTime: string; // Ex: "08:30"
+
+  // Hábitos & Autocuidado
+  habitsEnabled: boolean;
+  morningHabitsReminderTime: string; // Ex: "08:00"
+  eveningHabitsReminderTime: string; // Ex: "20:30"
+
+  // Espiritualidade & Momento com Deus
+  spiritualityEnabled: boolean;
+  spiritualityReminderTime: string; // Ex: "07:30"
+
+  // Fechamento do Dia
+  dayClosingEnabled: boolean;
+  dayClosingReminderTime: string; // Ex: "21:30"
+}
+
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  enabled: true,
+  soundEnabled: true,
+  hydrationEnabled: true,
+  hydrationIntervalMinutes: 90,
+  hydrationStartTime: '08:00',
+  hydrationEndTime: '22:00',
+  tasksEnabled: true,
+  taskReminderMinutesBefore: 10,
+  dailyTasksSummaryEnabled: true,
+  dailyTasksSummaryTime: '08:30',
+  habitsEnabled: true,
+  morningHabitsReminderTime: '08:00',
+  eveningHabitsReminderTime: '20:30',
+  spiritualityEnabled: true,
+  spiritualityReminderTime: '07:30',
+  dayClosingEnabled: true,
+  dayClosingReminderTime: '21:30',
+};
+
 export interface AppData {
   user: UserProfile;
   tasks: Task[];
@@ -399,6 +449,7 @@ export interface AppData {
   cycle?: MenstrualCycleData;
   unlockedAchievements: Record<string, string>; // achievementId -> unlockedAt ISO
   myLife?: MyLifeData;
+  notificationSettings?: NotificationSettings;
 }
 
 // --------------------------------------------------------

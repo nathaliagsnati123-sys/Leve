@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
+import { NotificationSettingsCard } from './NotificationSettingsCard';
 
 export const SettingsView: React.FC = () => {
   const { data, updateUser, showToast, startTour } = useApp();
@@ -240,6 +241,9 @@ export const SettingsView: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Notificações & Lembretes */}
+      <NotificationSettingsCard />
 
       {/* Tour Guiado do Aplicativo */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">

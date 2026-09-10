@@ -5,7 +5,7 @@ import {
   SleepLog, EmotionalCheckIn, JournalEntry, Memory, Prayer, Devotional,
   FiveMinuteGodSession, Goal, Bill, Income, MenstrualPeriod, CycleDailyLog, UserProfile,
   Achievement, MyLifeBook, MyLifeMovie, MyLifeSeries, MyLifeHobby, MyLifePlace, MyLifeDream,
-  LeviaMyLifeAction
+  LeviaMyLifeAction, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS
 } from '../types';
 import { 
   loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity 
@@ -13,6 +13,13 @@ import {
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
 import { normalizeTreatmentPreference } from '../utils/treatment';
+import { 
+  getNotificationPermission, 
+  requestNotificationPermission as requestPermService,
+  sendSystemNotification,
+  checkAndTriggerReminders,
+  NotificationPermissionStatus
+} from '../services/notificationService';
 
 export type ActiveTab = 
   | 'my-day' 
@@ -189,6 +196,13 @@ interface AppContextType {
   // Data management
   resetData: () => void;
   refreshData: () => void;
+
+  // Notificações & Lembretes
+  notificationSettings: NotificationSettings;
+  notificationPermission: NotificationPermissionStatus;
+  updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
+  requestNotificationPermission: () => Promise<boolean>;
+  sendTestNotification: () => Promise<boolean>;
 
   // Stats
   todayCompletionPercentage: number;
@@ -430,6 +444,85 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showToast('Preferências atualizadas.');
   }, [updateData, showToast, user, saveProfile]);
+
+  // NOTIFICAÇÕES & LEMBRETES
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionStatus>(() => {
+    return getNotificationPermission();
+  });
+
+  const notificationSettings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+
+  const updateNotificationSettings = useCallback((newSettings: Partial<NotificationSettings>) => {
+    updateData((prev) => {
+      const current = prev.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+      const updated: NotificationSettings = { ...current, ...newSettings };
+      return {
+        ...prev,
+        notificationSettings: updated
+      };
+    });
+    showToast('Preferências de lembretes salvas! 🔔');
+  }, [updateData, showToast]);
+
+  const requestNotificationPermission = useCallback(async (): Promise<boolean> => {
+    const status = await requestPermService();
+    setNotificationPermission(status);
+    if (status === 'granted') {
+      showToast('Notificações ativadas no dispositivo! 🔔', 'success');
+      return true;
+    } else if (status === 'denied') {
+      showToast('Notificações bloqueadas pelo navegador. Você pode liberá-las nas configurações do navegador.', 'info');
+      return false;
+    }
+    return false;
+  }, [showToast]);
+
+  const sendTestNotification = useCallback(async (): Promise<boolean> => {
+    const perm = getNotificationPermission();
+    if (perm !== 'granted') {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        showToast('Ative as notificações para receber no dispositivo.', 'info');
+        return false;
+      }
+    }
+
+    const current = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    showToast('Lembrete de teste disparado! 🔔', 'success');
+    const sent = await sendSystemNotification('🌿 LEVE • Lembrete de Teste', {
+      body: 'Seus lembretes de tarefas, água e hábitos estão ativos e funcionando perfeitamente!',
+      tag: 'test-notification',
+      sound: current.soundEnabled
+    });
+    return sent;
+  }, [data.notificationSettings, requestNotificationPermission, showToast]);
+
+  // Verificador em segundo plano para lembretes de tarefas, água, hábitos, fé e fechamento
+  useEffect(() => {
+    // Checagem inicial com pequeno atraso para o app carregar suavemente
+    const timer = setTimeout(() => {
+      checkAndTriggerReminders(data, (msg) => showToast(msg, 'info'));
+    }, 2500);
+
+    // Checagem a cada 35 segundos
+    const interval = setInterval(() => {
+      checkAndTriggerReminders(data, (msg) => showToast(msg, 'info'));
+    }, 35000);
+
+    // Checagem automática ao retornar à aba / desbloquear o celular
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndTriggerReminders(data, (msg) => showToast(msg, 'info'));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [data, showToast]);
 
   // TASKS
   const addTask = useCallback((taskInput: Omit<Task, 'id' | 'completed'>) => {
@@ -1631,6 +1724,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         executeLeviaMyLifeAction,
         resetData,
         refreshData,
+        notificationSettings,
+        notificationPermission,
+        updateNotificationSettings,
+        requestNotificationPermission,
+        sendTestNotification,
         todayCompletionPercentage
       }}
     >

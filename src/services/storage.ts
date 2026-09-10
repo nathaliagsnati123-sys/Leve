@@ -1,5 +1,9 @@
 // Armazenamento Local e Persistência - LEVE
-import { AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, SleepLog, JournalEntry, Memory, Prayer, FiveMinuteGodSession, Goal, Bill, UserProfile } from '../types';
+import { 
+  AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, 
+  SleepLog, JournalEntry, Memory, Prayer, FiveMinuteGodSession, Goal, Bill, 
+  UserProfile, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS 
+} from '../types';
 import { DEFAULT_SELF_CARE_ACTIONS } from './quotesAndVerses';
 
 const STORAGE_KEY = 'leve_app_data_v3';
@@ -150,7 +154,8 @@ export const INITIAL_APP_DATA: AppData = {
     hobbies: [],
     places: [],
     dreams: []
-  }
+  },
+  notificationSettings: DEFAULT_NOTIFICATION_SETTINGS
 };
 
 export const USER_IDENTITY_KEY = 'leve_user_identity_v1';
@@ -262,7 +267,10 @@ export function loadAppData(): AppData {
         hobbies: (Array.isArray(parsed.myLife.hobbies) ? parsed.myLife.hobbies : []).filter((i: any) => i && i.id !== 'hobby-1' && i.id !== 'hobby-2'),
         places: (Array.isArray(parsed.myLife.places) ? parsed.myLife.places : []).filter((i: any) => i && i.id !== 'place-1'),
         dreams: (Array.isArray(parsed.myLife.dreams) ? parsed.myLife.dreams : []).filter((i: any) => i && i.id !== 'dream-1')
-      } : INITIAL_APP_DATA.myLife
+      } : INITIAL_APP_DATA.myLife,
+      notificationSettings: parsed.notificationSettings
+        ? { ...DEFAULT_NOTIFICATION_SETTINGS, ...parsed.notificationSettings }
+        : DEFAULT_NOTIFICATION_SETTINGS
     };
   } catch (err) {
     console.error('Failed to parse saved AppData, using fallback', err);
