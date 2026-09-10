@@ -48,7 +48,8 @@ export const AuthModal: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(data.user?.name || '');
+  const [selectedAvatar, setSelectedAvatar] = useState(data.user?.avatar || '🌿');
   const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
     return normalizeTreatmentPreference(data.user?.treatmentPreference || 'nao_informar');
   });
@@ -57,6 +58,8 @@ export const AuthModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const avatarOptions = ['🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', '🧘‍♀️', '🌊'];
 
   if (!isAuthModalOpen) return null;
 
@@ -104,14 +107,16 @@ export const AuthModal: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const res = await signup(email, password, name, treatmentPreference);
+    const cleanName = name.trim();
+    const res = await signup(email, password, cleanName, treatmentPreference, selectedAvatar);
     setIsSubmitting(false);
 
     if (res.success) {
       trackPixelEvent('CompleteRegistration');
       trackPixelEvent('Lead');
       updateUser({
-        name: name.trim() || data.user.name,
+        name: cleanName || data.user.name,
+        avatar: selectedAvatar,
         treatmentPreference
       });
       setSuccessMessage(res.message || 'Conta criada com sucesso!');
@@ -638,6 +643,28 @@ export const AuthModal: React.FC = () => {
                     <p className="text-[10px] text-stone-400 dark:text-stone-500 mt-1">
                       Feminino, Masculino ou Desejo não informar. O aplicativo adapta as conversas para você.
                     </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                      Escolha seu ícone de perfil
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {avatarOptions.map((av) => (
+                        <button
+                          key={av}
+                          type="button"
+                          onClick={() => setSelectedAvatar(av)}
+                          className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition cursor-pointer ${
+                            selectedAvatar === av
+                              ? 'bg-emerald-100 dark:bg-emerald-950 border-2 border-emerald-600 scale-105 shadow-2xs'
+                              : 'bg-white dark:bg-[#1E2522] border border-stone-200 dark:border-stone-800 hover:bg-stone-50'
+                          }`}
+                        >
+                          {av}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>

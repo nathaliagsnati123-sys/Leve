@@ -333,6 +333,7 @@ export const exportAppDataAsJson = exportDataAsJson;
 export const importAppDataFromJson = importDataFromJson;
 
 export function resetAllData(): void {
+  const savedIdentity = getSavedUserIdentity();
   try {
     localStorage.removeItem(OLD_STORAGE_KEY_V1);
     localStorage.removeItem(OLD_STORAGE_KEY_V2);
@@ -340,6 +341,12 @@ export function resetAllData(): void {
   } catch {}
   saveAppData({
     ...INITIAL_APP_DATA,
+    user: {
+      ...INITIAL_APP_DATA.user,
+      ...(savedIdentity?.name ? { name: savedIdentity.name } : {}),
+      ...(savedIdentity?.avatar ? { avatar: savedIdentity.avatar } : {}),
+      ...(savedIdentity?.treatmentPreference ? { treatmentPreference: savedIdentity.treatmentPreference } : {})
+    },
     unlockedAchievements: {}
   });
 }

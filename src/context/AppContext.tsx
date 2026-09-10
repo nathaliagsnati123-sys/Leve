@@ -417,10 +417,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }));
 
-    // Se o usuário estiver autenticado e alterou nome ou preferência de gênero, salva no Supabase
-    if (user && (profile.treatmentPreference !== undefined || profile.name !== undefined)) {
+    // Se o usuário estiver autenticado e alterou nome, avatar ou preferência de tratamento, salva no Supabase
+    if (user && (profile.treatmentPreference !== undefined || profile.name !== undefined || profile.avatar !== undefined)) {
       saveProfile({
         name: profile.name,
+        avatar: profile.avatar,
         treatment_preference: normalizedPref || profile.treatmentPreference
       }).catch((e) => {
         console.warn('Erro ao sincronizar preferência no Supabase:', e);
