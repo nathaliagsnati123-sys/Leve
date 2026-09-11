@@ -546,7 +546,7 @@ export const SettingsView: React.FC = () => {
       </div>
        
       {/* Central de Automação Hotmart & Desbloqueio Imediato */}
-      <div hidden className="bg-white dark:bg-stone-900
+      <div hidden className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
             <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
