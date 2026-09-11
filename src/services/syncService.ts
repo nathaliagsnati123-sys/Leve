@@ -172,6 +172,131 @@ export async function pollCloudForUpdates(
 }
 
 /**
+ * Conexão em tempo real instantânea via Server-Sent Events (SSE).
+ * Recebe qualquer alteração feita em qualquer outro dispositivo da mesma conta em <100ms.
+ */
+export function subscribeToCloudSyncEvents(
+  identity: SyncIdentity,
+  onRemoteUpdate: (data: AppData, timestamp: number, version: number) => void
+): () => void {
+  const { email, userId } = resolveSyncIdentity(identity);
+  if (!email && !userId) return () => {};
+
+  const myDeviceId = getDeviceId();
+  let eventSource: EventSource | null = null;
+  let isClosed = false;
+  let reconnectTimer: any = null;
+
+  function connect() {
+    if (isClosed) return;
+    try {
+      const params = new URLSearchParams();
+      if (email) params.set('email', email);
+      if (userId) params.set('userId', userId);
+      params.set('deviceId', myDeviceId);
+
+      eventSource = new EventSource(`/api/sync/events?${params.toString()}`);
+
+      eventSource.addEventListener('sync-update', (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          // Ignora eco originado por este mesmo dispositivo
+          if (payload.sourceDeviceId && payload.sourceDeviceId === myDeviceId) {
+            return;
+          }
+          if (payload.data) {
+            if (payload.timestamp) setLastSyncTimestamp(payload.timestamp);
+            onRemoteUpdate(payload.data, payload.timestamp || Date.now(), payload.version || 1);
+          }
+        } catch (err) {
+          console.warn('[sync SSE] Erro ao processar evento:', err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (!isClosed) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    } catch (err) {
+      console.warn('[sync SSE] Falha ao criar EventSource:', err);
+      if (!isClosed) {
+        reconnectTimer = setTimeout(connect, 4000);
+      }
+    }
+  }
+
+  connect();
+
+  return () => {
+    isClosed = true;
+    clearTimeout(reconnectTimer);
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  };
+}
+
+// Sincronização instantânea entre abas no mesmo navegador
+let localBroadcastChannel: BroadcastChannel | null = null;
+try {
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    localBroadcastChannel = new BroadcastChannel('leve_multidevice_tab_sync');
+  }
+} catch {}
+
+export function broadcastLocalTabUpdate(data: AppData, timestamp: number): void {
+  try {
+    if (localBroadcastChannel) {
+      localBroadcastChannel.postMessage({
+        type: 'LOCAL_TAB_UPDATE',
+        deviceId: getDeviceId(),
+        timestamp,
+        data
+      });
+    }
+  } catch {}
+}
+
+export function subscribeToLocalTabUpdates(
+  onUpdate: (data: AppData, timestamp: number) => void
+): () => void {
+  if (!localBroadcastChannel) return () => {};
+  const handler = (event: MessageEvent) => {
+    if (event.data?.type === 'LOCAL_TAB_UPDATE' && event.data?.data) {
+      if (event.data.deviceId !== getDeviceId()) {
+        onUpdate(event.data.data, event.data.timestamp);
+      }
+    }
+  };
+  localBroadcastChannel.addEventListener('message', handler);
+  return () => {
+    localBroadcastChannel?.removeEventListener('message', handler);
+  };
+}
+
+/**
+ * Verifica se os dados locais são apenas os dados fictícios iniciais do app.
+ */
+export function isDefaultPlaceholderData(data: AppData | null | undefined): boolean {
+  if (!data) return true;
+  const taskIds = (data.tasks || []).map(t => t.id);
+  const isDefaultTasks = taskIds.length === 0 ||
+    (taskIds.length <= 2 && taskIds.every(id => id === 't-prioridade-1' || id === 't-tarefa-1'));
+  const habitIds = (data.habits || []).map(h => h.id);
+  const isDefaultHabits = habitIds.length === 0 || (habitIds.length === 1 && habitIds[0] === 'h-1');
+  const hasNoJournal = Object.keys(data.journal || {}).length === 0;
+  const hasNoUserName = !data.user?.name;
+  return isDefaultTasks && isDefaultHabits && hasNoJournal && hasNoUserName;
+}
+
+/**
  * Mescla de forma inteligente dois conjuntos de AppData (Local e Nuvem).
  * NUNCA descarta tarefas, hábitos, anotações ou dados criados em qualquer dos dispositivos.
  */
@@ -179,11 +304,34 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
   if (!cloud) return local;
   if (!local) return cloud;
 
+  // Se o local for apenas os dados de exemplo padrão, adota diretamente os dados da conta na nuvem
+  if (isDefaultPlaceholderData(local)) {
+    return cloud;
+  }
+  if (isDefaultPlaceholderData(cloud)) {
+    return local;
+  }
+
+  // IDs de itens de exemplo iniciais que não devem ser ressuscitados
+  const DEFAULT_PLACEHOLDER_IDS = new Set([
+    't-prioridade-1',
+    't-tarefa-1',
+    'h-1',
+    'b-1',
+    'p-1',
+    'goal-1'
+  ]);
+
   // 1. Tarefas (Tasks): União por ID
   const taskMap = new Map<string, Task>();
-  // Adiciona locais
+  // Adiciona locais (exceto placeholders não presentes na nuvem)
   (local.tasks || []).forEach(t => {
-    if (t?.id) taskMap.set(t.id, t);
+    if (t?.id) {
+      if (DEFAULT_PLACEHOLDER_IDS.has(t.id) && !(cloud.tasks || []).some(ct => ct?.id === t.id)) {
+        return;
+      }
+      taskMap.set(t.id, t);
+    }
   });
   // Mescla com os da nuvem
   (cloud.tasks || []).forEach(ct => {

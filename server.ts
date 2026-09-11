@@ -62,6 +62,14 @@ const USER_MAP_FILE = path.join(process.cwd(), "data", "user_sync_map.json");
 // Cache em memória para verificações instantâneas de versão e updatedAt (<1ms)
 const syncCache = new Map<string, { updatedAt: number; version: number; filePath: string }>();
 
+// SSE Subscribers para push em tempo real instantâneo (<50ms) entre dispositivos
+interface SSESubscriber {
+  id: string;
+  deviceId?: string;
+  res: any;
+}
+const sseSubscribers = new Map<string, Set<SSESubscriber>>();
+
 function sanitizeSyncIdentifier(val: string): string {
   return (val || "").trim().toLowerCase().replace(/[^a-z0-9@._-]/g, "_");
 }
@@ -84,11 +92,7 @@ function saveUserSyncMapping(mapping: Record<string, string>) {
   } catch {}
 }
 
-function getSyncFilePath(email?: string, userId?: string): string {
-  if (!fs.existsSync(USER_SYNC_DIR)) {
-    fs.mkdirSync(USER_SYNC_DIR, { recursive: true });
-  }
-
+function getSyncAccountKey(email?: string, userId?: string): string {
   const cleanEmail = email ? sanitizeSyncIdentifier(email) : "";
   const cleanId = userId ? sanitizeSyncIdentifier(userId) : "";
   const mapping = getUserSyncMapping();
@@ -101,7 +105,40 @@ function getSyncFilePath(email?: string, userId?: string): string {
     saveUserSyncMapping(mapping);
   }
 
-  return path.join(USER_SYNC_DIR, `${primaryKey}.json`);
+  return primaryKey;
+}
+
+function getSyncFilePath(email?: string, userId?: string): string {
+  if (!fs.existsSync(USER_SYNC_DIR)) {
+    fs.mkdirSync(USER_SYNC_DIR, { recursive: true });
+  }
+  const key = getSyncAccountKey(email, userId);
+  return path.join(USER_SYNC_DIR, `${key}.json`);
+}
+
+function broadcastSyncUpdate(accountKey: string, payload: {
+  timestamp: number;
+  version: number;
+  sourceDeviceId?: string;
+  data: any;
+}) {
+  const subs = sseSubscribers.get(accountKey);
+  if (!subs || subs.size === 0) return;
+
+  const eventPayload = JSON.stringify({
+    timestamp: payload.timestamp,
+    version: payload.version,
+    sourceDeviceId: payload.sourceDeviceId || "",
+    data: payload.data
+  });
+
+  for (const sub of Array.from(subs)) {
+    try {
+      sub.res.write(`event: sync-update\ndata: ${eventPayload}\n\n`);
+    } catch {
+      subs.delete(sub);
+    }
+  }
 }
 
 function readUserSyncPayload(email?: string, userId?: string): {
@@ -112,19 +149,19 @@ function readUserSyncPayload(email?: string, userId?: string): {
   userId?: string;
 } | null {
   try {
-    const filePath = getSyncFilePath(email, userId);
+    const accountKey = getSyncAccountKey(email, userId);
+    const filePath = path.join(USER_SYNC_DIR, `${accountKey}.json`);
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, "utf-8");
       const parsed = JSON.parse(content || "{}");
       if (parsed && parsed.data) {
-        const cacheKey = (email || userId || "").toLowerCase();
-        if (cacheKey) {
-          syncCache.set(cacheKey, {
-            updatedAt: parsed.updatedAt || 0,
-            version: parsed.version || 1,
-            filePath
-          });
-        }
+        syncCache.set(accountKey, {
+          updatedAt: parsed.updatedAt || 0,
+          version: parsed.version || 1,
+          filePath
+        });
+        if (email) syncCache.set(email.trim().toLowerCase(), { updatedAt: parsed.updatedAt || 0, version: parsed.version || 1, filePath });
+        if (userId) syncCache.set(userId.trim().toLowerCase(), { updatedAt: parsed.updatedAt || 0, version: parsed.version || 1, filePath });
         return parsed;
       }
     }
@@ -136,9 +173,10 @@ function readUserSyncPayload(email?: string, userId?: string): {
 
 function writeUserSyncPayload(
   payload: { email?: string; userId?: string; data: any; clientTimestamp?: number; deviceId?: string }
-): { success: boolean; updatedAt: number; version: number } {
+): { success: boolean; updatedAt: number; version: number; accountKey: string } {
   try {
-    const filePath = getSyncFilePath(payload.email, payload.userId);
+    const accountKey = getSyncAccountKey(payload.email, payload.userId);
+    const filePath = path.join(USER_SYNC_DIR, `${accountKey}.json`);
     let currentVersion = 1;
     let existing: any = null;
 
@@ -162,11 +200,13 @@ function writeUserSyncPayload(
       deviceId: payload.deviceId || "unknown"
     };
 
-    // Escrita atômica
+    // Escrita atômica segura
     const tempFile = `${filePath}.tmp.${Date.now()}`;
     fs.writeFileSync(tempFile, JSON.stringify(storedObject, null, 2), "utf-8");
     fs.renameSync(tempFile, filePath);
 
+    // Atualiza cache em memória
+    syncCache.set(accountKey, { updatedAt, version: currentVersion, filePath });
     if (payload.email) {
       syncCache.set(payload.email.trim().toLowerCase(), { updatedAt, version: currentVersion, filePath });
     }
@@ -174,10 +214,18 @@ function writeUserSyncPayload(
       syncCache.set(payload.userId.trim().toLowerCase(), { updatedAt, version: currentVersion, filePath });
     }
 
-    return { success: true, updatedAt, version: currentVersion };
+    // Difunde imediatamente via SSE para todos os outros aparelhos conectados nesta mesma conta
+    broadcastSyncUpdate(accountKey, {
+      timestamp: updatedAt,
+      version: currentVersion,
+      sourceDeviceId: payload.deviceId,
+      data: payload.data
+    });
+
+    return { success: true, updatedAt, version: currentVersion, accountKey };
   } catch (err) {
     console.error("[sync store] Erro ao gravar dados de sincronização:", err);
-    return { success: false, updatedAt: 0, version: 0 };
+    return { success: false, updatedAt: 0, version: 0, accountKey: "" };
   }
 }
 
@@ -748,7 +796,57 @@ async function startServer() {
   // Multi-Device Cloud Sync Endpoints (Sincronização em tempo real entre dispositivos)
   // ============================================================================
 
-  // 1. Salva/Atualiza dados do usuário na nuvem (chamado a cada alteração ou com debounce)
+  // 1. Streaming em tempo real via Server-Sent Events (SSE) para atualização instantânea (<100ms)
+  app.get("/api/sync/events", (req, res) => {
+    const email = (req.query.email as string || "").trim().toLowerCase();
+    const userId = (req.query.userId as string || "").trim();
+    const deviceId = (req.query.deviceId as string || "").trim();
+
+    if (!email && !userId) {
+      return res.status(400).json({ error: "E-mail ou ID de usuário é necessário para streaming." });
+    }
+
+    const accountKey = getSyncAccountKey(email, userId);
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const subId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const subscriber: SSESubscriber = { id: subId, deviceId, res };
+
+    if (!sseSubscribers.has(accountKey)) {
+      sseSubscribers.set(accountKey, new Set());
+    }
+    sseSubscribers.get(accountKey)!.add(subscriber);
+
+    // Confirmação de conexão para o cliente
+    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, accountKey, subId, timestamp: Date.now() })}\n\n`);
+
+    // Heartbeat a cada 20s para manter proxies e firewalls abertos
+    const pingInterval = setInterval(() => {
+      try {
+        res.write(`event: ping\ndata: ${Date.now()}\n\n`);
+      } catch {
+        clearInterval(pingInterval);
+      }
+    }, 20000);
+
+    req.on("close", () => {
+      clearInterval(pingInterval);
+      const subs = sseSubscribers.get(accountKey);
+      if (subs) {
+        subs.delete(subscriber);
+        if (subs.size === 0) {
+          sseSubscribers.delete(accountKey);
+        }
+      }
+    });
+  });
+
+  // 2. Salva/Atualiza dados do usuário na nuvem (chamado a cada alteração com debounce ultra-rápido)
   app.post("/api/sync/push", (req, res) => {
     try {
       const email = (req.body?.email || "").trim().toLowerCase();
@@ -777,10 +875,36 @@ async function startServer() {
         return res.status(500).json({ error: "Falha ao gravar dados na nuvem." });
       }
 
+      // Backup assíncrono em segundo plano para Supabase se configurado
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      if (supabaseUrl && serviceKey && userId) {
+        (async () => {
+          try {
+            const origin = new URL(supabaseUrl).origin;
+            await fetch(`${origin}/rest/v1/leve_user_data`, {
+              method: "POST",
+              headers: {
+                apikey: serviceKey,
+                Authorization: `Bearer ${serviceKey}`,
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates"
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                data: data,
+                updated_at: new Date().toISOString()
+              })
+            });
+          } catch {}
+        })();
+      }
+
       return res.json({
         success: true,
         timestamp: result.updatedAt,
         version: result.version,
+        accountKey: result.accountKey,
         message: "Dados salvos e sincronizados para todos os seus dispositivos."
       });
     } catch (err: any) {
@@ -789,8 +913,8 @@ async function startServer() {
     }
   });
 
-  // 2. Obtém os dados mais recentes na nuvem (chamado ao abrir o app, ao logar, ou quando há update)
-  app.get("/api/sync/pull", (req, res) => {
+  // 3. Obtém os dados mais recentes na nuvem (chamado ao abrir o app, ao logar, ou quando há update)
+  app.get("/api/sync/pull", async (req, res) => {
     try {
       const email = (req.query.email as string || "").trim().toLowerCase();
       const userId = (req.query.userId as string || "").trim();
@@ -800,7 +924,44 @@ async function startServer() {
         return res.status(400).json({ error: "E-mail ou ID de usuário é necessário para carregar dados." });
       }
 
-      const payload = readUserSyncPayload(email, userId);
+      let payload = readUserSyncPayload(email, userId);
+
+      // Se não encontrou no disco local, tenta buscar no Supabase como backup
+      if (!payload) {
+        const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+        const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+        if (supabaseUrl && serviceKey && userId) {
+          try {
+            const origin = new URL(supabaseUrl).origin;
+            const supaRes = await fetch(`${origin}/rest/v1/leve_user_data?user_id=eq.${userId}&select=*`, {
+              headers: {
+                apikey: serviceKey,
+                Authorization: `Bearer ${serviceKey}`
+              }
+            });
+            if (supaRes.ok) {
+              const rows = await supaRes.json();
+              if (Array.isArray(rows) && rows.length > 0 && rows[0]?.data) {
+                // Restaura para o disco local para acessos futuros instantâneos
+                writeUserSyncPayload({
+                  email,
+                  userId,
+                  data: rows[0].data,
+                  clientTimestamp: new Date(rows[0].updated_at || Date.now()).getTime(),
+                  deviceId: "supabase_restore"
+                });
+                payload = {
+                  data: rows[0].data,
+                  updatedAt: new Date(rows[0].updated_at || Date.now()).getTime(),
+                  version: 1,
+                  email,
+                  userId
+                };
+              }
+            }
+          } catch {}
+        }
+      }
 
       if (!payload) {
         return res.json({
@@ -834,7 +995,7 @@ async function startServer() {
     }
   });
 
-  // 3. Polling ultraleve (<1ms) para verificar se outro dispositivo alterou algo recentemente
+  // 4. Polling ultraleve (<1ms) para verificar se outro dispositivo alterou algo recentemente
   app.get("/api/sync/poll", (req, res) => {
     try {
       const email = (req.query.email as string || "").trim().toLowerCase();
@@ -845,8 +1006,8 @@ async function startServer() {
         return res.status(400).json({ error: "E-mail ou ID de usuário é necessário para verificação." });
       }
 
-      const cacheKey = (email || userId).toLowerCase();
-      const cached = syncCache.get(cacheKey);
+      const accountKey = getSyncAccountKey(email, userId);
+      const cached = syncCache.get(accountKey) || (email ? syncCache.get(email) : undefined) || (userId ? syncCache.get(userId) : undefined);
 
       let updatedAt = 0;
       let version = 0;
