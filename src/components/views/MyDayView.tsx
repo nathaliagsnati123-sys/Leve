@@ -241,7 +241,7 @@ export const MyDayView: React.FC = () => {
             <button
               id="my-day-brain-dump-btn"
               onClick={() => setIsBrainDumpOpen(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 text-xs font-semibold transition group shadow-xs"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 text-xs font-semibold transition group shadow-xs cursor-pointer"
               title="Tirar da cabeça e descarregar pensamentos"
             >
               <Brain className="w-3.5 h-3.5 text-emerald-300 group-hover:scale-110 transition-transform" />

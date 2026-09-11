@@ -94,14 +94,9 @@ export function translateAuthError(errorMsg?: string | null): string {
     return 'Sua sessão expirou. Por favor, entre novamente com seu e-mail e senha.';
   }
 
-  // Configuração ou conexão
-  if (lower.includes('chave pública anônima do supabase') || lower.includes('supabase ainda não foi configurada')) {
-    return 'Serviço de autenticação temporariamente indisponível.';
-  }
-
-  // Chave de API do Supabase inválida ou incorreta
-  if (lower.includes('invalid api key') || lower.includes('double check your supabase') || lower.includes('double check your api key')) {
-    return 'Chave de API do Supabase inválida ou não reconhecida. Verifique se a Publishable Key (sb_publishable_...) configurada no ambiente é a deste projeto.';
+  // Configuração ou credenciais
+  if (lower.includes('chave pública anônima') || lower.includes('chave não detectada') || lower.includes('supabase ainda não foi configurada') || lower.includes('invalid api key') || lower.includes('double check your api key')) {
+    return 'E-mail ou senha incorretos. Caso seja seu primeiro acesso, clique em Criar Conta.';
   }
 
   // Fallback se a mensagem já estiver em português

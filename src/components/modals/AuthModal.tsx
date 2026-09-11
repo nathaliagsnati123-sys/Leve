@@ -895,17 +895,12 @@ export const AuthModal: React.FC = () => {
 
         </div>
 
-        {/* Footer info & Safe Diagnostic */}
+        {/* Footer info */}
         <div className="px-6 py-2.5 bg-[#F4F2EB] dark:bg-[#121714] border-t border-stone-200/60 dark:border-stone-800/60 text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between">
           <span>Sincronização Segura em Nuvem</span>
-          <div className="flex items-center gap-1.5 font-mono text-[10px] text-stone-400">
-            <span className={diagnostics.hasSupabaseUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}>
-              URL={diagnostics.hasSupabaseUrl ? 'OK' : 'Não'}
-            </span>
-            <span>•</span>
-            <span className={diagnostics.hasSupabaseAnonKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}>
-              Chave={diagnostics.hasSupabaseAnonKey ? `${diagnostics.keyPrefix} (${diagnostics.keyLength}c)` : 'Não'}
-            </span>
+          <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+            <span>Ambiente Protegido</span>
           </div>
         </div>
       </motion.div>

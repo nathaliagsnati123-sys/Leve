@@ -9,7 +9,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig(() => {
+  const rawUrl = process.env.VITE_SUPABASE_URL || 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+  let cleanedUrl = 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+  try {
+    cleanedUrl = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`).origin;
+  } catch {
+    cleanedUrl = 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
+  }
+  const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  const publishableKey = kAnon.startsWith('sb_publishable_')
+    ? kAnon
+    : kService.startsWith('sb_publishable_')
+    ? kService
+    : kAnon || kService || '';
+
   return {
+    define: {
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(cleanedUrl),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(publishableKey),
+    },
     plugins: [
       react(),
       tailwindcss(),

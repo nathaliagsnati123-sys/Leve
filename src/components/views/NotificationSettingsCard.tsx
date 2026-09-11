@@ -76,11 +76,11 @@ export const NotificationSettingsCard: React.FC = () => {
         </label>
       </div>
 
-      {/* Status da Permissão do Dispositivo / Navegador */}
+      {/* Status da Permissão do Dispositivo / Navegador - ocultado a pedido do usuário */}
       {notificationSettings.enabled && (
-        <div className="pt-1">
+        <div className="pt-1 hidden">
           {isGranted && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/70 dark:bg-emerald-950/30 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/50">
+            <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/70 dark:bg-emerald-950/30 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/50">
               <div className="flex items-center gap-2.5 text-xs text-emerald-900 dark:text-emerald-200">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>
@@ -100,7 +100,7 @@ export const NotificationSettingsCard: React.FC = () => {
           )}
 
           {isDefault && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50">
+            <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50">
               <div className="flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200">
                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span>
@@ -119,7 +119,7 @@ export const NotificationSettingsCard: React.FC = () => {
           )}
 
           {isDenied && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-rose-50/70 dark:bg-rose-950/30 p-4 rounded-2xl border border-rose-200 dark:border-rose-800/50">
+            <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-3 bg-rose-50/70 dark:bg-rose-950/30 p-4 rounded-2xl border border-rose-200 dark:border-rose-800/50">
               <div className="flex items-center gap-2.5 text-xs text-rose-900 dark:text-rose-200">
                 <BellOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>
@@ -137,7 +137,7 @@ export const NotificationSettingsCard: React.FC = () => {
           )}
 
           {isUnsupported && (
-            <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800 text-xs text-stone-600 dark:text-stone-400">
+            <div className="hidden p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800 text-xs text-stone-600 dark:text-stone-400">
               As notificações do sistema são exibidas na tela do app enquanto você o utiliza.
             </div>
           )}

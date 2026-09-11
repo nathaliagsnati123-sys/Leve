@@ -450,8 +450,8 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Sincronização Multi-Dispositivo em Tempo Real */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/40">
+            {/* Sincronização Multi-Dispositivo em Tempo Real - ocultado a pedido do usuário */}
+            <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/40">
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800">
                   <Cloud className="w-4 h-4" />
