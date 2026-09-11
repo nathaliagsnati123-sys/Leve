@@ -232,12 +232,31 @@ export function determineUserPlan(user: any | null, entitlements: any | null): P
     return 'free';
   }
 
-  if (!entitlements) {
-    return 'free';
+  // 1. Extração prioritária a partir do registro de entitlements
+  if (entitlements) {
+    const extracted = extractPlanFromRow(entitlements);
+    if (extracted.tier === 'vip' || extracted.tier === 'special') {
+      return extracted.tier;
+    }
   }
 
-  const { tier } = extractPlanFromRow(entitlements);
-  return tier;
+  // 2. Extração a partir do user_metadata do usuário autenticado no Supabase Auth
+  const meta = user.user_metadata || {};
+  const appMeta = user.app_metadata || {};
+  const metaPlan = extractPlanFromRow({
+    leve_vip: meta.leve_vip ?? appMeta.leve_vip,
+    leve_especial: meta.leve_especial ?? appMeta.leve_especial,
+    plan_name: meta.plan || meta.plan_name || appMeta.plan || appMeta.plan_name,
+    'leve vip': meta['leve vip'] ?? appMeta['leve vip'],
+    'leve especial': meta['leve especial'] ?? appMeta['leve especial']
+  });
+
+  if (metaPlan.tier === 'vip' || metaPlan.tier === 'special') {
+    return metaPlan.tier;
+  }
+
+  // 3. Padrão: LEVE Gratuito
+  return 'free';
 }
 
 /**

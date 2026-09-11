@@ -21,36 +21,43 @@ export const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-30 bg-[#F9FAF8]/95 dark:bg-[#141B18]/95 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800/80 transition-colors pt-safe-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 relative flex items-center justify-between">
-        {/* Left side: Hamburger 3 bars button & brand icon */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+        {/* Left side: Hamburger button & brand identity */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             id="header-mobile-menu-btn"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden p-2 -ml-1 rounded-xl text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800/60 transition active:scale-95 flex items-center justify-center"
+            className="md:hidden p-2 -ml-1 rounded-xl text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800/60 transition active:scale-95 flex items-center justify-center shrink-0 cursor-pointer"
             title="Abrir menu com todas as opções"
             aria-label="Abrir todas as opções"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="w-9 h-9 rounded-xl overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white">
-            <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
+              <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-serif tracking-widest text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100 leading-none">
+                LEVE
+              </span>
+              <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate sm:hidden mt-0.5">
+                {todayBrazilian.split(',')[0]}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Center: LEVE Name & Date underneath */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center text-center pointer-events-none">
-          <span className="font-serif tracking-widest text-lg sm:text-xl font-bold text-stone-900 dark:text-stone-100 leading-tight">
-            LEVE
-          </span>
-          <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
+        {/* Center: Full Date (cleanly separated for medium and larger screens) */}
+        <div className="hidden md:flex flex-col items-center justify-center text-center">
+          <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
             {todayBrazilian}
           </span>
         </div>
 
         {/* Action controls on right */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Account Button */}
           <button
             id="header-auth-btn"
@@ -76,7 +83,7 @@ export const Header: React.FC = () => {
           <button
             id="header-achievements-btn"
             onClick={() => setIsAchievementsOpen(true)}
-            className="relative p-2 rounded-full text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/60 transition"
+            className="relative p-2 rounded-full text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/60 transition cursor-pointer"
             title="Minhas Conquistas"
           >
             <Award className="w-4 h-4 text-amber-700 dark:text-amber-300" />
@@ -91,7 +98,7 @@ export const Header: React.FC = () => {
           <button
             id="header-search-btn"
             onClick={() => setIsSearchOpen(true)}
-            className="p-2 rounded-full text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/60 transition"
+            className="p-2 rounded-full text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/60 transition cursor-pointer"
             title="Buscar tarefas, notas, orações..."
           >
             <Search className="w-4 h-4" />

@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
@@ -14,6 +15,247 @@ if ((global as any).__dirname === ".") {
 }
 
 dotenv.config();
+
+const PURCHASES_FILE = path.join(process.cwd(), "data", "purchases.json");
+
+function getStoredPurchases(): Record<string, any> {
+  try {
+    if (!fs.existsSync(path.dirname(PURCHASES_FILE))) {
+      fs.mkdirSync(path.dirname(PURCHASES_FILE), { recursive: true });
+    }
+    if (fs.existsSync(PURCHASES_FILE)) {
+      const content = fs.readFileSync(PURCHASES_FILE, "utf-8");
+      return JSON.parse(content || "{}");
+    }
+  } catch (err) {
+    console.warn("[purchases store] Erro ao ler purchases.json:", err);
+  }
+  return {};
+}
+
+function saveStoredPurchase(email: string, data: any) {
+  try {
+    const key = email.trim().toLowerCase();
+    const purchases = getStoredPurchases();
+    purchases[key] = {
+      ...(purchases[key] || {}),
+      ...data,
+      email: key,
+      updated_at: new Date().toISOString()
+    };
+    if (!fs.existsSync(path.dirname(PURCHASES_FILE))) {
+      fs.mkdirSync(path.dirname(PURCHASES_FILE), { recursive: true });
+    }
+    fs.writeFileSync(PURCHASES_FILE, JSON.stringify(purchases, null, 2), "utf-8");
+    console.log(`[purchases store] Compra salva localmente para ${key}: plano ${data.plan_name}`);
+  } catch (err) {
+    console.warn("[purchases store] Erro ao salvar purchases.json:", err);
+  }
+}
+
+// ============================================================================
+// Multi-Device Cloud Sync Store (Sincronização em tempo real entre dispositivos)
+// ============================================================================
+const USER_SYNC_DIR = path.join(process.cwd(), "data", "user_sync");
+const USER_MAP_FILE = path.join(process.cwd(), "data", "user_sync_map.json");
+
+// Cache em memória para verificações instantâneas de versão e updatedAt (<1ms)
+const syncCache = new Map<string, { updatedAt: number; version: number; filePath: string }>();
+
+function sanitizeSyncIdentifier(val: string): string {
+  return (val || "").trim().toLowerCase().replace(/[^a-z0-9@._-]/g, "_");
+}
+
+function getUserSyncMapping(): Record<string, string> {
+  try {
+    if (fs.existsSync(USER_MAP_FILE)) {
+      return JSON.parse(fs.readFileSync(USER_MAP_FILE, "utf-8") || "{}");
+    }
+  } catch {}
+  return {};
+}
+
+function saveUserSyncMapping(mapping: Record<string, string>) {
+  try {
+    if (!fs.existsSync(path.dirname(USER_MAP_FILE))) {
+      fs.mkdirSync(path.dirname(USER_MAP_FILE), { recursive: true });
+    }
+    fs.writeFileSync(USER_MAP_FILE, JSON.stringify(mapping, null, 2), "utf-8");
+  } catch {}
+}
+
+function getSyncFilePath(email?: string, userId?: string): string {
+  if (!fs.existsSync(USER_SYNC_DIR)) {
+    fs.mkdirSync(USER_SYNC_DIR, { recursive: true });
+  }
+
+  const cleanEmail = email ? sanitizeSyncIdentifier(email) : "";
+  const cleanId = userId ? sanitizeSyncIdentifier(userId) : "";
+  const mapping = getUserSyncMapping();
+
+  let primaryKey = cleanEmail || (cleanId ? mapping[cleanId] : "") || cleanId;
+  if (!primaryKey) primaryKey = "anonymous";
+
+  if (cleanId && cleanEmail && mapping[cleanId] !== cleanEmail) {
+    mapping[cleanId] = cleanEmail;
+    saveUserSyncMapping(mapping);
+  }
+
+  return path.join(USER_SYNC_DIR, `${primaryKey}.json`);
+}
+
+function readUserSyncPayload(email?: string, userId?: string): {
+  data: any;
+  updatedAt: number;
+  version: number;
+  email?: string;
+  userId?: string;
+} | null {
+  try {
+    const filePath = getSyncFilePath(email, userId);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const parsed = JSON.parse(content || "{}");
+      if (parsed && parsed.data) {
+        const cacheKey = (email || userId || "").toLowerCase();
+        if (cacheKey) {
+          syncCache.set(cacheKey, {
+            updatedAt: parsed.updatedAt || 0,
+            version: parsed.version || 1,
+            filePath
+          });
+        }
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("[sync store] Erro ao ler dados de sincronização:", err);
+  }
+  return null;
+}
+
+function writeUserSyncPayload(
+  payload: { email?: string; userId?: string; data: any; clientTimestamp?: number; deviceId?: string }
+): { success: boolean; updatedAt: number; version: number } {
+  try {
+    const filePath = getSyncFilePath(payload.email, payload.userId);
+    let currentVersion = 1;
+    let existing: any = null;
+
+    if (fs.existsSync(filePath)) {
+      try {
+        existing = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+        if (existing?.version) {
+          currentVersion = Number(existing.version) + 1;
+        }
+      } catch {}
+    }
+
+    const updatedAt = Date.now();
+    const storedObject = {
+      email: payload.email ? payload.email.trim().toLowerCase() : (existing?.email || ""),
+      userId: payload.userId || existing?.userId || "",
+      data: payload.data,
+      updatedAt,
+      version: currentVersion,
+      clientTimestamp: payload.clientTimestamp || updatedAt,
+      deviceId: payload.deviceId || "unknown"
+    };
+
+    // Escrita atômica
+    const tempFile = `${filePath}.tmp.${Date.now()}`;
+    fs.writeFileSync(tempFile, JSON.stringify(storedObject, null, 2), "utf-8");
+    fs.renameSync(tempFile, filePath);
+
+    if (payload.email) {
+      syncCache.set(payload.email.trim().toLowerCase(), { updatedAt, version: currentVersion, filePath });
+    }
+    if (payload.userId) {
+      syncCache.set(payload.userId.trim().toLowerCase(), { updatedAt, version: currentVersion, filePath });
+    }
+
+    return { success: true, updatedAt, version: currentVersion };
+  } catch (err) {
+    console.error("[sync store] Erro ao gravar dados de sincronização:", err);
+    return { success: false, updatedAt: 0, version: 0 };
+  }
+}
+
+async function syncPurchaseWithSupabaseAuth(
+  supabaseUrl: string,
+  serviceKey: string,
+  buyerEmail: string,
+  buyerName: string,
+  entitlementUpdate: any
+) {
+  const origin = new URL(supabaseUrl).origin;
+  try {
+    const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`
+      }
+    });
+
+    let existingUser: any = null;
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      existingUser = (listData?.users || []).find(
+        (u: any) => (u.email || "").toLowerCase() === buyerEmail.toLowerCase()
+      );
+    }
+
+    const metadataToSet = {
+      ...(existingUser?.user_metadata || {}),
+      name: buyerName || existingUser?.user_metadata?.name || undefined,
+      plan: entitlementUpdate.plan_name,
+      plan_name: entitlementUpdate.plan_name,
+      leve_especial: entitlementUpdate.leve_especial,
+      leve_vip: entitlementUpdate.leve_vip,
+      lia_access: entitlementUpdate.lia_access,
+      hotmart_status: entitlementUpdate.hotmart_status,
+      hotmart_transaction_id: entitlementUpdate.hotmart_transaction_id,
+      email_verified: true
+    };
+
+    if (existingUser) {
+      console.log(`[hotmart-sync] Atualizando usuário existente ${buyerEmail} para ${entitlementUpdate.plan_name}`);
+      const updateRes = await fetch(`${origin}/auth/v1/admin/users/${existingUser.id}`, {
+        method: "PUT",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email_confirm: true,
+          user_metadata: metadataToSet
+        })
+      });
+      return { action: "updated", userId: existingUser.id, ok: updateRes.ok };
+    } else {
+      console.log(`[hotmart-sync] Criando usuário novo ${buyerEmail} com plano ${entitlementUpdate.plan_name}`);
+      const createRes = await fetch(`${origin}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: buyerEmail,
+          email_confirm: true,
+          user_metadata: metadataToSet
+        })
+      });
+      const createdData = await createRes.json();
+      return { action: "created", userId: createdData?.id || null, ok: createRes.ok };
+    }
+  } catch (err: any) {
+    console.warn("[hotmart-sync] Erro ao sincronizar com Supabase Auth:", err);
+    return { action: "error", error: err?.message };
+  }
+}
 
 function cleanSupabaseUrl(raw?: string | null): string {
   const fallback = "https://ozzlnqlhrythvjdrdgwe.supabase.co";
@@ -96,6 +338,539 @@ async function startServer() {
       supabaseUrl,
       supabaseAnonKey: publishableKey
     });
+  });
+
+  // Confirm user email endpoint (admin override to immediately unblock users)
+  app.post("/api/auth/confirm-user", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      if (!email) {
+        return res.status(400).json({ error: "E-mail não fornecido" });
+      }
+
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+      if (!serviceKey) {
+        return res.status(500).json({ error: "Chave de serviço não configurada no servidor" });
+      }
+
+      const origin = new URL(supabaseUrl).origin;
+      const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`
+        }
+      });
+
+      if (!listRes.ok) {
+        const errText = await listRes.text();
+        console.warn("[confirm-user] Erro ao listar usuários:", errText);
+        return res.status(listRes.status).json({ error: "Falha ao consultar usuário no banco de dados" });
+      }
+
+      const listData = await listRes.json();
+      const users: any[] = listData?.users || [];
+      const user = users.find((u: any) => (u.email || "").toLowerCase() === email);
+
+      if (!user) {
+        return res.status(404).json({ error: "Nenhum cadastro encontrado com este e-mail" });
+      }
+
+      // Check if already confirmed
+      if (user.email_confirmed_at) {
+        return res.json({ success: true, message: "E-mail já está confirmado e ativo!", alreadyConfirmed: true });
+      }
+
+      // Update user to confirm email immediately
+      const updateRes = await fetch(`${origin}/auth/v1/admin/users/${user.id}`, {
+        method: "PUT",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email_confirm: true,
+          user_metadata: {
+            ...(user.user_metadata || {}),
+            email_verified: true
+          }
+        })
+      });
+
+      if (!updateRes.ok) {
+        const errText = await updateRes.text();
+        console.warn("[confirm-user] Falha ao atualizar usuário:", errText);
+        return res.status(500).json({ error: "Falha ao liberar e-mail do usuário" });
+      }
+
+      console.log(`[confirm-user] Usuário ${email} ativado com sucesso.`);
+      return res.json({ success: true, message: "E-mail confirmado com sucesso! Você já pode entrar." });
+    } catch (err: any) {
+      console.error("[confirm-user] Exceção:", err);
+      return res.status(500).json({ error: err?.message || "Erro interno ao confirmar usuário" });
+    }
+  });
+
+  // Resend or generate confirmation link
+  app.post("/api/auth/resend-confirmation", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      if (!email) {
+        return res.status(400).json({ error: "E-mail não fornecido" });
+      }
+
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+      if (!serviceKey) {
+        return res.status(500).json({ error: "Chave de serviço não configurada" });
+      }
+
+      const origin = new URL(supabaseUrl).origin;
+      // Also confirm the user directly to guarantee they won't remain locked out
+      const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`
+        }
+      });
+
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const user = (listData?.users || []).find((u: any) => (u.email || "").toLowerCase() === email);
+        if (user) {
+          await fetch(`${origin}/auth/v1/admin/users/${user.id}`, {
+            method: "PUT",
+            headers: {
+              apikey: serviceKey,
+              Authorization: `Bearer ${serviceKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              email_confirm: true,
+              user_metadata: {
+                ...(user.user_metadata || {}),
+                email_verified: true
+              }
+            })
+          });
+          return res.json({ success: true, message: "Acesso e e-mail liberados com sucesso! Você já pode entrar." });
+        }
+      }
+
+      return res.json({ success: true, message: "Solicitação processada com sucesso." });
+    } catch (err: any) {
+      console.error("[resend-confirmation] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro ao processar reenviar confirmação" });
+    }
+  });
+
+  // LEVIA Chat API endpoint (Gemini 3.8 Flash)
+  // Endpoints para desbloqueio e autorização imediata de clientes pós-compra
+  // ============================================================================
+
+  // Claim account / Primeiro acesso pós-compra (define senha e ativa conta instantaneamente)
+  app.post("/api/auth/claim-account", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const password = (req.body?.password || "").trim();
+      const name = (req.body?.name || "").trim();
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "E-mail e senha são obrigatórios" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ error: "A senha deve ter no mínimo 6 dígitos" });
+      }
+
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      if (!serviceKey) {
+        return res.status(500).json({ error: "Chave de serviço indisponível" });
+      }
+
+      const origin = new URL(supabaseUrl).origin;
+      const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
+
+      if (!listRes.ok) {
+        return res.status(500).json({ error: "Erro ao consultar base de clientes" });
+      }
+
+      const listData = await listRes.json();
+      const user = (listData?.users || []).find((u: any) => (u.email || "").toLowerCase() === email);
+
+      // Verificar se há registro prévio de compra local
+      const purchases = getStoredPurchases();
+      const storedPurchase = purchases[email];
+
+      if (!user) {
+        // Usuário não existe ainda no Supabase Auth -> cria com a senha informada
+        const metadata: Record<string, any> = {
+          name: name || undefined,
+          email_verified: true
+        };
+        if (storedPurchase) {
+          metadata.plan = storedPurchase.plan_name;
+          metadata.plan_name = storedPurchase.plan_name;
+          metadata.leve_especial = storedPurchase.leve_especial;
+          metadata.leve_vip = storedPurchase.leve_vip;
+          metadata.lia_access = storedPurchase.lia_access;
+        }
+
+        const createRes = await fetch(`${origin}/auth/v1/admin/users`, {
+          method: "POST",
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: metadata
+          })
+        });
+
+        if (!createRes.ok) {
+          const errText = await createRes.text();
+          return res.status(400).json({ error: "Erro ao criar conta: " + errText });
+        }
+        return res.json({ success: true, message: "Conta criada e liberada com sucesso!" });
+      }
+
+      // Usuário já existe (pré-criado pela Hotmart ou cadastro anterior):
+      // Define a senha e garante email_confirm: true imediatamente!
+      const userMetadata: Record<string, any> = {
+        ...(user.user_metadata || {}),
+        name: name || user.user_metadata?.name || undefined,
+        email_verified: true
+      };
+      if (storedPurchase) {
+        userMetadata.plan = storedPurchase.plan_name;
+        userMetadata.plan_name = storedPurchase.plan_name;
+        userMetadata.leve_especial = storedPurchase.leve_especial;
+        userMetadata.leve_vip = storedPurchase.leve_vip;
+        userMetadata.lia_access = storedPurchase.lia_access;
+      }
+
+      const updateRes = await fetch(`${origin}/auth/v1/admin/users/${user.id}`, {
+        method: "PUT",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          password,
+          email_confirm: true,
+          user_metadata: userMetadata
+        })
+      });
+
+      if (!updateRes.ok) {
+        const errText = await updateRes.text();
+        return res.status(500).json({ error: "Erro ao ativar senha: " + errText });
+      }
+
+      return res.json({ success: true, message: "Senha cadastrada e acesso liberado com sucesso!" });
+    } catch (err: any) {
+      console.error("[claim-account] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro interno ao ativar conta" });
+    }
+  });
+
+  // Consulta de entitlements por e-mail ou userId com fallback em cascata
+  app.get("/api/user/entitlements", async (req, res) => {
+    try {
+      const email = (req.query.email as string || "").trim().toLowerCase();
+      const userId = (req.query.userId as string || "").trim();
+
+      if (!email && !userId) {
+        return res.status(400).json({ error: "E-mail ou userId é obrigatório" });
+      }
+
+      // 1. Checar store local persistente
+      const purchases = getStoredPurchases();
+      const local = email ? purchases[email] : Object.values(purchases).find((p: any) => p.user_id === userId);
+
+      // 2. Checar Supabase Auth Admin user_metadata
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      let authUserMeta: any = null;
+
+      if (supabaseUrl && serviceKey) {
+        try {
+          const origin = new URL(supabaseUrl).origin;
+          if (userId) {
+            const uRes = await fetch(`${origin}/auth/v1/admin/users/${userId}`, {
+              headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+            });
+            if (uRes.ok) {
+              const uData = await uRes.json();
+              authUserMeta = uData?.user_metadata;
+            }
+          } else if (email) {
+            const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+              headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+            });
+            if (listRes.ok) {
+              const listData = await listRes.json();
+              const found = (listData?.users || []).find((u: any) => (u.email || "").toLowerCase() === email);
+              if (found) {
+                authUserMeta = found.user_metadata;
+              }
+            }
+          }
+        } catch (authErr) {
+          console.warn("[/api/user/entitlements] Erro ao consultar Supabase Auth:", authErr);
+        }
+      }
+
+      // 3. Determinar o plano ativo
+      const isVip = 
+        local?.leve_vip === true || 
+        local?.plan_name === "vip" || 
+        authUserMeta?.leve_vip === true || 
+        authUserMeta?.plan === "vip" || 
+        authUserMeta?.plan_name === "vip";
+
+      const isSpecial = 
+        !isVip && (
+          local?.leve_especial === true || 
+          local?.plan_name === "especial" || 
+          authUserMeta?.leve_especial === true || 
+          authUserMeta?.plan === "especial" || 
+          authUserMeta?.plan_name === "especial"
+        );
+
+      const planName = isVip ? "vip" : (isSpecial ? "especial" : "gratuito");
+
+      return res.json({
+        email,
+        plan_name: planName,
+        leve_gratuito: !isVip && !isSpecial,
+        "leve gratuito": !isVip && !isSpecial,
+        leve_especial: isSpecial,
+        "leve especial": isSpecial,
+        leve_vip: isVip,
+        "leve vip": isVip,
+        lia_access: isVip,
+        hotmart_status: isVip || isSpecial ? "approved" : "gratuito",
+        source: isVip || isSpecial ? (local ? "purchase_store" : "supabase_auth") : "default"
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Erro interno" });
+    }
+  });
+
+  // Liberação manual administrativa de cliente por e-mail
+  app.post("/api/admin/manual-grant", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const plan = (req.body?.plan || "especial").trim().toLowerCase();
+      const name = (req.body?.name || "").trim();
+
+      if (!email) {
+        return res.status(400).json({ error: "E-mail é obrigatório" });
+      }
+
+      const isVip = plan === "vip";
+      const isSpecial = plan === "especial" || plan === "special";
+      const isGratuito = !isVip && !isSpecial;
+
+      const entitlementUpdate = {
+        plan_name: isVip ? "vip" : (isSpecial ? "especial" : "gratuito"),
+        leve_gratuito: isGratuito,
+        "leve gratuito": isGratuito,
+        leve_especial: isSpecial,
+        "leve especial": isSpecial,
+        leve_vip: isVip,
+        "leve vip": isVip,
+        lia_access: isVip,
+        hotmart_status: isGratuito ? "gratuito" : "approved",
+        hotmart_transaction_id: "MANUAL-" + Date.now()
+      };
+
+      saveStoredPurchase(email, entitlementUpdate);
+
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+      let syncResult = null;
+      if (supabaseUrl && serviceKey) {
+        syncResult = await syncPurchaseWithSupabaseAuth(supabaseUrl, serviceKey, email, name, entitlementUpdate);
+        try {
+          const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+            auth: { persistSession: false, autoRefreshToken: false }
+          });
+          await supabaseAdmin.from("user_entitlements").upsert({
+            email,
+            ...entitlementUpdate,
+            updated_at: new Date().toISOString()
+          });
+        } catch {}
+      }
+
+      return res.json({
+        success: true,
+        email,
+        plan: entitlementUpdate.plan_name,
+        entitlements: entitlementUpdate,
+        syncResult
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Erro interno" });
+    }
+  });
+
+  // Status e diagnóstico do webhook Hotmart
+  app.get("/api/admin/hotmart-status", (_req, res) => {
+    const purchases = getStoredPurchases();
+    const list = Object.values(purchases);
+    const webhookUrl = "https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app/api/hotmart-webhook";
+    const hottokConfigured = Boolean(process.env.HOTTOK || process.env.HOTMART_HOTTOK);
+
+    res.json({
+      status: "online",
+      webhookUrl,
+      hottokConfigured,
+      totalPurchasesStored: list.length,
+      recentPurchases: list.slice(-10).reverse()
+    });
+  });
+
+  // ============================================================================
+  // Multi-Device Cloud Sync Endpoints (Sincronização em tempo real entre dispositivos)
+  // ============================================================================
+
+  // 1. Salva/Atualiza dados do usuário na nuvem (chamado a cada alteração ou com debounce)
+  app.post("/api/sync/push", (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const userId = (req.body?.userId || "").trim();
+      const data = req.body?.data;
+      const clientTimestamp = req.body?.clientTimestamp || Date.now();
+      const deviceId = req.body?.deviceId;
+
+      if (!email && !userId) {
+        return res.status(400).json({ error: "E-mail ou ID de usuário é obrigatório para sincronização." });
+      }
+
+      if (!data || typeof data !== "object") {
+        return res.status(400).json({ error: "Estrutura de dados inválida para sincronização." });
+      }
+
+      const result = writeUserSyncPayload({
+        email,
+        userId,
+        data,
+        clientTimestamp,
+        deviceId
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ error: "Falha ao gravar dados na nuvem." });
+      }
+
+      return res.json({
+        success: true,
+        timestamp: result.updatedAt,
+        version: result.version,
+        message: "Dados salvos e sincronizados para todos os seus dispositivos."
+      });
+    } catch (err: any) {
+      console.error("[api/sync/push] Erro:", err);
+      return res.status(500).json({ error: err.message || "Erro interno ao sincronizar" });
+    }
+  });
+
+  // 2. Obtém os dados mais recentes na nuvem (chamado ao abrir o app, ao logar, ou quando há update)
+  app.get("/api/sync/pull", (req, res) => {
+    try {
+      const email = (req.query.email as string || "").trim().toLowerCase();
+      const userId = (req.query.userId as string || "").trim();
+      const since = Number(req.query.since || 0);
+
+      if (!email && !userId) {
+        return res.status(400).json({ error: "E-mail ou ID de usuário é necessário para carregar dados." });
+      }
+
+      const payload = readUserSyncPayload(email, userId);
+
+      if (!payload) {
+        return res.json({
+          hasUpdates: false,
+          data: null,
+          timestamp: 0,
+          version: 0,
+          message: "Nenhum dado na nuvem ainda para esta conta."
+        });
+      }
+
+      if (since > 0 && payload.updatedAt <= since) {
+        return res.json({
+          hasUpdates: false,
+          timestamp: payload.updatedAt,
+          version: payload.version
+        });
+      }
+
+      return res.json({
+        hasUpdates: true,
+        data: payload.data,
+        timestamp: payload.updatedAt,
+        version: payload.version,
+        email: payload.email,
+        userId: payload.userId
+      });
+    } catch (err: any) {
+      console.error("[api/sync/pull] Erro:", err);
+      return res.status(500).json({ error: err.message || "Erro interno ao carregar dados" });
+    }
+  });
+
+  // 3. Polling ultraleve (<1ms) para verificar se outro dispositivo alterou algo recentemente
+  app.get("/api/sync/poll", (req, res) => {
+    try {
+      const email = (req.query.email as string || "").trim().toLowerCase();
+      const userId = (req.query.userId as string || "").trim();
+      const since = Number(req.query.since || 0);
+
+      if (!email && !userId) {
+        return res.status(400).json({ error: "E-mail ou ID de usuário é necessário para verificação." });
+      }
+
+      const cacheKey = (email || userId).toLowerCase();
+      const cached = syncCache.get(cacheKey);
+
+      let updatedAt = 0;
+      let version = 0;
+
+      if (cached) {
+        updatedAt = cached.updatedAt;
+        version = cached.version;
+      } else {
+        const payload = readUserSyncPayload(email, userId);
+        if (payload) {
+          updatedAt = payload.updatedAt;
+          version = payload.version;
+        }
+      }
+
+      const hasUpdates = updatedAt > since;
+      return res.json({
+        hasUpdates,
+        timestamp: updatedAt,
+        version
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Erro no polling" });
+    }
   });
 
   // LEVIA Chat API endpoint (Gemini 3.8 Flash)
@@ -485,7 +1260,10 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         }
       }
 
-      // Se chave de serviço estiver disponível, sincroniza com o banco
+      // 1. Salvar no store persistente local imediatamente (garante disponibilidade 100% imediata)
+      saveStoredPurchase(buyerEmail, entitlementUpdate);
+
+      // 2. Se chaves do Supabase estiverem configuradas, sincroniza no Auth e na tabela
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
       const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
       const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -498,61 +1276,73 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         supabaseServiceKey = kService || kAnon;
       }
 
+      const buyerName = buyer.name || data.name || buyer.first_name || "";
+      let authSyncResult: any = null;
+
       if (supabaseUrl && supabaseServiceKey) {
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-          auth: { persistSession: false, autoRefreshToken: false }
-        });
+        // Cria usuário no Supabase Auth ou atualiza suas permissões e confirma e-mail imediatamente
+        authSyncResult = await syncPurchaseWithSupabaseAuth(
+          supabaseUrl, 
+          supabaseServiceKey, 
+          buyerEmail, 
+          buyerName, 
+          entitlementUpdate
+        );
 
-        // Buscar usuário em auth.users
-        let userId: string | null = null;
+        // Também tenta registrar na tabela user_entitlements caso as permissões do banco estejam liberadas
         try {
-          const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
-          const matched = listData?.users?.find((u) => u.email?.toLowerCase() === buyerEmail);
-          if (matched) userId = matched.id;
-        } catch {}
+          const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { persistSession: false, autoRefreshToken: false }
+          });
 
-        // Buscar registro em user_entitlements
-        let existingId: string | null = null;
-        try {
-          let query = supabaseAdmin.from("user_entitlements").select("id, user_id, email");
-          if (userId) {
-            query = query.or(`user_id.eq.${userId},email.ilike.${buyerEmail}`);
+          const userId = authSyncResult?.userId || null;
+          let existingId: string | null = null;
+          try {
+            let query = supabaseAdmin.from("user_entitlements").select("id, user_id, email");
+            if (userId) {
+              query = query.or(`user_id.eq.${userId},email.ilike.${buyerEmail}`);
+            } else {
+              query = query.ilike("email", buyerEmail);
+            }
+            const { data: rows } = await query;
+            if (rows && rows.length > 0) existingId = rows[0].id;
+          } catch {}
+
+          if (existingId) {
+            await supabaseAdmin
+              .from("user_entitlements")
+              .update({
+                ...(userId ? { user_id: userId } : {}),
+                email: buyerEmail,
+                ...entitlementUpdate,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", existingId);
           } else {
-            query = query.ilike("email", buyerEmail);
+            await supabaseAdmin
+              .from("user_entitlements")
+              .insert({
+                user_id: userId,
+                email: buyerEmail,
+                ...entitlementUpdate,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
           }
-          const { data: rows } = await query;
-          if (rows && rows.length > 0) existingId = rows[0].id;
-        } catch {}
-
-        if (existingId) {
-          await supabaseAdmin
-            .from("user_entitlements")
-            .update({
-              ...(userId ? { user_id: userId } : {}),
-              email: buyerEmail,
-              ...entitlementUpdate,
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", existingId);
-        } else {
-          await supabaseAdmin
-            .from("user_entitlements")
-            .insert({
-              user_id: userId,
-              email: buyerEmail,
-              ...entitlementUpdate,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
+        } catch (dbErr) {
+          console.warn("[server hotmart-webhook] Aviso: tabela user_entitlements não pôde ser atualizada diretamente (Auth e Store local salvos):", dbErr);
         }
       }
+
+      console.log(`[server hotmart-webhook] Compra processada com sucesso: ${buyerEmail} -> Plano ${entitlementUpdate.plan_name}`);
 
       return res.json({
         status: "success",
         event,
         email: buyerEmail,
         plan: entitlementUpdate.plan_name,
-        entitlements: entitlementUpdate
+        entitlements: entitlementUpdate,
+        authSync: authSyncResult
       });
     } catch (err: any) {
       console.error("[server hotmart-webhook] Erro:", err);

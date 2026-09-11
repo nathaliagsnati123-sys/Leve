@@ -45,7 +45,9 @@ export const AuthModal: React.FC = () => {
     hasLeveAccess,
     hasLiaAccess,
     treatmentPreference: authTreatmentPref,
-    updateTreatmentPreference
+    updateTreatmentPreference,
+    confirmUserEmail,
+    resendConfirmation
   } = useAuth();
 
   const { data, showToast, updateUser } = useApp();
@@ -95,6 +97,38 @@ export const AuthModal: React.FC = () => {
       handleClose();
     } else {
       setErrorMessage(translateAuthError(res.error) || 'Erro ao entrar. Verifique seus dados.');
+    }
+  };
+
+  const handleQuickConfirmAndLogin = async () => {
+    if (!email) {
+      setErrorMessage('Por favor, informe o e-mail que deseja liberar.');
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const res = await confirmUserEmail(email);
+      if (res.success) {
+        showToast('E-mail verificado e liberado com sucesso!', 'success');
+        if (password) {
+          const logRes = await login(email, password);
+          if (logRes.success) {
+            saveRememberedEmail(email);
+            markPresentationCompleted();
+            updateUser({ hasCompletedOnboarding: true });
+            handleClose();
+            return;
+          }
+        }
+        setSuccessMessage('E-mail liberado com sucesso! Digite sua senha e clique em Entrar.');
+      } else {
+        setErrorMessage(res.error || 'Não foi possível confirmar o e-mail automaticamente.');
+      }
+    } catch {
+      setErrorMessage('Erro ao tentar liberar o e-mail.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -247,10 +281,66 @@ export const AuthModal: React.FC = () => {
               id="auth-error-alert"
               initial={{ opacity: 0, y: -6 }} 
               animate={{ opacity: 1, y: 0 }}
-              className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5"
+              className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-800 dark:text-rose-200 space-y-2.5"
             >
-              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-relaxed">{translateAuthError(errorMessage)}</div>
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1 leading-relaxed">{translateAuthError(errorMessage)}</div>
+              </div>
+              {(errorMessage.toLowerCase().includes('confirm') || 
+                errorMessage.toLowerCase().includes('verifi') || 
+                errorMessage.toLowerCase().includes('não confirmado')) && (
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleQuickConfirmAndLogin}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                  <span>{isSubmitting ? 'Liberando...' : 'Liberar e Confirmar Meu E-mail Agora'}</span>
+                </button>
+              )}
+              {(errorMessage.toLowerCase().includes('credenciais') || 
+                errorMessage.toLowerCase().includes('senha') ||
+                errorMessage.toLowerCase().includes('invalid')) && (
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={async () => {
+                    if (!email || !password) {
+                      setErrorMessage('Preencha seu e-mail e a senha que deseja para ativar seu acesso pós-compra.');
+                      return;
+                    }
+                    setIsSubmitting(true);
+                    setErrorMessage(null);
+                    try {
+                      const claimRes = await fetch('/api/auth/claim-account', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: name.trim() })
+                      });
+                      const claimData = await claimRes.json();
+                      if (claimRes.ok) {
+                        const logRes = await login(email, password);
+                        if (logRes.success) {
+                          showToast('Acesso pós-compra liberado com sucesso!', 'success');
+                          handleClose();
+                          return;
+                        }
+                      }
+                      setErrorMessage(claimData?.error || 'Não foi possível ativar sua senha automaticamente.');
+                    } catch {
+                      setErrorMessage('Erro ao ativar acesso pós-compra.');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200" />
+                  <span>{isSubmitting ? 'Ativando...' : 'Comprou na Hotmart? Ativar Senha e Entrar'}</span>
+                </button>
+              )}
             </motion.div>
           )}
 

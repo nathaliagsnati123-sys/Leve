@@ -2,7 +2,16 @@
 -- LEVE - Supabase Database Schema & Row Level Security (RLS) Policies
 -- ====================================================================
 -- Este script configura o armazenamento de dados pessoais do usuário,
--- garantindo que NENHUM usuário consiga visualizar ou alterar dados de outros.
+-- permissões das tabelas e vinculação automática de compras Hotmart.
+--
+-- IMPORTANTE: Execute este script completo no SQL Editor do Supabase para
+-- garantir permissões totais para as roles da aplicação (anon, authenticated, service_role).
+
+-- 0. Permissões globais de esquema (Resolve o erro 403 / 42501 permission denied)
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO postgres, anon, authenticated, service_role;
 
 -- 1. Habilitar extensões necessárias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -281,3 +290,8 @@ CREATE POLICY "Usuários podem atualizar seu próprio perfil"
   WITH CHECK (auth.uid() = id OR auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
+
+-- 6. Garantir concessões completas para todas as tabelas criadas
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role;

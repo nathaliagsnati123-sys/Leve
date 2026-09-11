@@ -28,7 +28,7 @@ import {
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
 import { normalizeTreatmentPreference } from '../utils/treatment';
-import { saveRememberedEmail, markPresentationCompleted } from '../services/storage';
+import { saveRememberedEmail, getRememberedEmail, markPresentationCompleted } from '../services/storage';
 import {
   PlanTier,
   AppFeature,
@@ -60,7 +60,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   syncDataNow: (data: AppData) => Promise<boolean>;
-  pullCloudData: () => Promise<AppData | null>;
+  pullCloudData: (since?: number) => Promise<AppData | null>;
+  confirmUserEmail: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  resendConfirmation: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
 
   // Entitlements & Access Control (user_entitlements)
   entitlements: UserEntitlements | null;
@@ -177,6 +179,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       try {
+        // Handle confirmation link parameters from email (code or token_hash)
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get('code');
+          const tokenHash = urlParams.get('token_hash');
+          const otpType = (urlParams.get('type') as any) || 'signup';
+          const client = getSupabase();
+
+          if (code && client) {
+            try {
+              await client.auth.exchangeCodeForSession(code);
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (exchangeErr) {
+              console.warn('[AuthContext] Erro ao trocar code por sessão:', exchangeErr);
+            }
+          } else if (tokenHash && client) {
+            try {
+              await client.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (otpErr) {
+              console.warn('[AuthContext] Erro ao validar OTP token_hash:', otpErr);
+            }
+          }
+        }
+
         const currentSession = await supabaseGetSession();
         if (mounted) {
           setSession(currentSession);
@@ -258,13 +285,67 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [loadEntitlements, loadProfile]);
 
+  const confirmUserEmail = useCallback(async (targetEmail: string) => {
+    try {
+      const res = await fetch('/api/auth/confirm-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail.trim().toLowerCase() })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erro ao conectar ao servidor para liberar e-mail' };
+    }
+  }, []);
+
+  const resendConfirmation = useCallback(async (targetEmail: string) => {
+    try {
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail.trim().toLowerCase() })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erro ao reenviar confirmação de e-mail' };
+    }
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     // Note: Do NOT set setIsLoading(true) here! AuthModal has its own isSubmitting spinner.
     // Setting isLoading=true would unmount the AuthModal and erase the error message!
     setIsCheckingEntitlements(true);
 
     try {
-      const { data, error } = await supabaseSignIn(email, password);
+      let { data, error } = await supabaseSignIn(email, password);
+
+      // Se der erro de e-mail não confirmado, tenta auto-confirmar via API do servidor com a service key
+      if (error && error.message && (
+        error.message.toLowerCase().includes('email not confirmed') ||
+        error.message.toLowerCase().includes('not confirmed') ||
+        error.message.toLowerCase().includes('não confirmado')
+      )) {
+        console.log('[AuthContext] E-mail pendente de confirmação detectado. Tentando auto-confirmar para liberar o acesso...');
+        try {
+          const autoRes = await fetch('/api/auth/confirm-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim().toLowerCase() })
+          });
+          const autoData = await autoRes.json();
+          if (autoData?.success) {
+            console.log('[AuthContext] Auto-confirmação bem-sucedida! Repetindo login...');
+            const retryRes = await supabaseSignIn(email, password);
+            data = retryRes.data;
+            error = retryRes.error;
+          }
+        } catch (autoErr) {
+          console.warn('[AuthContext] Falha na auto-confirmação silenciosa:', autoErr);
+        }
+      }
+
       if (error) {
         return { success: false, error: translateAuthError(error.message) };
       }
@@ -304,7 +385,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const cleanName = name ? name.trim() : '';
       const cleanAvatar = avatar ? avatar.trim() : '';
       const { data, error } = await supabaseSignUp(email, password, cleanName, preference, cleanAvatar);
+      
       if (error) {
+        const errMsg = (error.message || '').toLowerCase();
+        // Se a conta já existe (pré-criada pela Hotmart na hora da compra):
+        if (
+          errMsg.includes('already registered') || 
+          errMsg.includes('already been registered') ||
+          errMsg.includes('user already exists')
+        ) {
+          console.log('[AuthContext] Usuário pré-existente detectado. Ativando conta e vinculando senha...');
+          try {
+            const claimRes = await fetch('/api/auth/claim-account', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: cleanName })
+            });
+            if (claimRes.ok) {
+              const logRes = await login(email, password);
+              if (logRes.success) {
+                return { 
+                  success: true, 
+                  message: 'Acesso liberado e compra vinculada com sucesso! Bem-vinda ao LEVE.' 
+                };
+              }
+            }
+          } catch (claimErr) {
+            console.warn('[AuthContext] Falha ao reivindicar conta:', claimErr);
+          }
+        }
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
@@ -476,9 +585,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const syncDataNow = useCallback(async (data: AppData) => {
-    if (!user) return false;
+    const userEmail = user?.email || getRememberedEmail();
+    const userId = user?.id || '';
+    if (!userEmail && !userId) return false;
     setSyncStatus('syncing');
-    const { success } = await syncUserDataToSupabase(user.id, data);
+    const { success } = await syncUserDataToSupabase(userId, data, userEmail);
     if (success) {
       setSyncStatus('synced');
       setLastSyncedAt(new Date());
@@ -489,9 +600,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user]);
 
-  const pullCloudData = useCallback(async (): Promise<AppData | null> => {
-    if (!user) return null;
-    const { data } = await fetchUserDataFromSupabase(user.id);
+  const pullCloudData = useCallback(async (since = 0): Promise<AppData | null> => {
+    const userEmail = user?.email || getRememberedEmail();
+    const userId = user?.id || '';
+    if (!userEmail && !userId) return null;
+    const { data } = await fetchUserDataFromSupabase(userId, userEmail, since);
     if (data) {
       setLastSyncedAt(new Date());
       setSyncStatus('synced');
@@ -584,6 +697,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         resetPassword,
         syncDataNow,
         pullCloudData,
+        confirmUserEmail,
+        resendConfirmation,
         entitlements,
         isCheckingEntitlements,
         plan,

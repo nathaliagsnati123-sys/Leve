@@ -9,8 +9,11 @@ import {
 } from '../types';
 import { 
   loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity,
-  isPresentationAlreadyCompleted, markPresentationCompleted 
+  isPresentationAlreadyCompleted, markPresentationCompleted, getRememberedEmail
 } from '../services/storage';
+import { 
+  mergeAppData, pollCloudForUpdates, getLastSyncTimestamp, setLastSyncTimestamp 
+} from '../services/syncService';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
 import { normalizeTreatmentPreference } from '../utils/treatment';
@@ -195,9 +198,10 @@ interface AppContextType {
   toggleMyLifeFavorite: (category: 'books' | 'movies' | 'series' | 'hobbies' | 'places' | 'dreams', id: string) => void;
   executeLeviaMyLifeAction: (action: LeviaMyLifeAction) => Promise<{ success: boolean; message: string }>;
   
-  // Data management
+  // Data management & Multi-Device Sync
   resetData: () => void;
   refreshData: () => void;
+  forceSyncAll: () => Promise<boolean>;
 
   // Notificações & Lembretes
   notificationSettings: NotificationSettings;
@@ -329,56 +333,194 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [userProfile, user?.id]);
 
-  // On user login: pull from Supabase if available, or sync initial data
+  // ============================================================================
+  // Multi-Device Cloud Sync Engine (Sincronização entre todos os dispositivos)
+  // ============================================================================
+  const isApplyingRemoteRef = React.useRef(false);
+  const isSyncingRef = React.useRef(false);
+  const lastSyncedTimestampRef = React.useRef<number>(getLastSyncTimestamp());
+
+  const activeEmail = (user?.email || getRememberedEmail() || '').trim().toLowerCase();
+  const activeUserId = user?.id || '';
+  const hasAccount = Boolean(activeEmail || activeUserId);
+
+  // Força uma sincronização completa (Puxa e Empurra mesclando tudo)
+  const forceSyncAll = useCallback(async (): Promise<boolean> => {
+    if (!hasAccount) return false;
+    isSyncingRef.current = true;
+    try {
+      const cloudData = await pullCloudData();
+      if (cloudData) {
+        isApplyingRemoteRef.current = true;
+        let mergedToSave: AppData | null = null;
+        setData((prev) => {
+          const merged = mergeAppData(prev, cloudData);
+          saveAppData(merged);
+          mergedToSave = merged;
+          return merged;
+        });
+        const now = Date.now();
+        lastSyncedTimestampRef.current = now;
+        setLastSyncTimestamp(now);
+        if (mergedToSave) {
+          await syncDataNow(mergedToSave);
+        }
+        return true;
+      } else {
+        // Envia os dados locais se a nuvem ainda não tem nada
+        const success = await syncDataNow(data);
+        if (success) {
+          const now = Date.now();
+          lastSyncedTimestampRef.current = now;
+          setLastSyncTimestamp(now);
+        }
+        return success;
+      }
+    } catch (err) {
+      console.warn('[forceSyncAll] Erro:', err);
+      return false;
+    } finally {
+      isSyncingRef.current = false;
+    }
+  }, [hasAccount, pullCloudData, syncDataNow, data]);
+
+  // 1. Ao iniciar o app ou logar: puxa da nuvem e mescla sem perder nenhum dado
   useEffect(() => {
-    if (!user) return;
+    if (!hasAccount) return;
     let isCancelled = false;
 
-    async function syncOnLogin() {
+    async function syncOnLoginOrMount() {
       try {
         const cloudData = await pullCloudData();
         if (cloudData && !isCancelled) {
+          isApplyingRemoteRef.current = true;
           setData((prev) => {
-            const cloudUser = (cloudData.user || {}) as Partial<UserProfile>;
-            const hasExplicitLocalPref = Boolean(prev.user.treatmentPreference && prev.user.treatmentPreference !== 'nao_informar');
-            const cloudPref = cloudUser.treatmentPreference ? normalizeTreatmentPreference(cloudUser.treatmentPreference) : undefined;
-            const chosenPref = (cloudPref && cloudPref !== 'nao_informar')
-              ? cloudPref
-              : (hasExplicitLocalPref ? prev.user.treatmentPreference : (cloudPref || prev.user.treatmentPreference || 'nao_informar'));
-
-            const merged: AppData = {
-              ...prev,
-              ...cloudData,
-              user: { 
-                ...prev.user, 
-                ...cloudUser,
-                treatmentPreference: chosenPref
-              }
-            };
+            const merged = mergeAppData(prev, cloudData);
             saveAppData(merged);
             return merged;
           });
+          const now = Date.now();
+          lastSyncedTimestampRef.current = now;
+          setLastSyncTimestamp(now);
         } else if (!cloudData && !isCancelled) {
-          // Push initial data to cloud
-          syncDataNow(data);
+          // Nuvem ainda vazia: envia a cópia local para disponibilizar aos outros dispositivos
+          await syncDataNow(data);
+          const now = Date.now();
+          lastSyncedTimestampRef.current = now;
+          setLastSyncTimestamp(now);
         }
       } catch (e) {
-        console.warn('Sync on login error:', e);
+        console.warn('Sync on mount error:', e);
       }
     }
 
-    syncOnLogin();
+    syncOnLoginOrMount();
     return () => { isCancelled = true; };
-  }, [user]);
+  }, [user?.id, activeEmail]);
 
-  // Debounced auto-sync to Supabase when data changes and user is authenticated
+  // 2. Debounced auto-sync (Push): Sempre que o usuário altera algo no app, salva na nuvem
   useEffect(() => {
-    if (!user) return;
-    const timer = setTimeout(() => {
-      syncDataNow(data);
-    }, 2500);
+    if (!hasAccount) return;
+
+    if (isApplyingRemoteRef.current) {
+      isApplyingRemoteRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      try {
+        await syncDataNow(data);
+        const now = Date.now();
+        lastSyncedTimestampRef.current = now;
+        setLastSyncTimestamp(now);
+      } finally {
+        isSyncingRef.current = false;
+      }
+    }, 1200);
+
     return () => clearTimeout(timer);
-  }, [data, user, syncDataNow]);
+  }, [data, hasAccount, syncDataNow]);
+
+  // 3. Salvar imediatamente ao minimizar o app ou fechar a janela (Mobile e Desktop)
+  useEffect(() => {
+    if (!hasAccount) return;
+
+    const handleFlushSync = () => {
+      if (!isSyncingRef.current) {
+        syncDataNow(data);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleFlushSync);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        handleFlushSync();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleFlushSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [data, hasAccount, syncDataNow]);
+
+  // 4. Real-time Multi-device Poller: Escuta alterações feitas em outros aparelhos
+  useEffect(() => {
+    if (!hasAccount) return;
+
+    const checkForOtherDeviceUpdates = async () => {
+      if (document.visibilityState === 'hidden' || isSyncingRef.current) return;
+      try {
+        const check = await pollCloudForUpdates(
+          { email: activeEmail, userId: activeUserId },
+          lastSyncedTimestampRef.current
+        );
+
+        if (check.hasUpdates) {
+          isSyncingRef.current = true;
+          const cloudData = await pullCloudData(lastSyncedTimestampRef.current);
+          if (cloudData) {
+            isApplyingRemoteRef.current = true;
+            setData((prev) => {
+              const merged = mergeAppData(prev, cloudData);
+              saveAppData(merged);
+              return merged;
+            });
+            const now = check.timestamp || Date.now();
+            lastSyncedTimestampRef.current = now;
+            setLastSyncTimestamp(now);
+          }
+          isSyncingRef.current = false;
+        }
+      } catch (err) {
+        isSyncingRef.current = false;
+      }
+    };
+
+    // Polling regular a cada 7 segundos
+    const pollInterval = setInterval(checkForOtherDeviceUpdates, 7000);
+
+    // Verificação imediata ao focar na janela / reabrir o app no celular
+    const handleWindowFocus = () => {
+      checkForOtherDeviceUpdates();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkForOtherDeviceUpdates();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [hasAccount, activeEmail, activeUserId, pullCloudData]);
 
   // Persist state
   const updateData = useCallback((updater: (prev: AppData) => AppData) => {
@@ -1748,6 +1890,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         executeLeviaMyLifeAction,
         resetData,
         refreshData,
+        forceSyncAll,
         notificationSettings,
         notificationPermission,
         updateNotificationSettings,

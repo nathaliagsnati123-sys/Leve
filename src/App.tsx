@@ -46,6 +46,10 @@ const AppContent: React.FC = () => {
   const { activeTab, setActiveTab } = useApp();
   const { user, canAccessFeature, isCheckingEntitlements, isLoading, setIsAuthModalOpen, setAuthTab } = useAuth();
 
+  useEffect(() => {
+    trackPixelPageView(activeTab);
+  }, [activeTab]);
+
   // 1. Enquanto carrega a sessão do Supabase, exibe tela de carregamento suave
   if (isLoading) {
     return (
@@ -79,10 +83,6 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
-
-  useEffect(() => {
-    trackPixelPageView(activeTab);
-  }, [activeTab]);
 
   const renderActiveView = () => {
     // 1. "Meu Dia" é a tela principal de rotina

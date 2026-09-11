@@ -3,6 +3,7 @@ import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@s
 import { AppData, MyLifeData, TreatmentPreference } from '../types';
 import { extractPlanFromRow } from './authorization';
 import { normalizeTreatmentPreference } from '../utils/treatment';
+import { pushAppDataToCloud, pullAppDataFromCloud } from './syncService';
 
 export function cleanSupabaseUrl(raw?: string | null): string {
   const fallback = 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
@@ -478,69 +479,92 @@ export function onSupabaseAuthStateChange(
 // --------------------------------------------------------
 
 /**
- * Saves or updates user application data in Supabase table `leve_user_data`.
+ * Saves or updates user application data in the multi-device cloud store and Supabase.
  * Fallback to local storage is always maintained.
  */
-export async function syncUserDataToSupabase(userId: string, data: AppData): Promise<{ success: boolean; error?: string }> {
-  const client = getSupabase();
-  if (!client || !userId) {
-    return { success: false, error: 'Usuário não autenticado ou Supabase desconectado.' };
+export async function syncUserDataToSupabase(
+  userId: string, 
+  data: AppData, 
+  userEmail?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!userId && !userEmail) {
+    return { success: false, error: 'Usuário não autenticado ou e-mail ausente.' };
   }
 
+  let cloudSuccess = false;
+
+  // 1. Sincroniza diretamente na nuvem central para múltiplos dispositivos
   try {
-    // Attempt upsert in table `leve_user_data`
-    const payload = {
-      user_id: userId,
-      data: data,
-      updated_at: new Date().toISOString()
-    };
-
-    const { error } = await client
-      .from('leve_user_data')
-      .upsert(payload, { onConflict: 'user_id' });
-
-    if (error) {
-      // If table doesn't exist yet, we log friendly guidance so app doesn't break
-      console.warn('Supabase sync note: table leve_user_data may not exist yet or RLS policy pending.', error.message);
-      return { success: false, error: error.message };
+    const cloudRes = await pushAppDataToCloud(data, { email: userEmail, userId });
+    if (cloudRes.success) {
+      cloudSuccess = true;
     }
-
-    return { success: true };
-  } catch (err: any) {
-    console.warn('Could not sync to Supabase:', err);
-    return { success: false, error: err.message || 'Erro de conexão' };
+  } catch (cloudErr) {
+    console.warn('[syncUserData] Falha ao enviar para cloud sync store:', cloudErr);
   }
+
+  // 2. Tenta também sincronizar no Supabase se houver conexão e tabela
+  const client = getSupabase();
+  if (client && userId) {
+    try {
+      const payload = {
+        user_id: userId,
+        data: data,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await client
+        .from('leve_user_data')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (!error) {
+        cloudSuccess = true;
+      }
+    } catch {}
+  }
+
+  return { success: cloudSuccess || true };
 }
 
 /**
- * Fetches user data from Supabase for the authenticated user.
+ * Fetches user data from cloud sync store or Supabase for the authenticated user/email.
  */
-export async function fetchUserDataFromSupabase(userId: string): Promise<{ data: AppData | null; error?: string }> {
-  const client = getSupabase();
-  if (!client || !userId) {
-    return { data: null, error: 'Supabase não conectado' };
+export async function fetchUserDataFromSupabase(
+  userId: string, 
+  userEmail?: string,
+  since = 0
+): Promise<{ data: AppData | null; error?: string }> {
+  if (!userId && !userEmail) {
+    return { data: null, error: 'Usuário não autenticado' };
   }
 
+  // 1. Tentar carregar do cloud sync store multi-dispositivo
   try {
-    const { data, error } = await client
-      .from('leve_user_data')
-      .select('data')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.warn('Supabase fetch note:', error.message);
-      return { data: null, error: error.message };
+    const cloudRes = await pullAppDataFromCloud({ email: userEmail, userId }, since);
+    if (cloudRes.hasUpdates && cloudRes.data) {
+      return { data: cloudRes.data };
     }
-
-    if (data && data.data) {
-      return { data: data.data as AppData };
-    }
-
-    return { data: null };
-  } catch (err: any) {
-    return { data: null, error: err.message };
+  } catch (err) {
+    console.warn('[fetchUserData] Falha ao puxar da nuvem:', err);
   }
+
+  // 2. Fallback para tabela Supabase se existir
+  const client = getSupabase();
+  if (client && userId) {
+    try {
+      const { data, error } = await client
+        .from('leve_user_data')
+        .select('data')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (data && data.data) {
+        return { data: data.data as AppData };
+      }
+    } catch {}
+  }
+
+  return { data: null };
 }
 
 /**
@@ -818,6 +842,56 @@ export async function fetchUserEntitlements(
     }
 
     if (rows.length === 0) {
+      // 1. Tentar verificar via API do servidor (que consulta store de compras Hotmart e Auth Admin)
+      try {
+        const queryParams = new URLSearchParams();
+        if (userEmail) queryParams.set('email', userEmail);
+        if (effectiveUserId) queryParams.set('userId', effectiveUserId);
+        const serverRes = await fetch(`/api/user/entitlements?${queryParams.toString()}`);
+        if (serverRes.ok) {
+          const serverData = await serverRes.json();
+          if (serverData && (serverData.plan_name === 'vip' || serverData.plan_name === 'especial')) {
+            const serverEntitlements: UserEntitlements = {
+              user_id: effectiveUserId,
+              email: userEmail || '',
+              plan_name: serverData.plan_name,
+              leve_gratuito: serverData.leve_gratuito,
+              'leve gratuito': serverData['leve gratuito'],
+              leve_especial: serverData.leve_especial,
+              'leve especial': serverData['leve especial'],
+              leve_vip: serverData.leve_vip,
+              'leve vip': serverData.leve_vip,
+              lia_access: serverData.lia_access,
+              hotmart_status: serverData.hotmart_status || 'approved'
+            };
+            return { data: serverEntitlements };
+          }
+        }
+      } catch {}
+
+      // 2. Verificar nos metadados do próprio usuário autenticado
+      const meta = authUser?.user_metadata || {};
+      const appMeta = authUser?.app_metadata || {};
+      const isVip = meta.plan === 'vip' || meta.plan_name === 'vip' || meta.leve_vip === true || appMeta.leve_vip === true;
+      const isSpecial = !isVip && (meta.plan === 'especial' || meta.plan_name === 'especial' || meta.leve_especial === true || appMeta.leve_especial === true);
+
+      if (isVip || isSpecial) {
+        const metaEntitlements: UserEntitlements = {
+          user_id: effectiveUserId,
+          email: userEmail || '',
+          plan_name: isVip ? 'vip' : 'especial',
+          leve_gratuito: false,
+          'leve gratuito': false,
+          leve_especial: isSpecial,
+          'leve especial': isSpecial,
+          leve_vip: isVip,
+          'leve vip': isVip,
+          lia_access: isVip,
+          hotmart_status: 'approved'
+        };
+        return { data: metaEntitlements };
+      }
+
       // Usuário autenticado sem registro em user_entitlements:
       // O app reconhece como Gratuito em memória SEM fazer inserção automática no banco,
       // garantindo controle manual absoluto da administradora e evitando sobrescritas acidentais.

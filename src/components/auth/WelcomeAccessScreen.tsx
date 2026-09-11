@@ -21,7 +21,7 @@ interface WelcomeAccessScreenProps {
 }
 
 export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
-  const { login, signup, resetPassword } = useAuth();
+  const { login, signup, resetPassword, confirmUserEmail, resendConfirmation } = useAuth();
   const { data, updateUser, showToast } = useApp();
 
   const savedEmail = getRememberedEmail();
@@ -188,6 +188,39 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
     } catch (err: any) {
       setIsSubmitting(false);
       setErrorMessage(translateAuthError(err?.message) || 'Erro ao solicitar recuperação.');
+    }
+  };
+
+  // Confirmação / liberação imediata de e-mail administrativo
+  const handleQuickConfirmAndLogin = async () => {
+    if (!email) {
+      setErrorMessage('Por favor, informe o e-mail que deseja liberar.');
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const res = await confirmUserEmail(email);
+      if (res.success) {
+        showToast('E-mail liberado com sucesso!', 'success');
+        if (password) {
+          const logRes = await login(email, password);
+          if (logRes.success) {
+            saveRememberedEmail(email);
+            markPresentationCompleted();
+            saveUserIdentity({ hasCompletedOnboarding: true });
+            updateUser({ hasCompletedOnboarding: true });
+            return;
+          }
+        }
+        setSuccessMessage('E-mail verificado e liberado com sucesso! Digite sua senha e clique em Entrar.');
+      } else {
+        setErrorMessage(res.error || 'Não foi possível confirmar o e-mail automaticamente.');
+      }
+    } catch {
+      setErrorMessage('Erro ao tentar liberar o e-mail.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -419,8 +452,21 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
               </div>
 
               {errorMessage && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300">
-                  {errorMessage}
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 space-y-2">
+                  <p>{errorMessage}</p>
+                  {(errorMessage.toLowerCase().includes('confirm') || 
+                    errorMessage.toLowerCase().includes('verifi') || 
+                    errorMessage.toLowerCase().includes('não confirmado')) && (
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleQuickConfirmAndLogin}
+                      className="w-full py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                      <span>{isSubmitting ? 'Liberando...' : 'Liberar e Confirmar Meu E-mail Agora'}</span>
+                    </button>
+                  )}
                 </div>
               )}
 
