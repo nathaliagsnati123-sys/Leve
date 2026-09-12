@@ -80,6 +80,53 @@ CREATE POLICY "Acesso restrito ao próprio dono dos itens de Minha Vida"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- 3.1 Tabelas dedicadas para o "Caderno de Estudos" (Matérias e Documentos)
+CREATE TABLE IF NOT EXISTS public.leve_study_subjects (
+  id TEXT PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'emerald',
+  icon TEXT DEFAULT '📚',
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+ALTER TABLE public.leve_study_subjects ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Usuários podem acessar apenas suas próprias matérias" ON public.leve_study_subjects;
+CREATE POLICY "Usuários podem acessar apenas suas próprias matérias"
+  ON public.leve_study_subjects
+  FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.leve_study_documents (
+  id TEXT PRIMARY KEY,
+  subject_id TEXT REFERENCES public.leve_study_subjects(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  topic TEXT,
+  content TEXT NOT NULL DEFAULT '',
+  key_concepts JSONB DEFAULT '[]'::jsonb,
+  review_status TEXT DEFAULT 'novo',
+  favorite BOOLEAN DEFAULT false NOT NULL,
+  last_reviewed_at DATE,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+ALTER TABLE public.leve_study_documents ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Usuários podem acessar apenas seus próprios documentos de estudo" ON public.leve_study_documents;
+CREATE POLICY "Usuários podem acessar apenas seus próprios documentos de estudo"
+  ON public.leve_study_documents
+  FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 -- 4. Tabela de permissões e planos de acesso (user_entitlements)
 -- CONTROLE MANUAL DE PLANOS PELA ADMINISTRADORA NO SUPABASE:
 --

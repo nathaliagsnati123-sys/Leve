@@ -95,7 +95,7 @@ export const FEATURE_NAMES: Record<AppFeature | string, string> = {
   'journal': 'Meu Caderno & Gratidão',
   'spirituality': 'Fé & Momento com Deus',
   'goals': 'Minhas Metas',
-  'studies': 'Estudos & Resumos',
+  'studies': 'Caderno de Estudos',
   'workouts': 'Fichas de Treino',
   'my-life': 'Entretenimento & Lazer',
   'hydration': 'Minha Água',

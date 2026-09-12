@@ -54,7 +54,7 @@ export const MobileMenuDrawer: React.FC = () => {
     { id: 'calendar' as ActiveTab, label: 'Calendário & Semana', icon: Calendar },
     { id: 'habits' as ActiveTab, label: isMale ? 'Hábitos & Disciplina' : 'Meus Hábitos', icon: isMale ? Target : Sprout },
     { id: 'journal' as ActiveTab, label: isMale ? 'Meu Caderno & Notas' : 'Meu Caderno & Gratidão', icon: BookOpen },
-    { id: 'studies' as ActiveTab, label: 'Cadernos & Estudos', icon: GraduationCap },
+    { id: 'studies' as ActiveTab, label: 'Caderno de Estudos', icon: GraduationCap },
     { id: 'spirituality' as ActiveTab, label: isMale ? 'Fé & Oração' : 'Fé & Momento com Deus', icon: isMale ? Shield : HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
     { 

@@ -1,6 +1,6 @@
 // Serviço de integração Supabase - LEVE
 import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { AppData, MyLifeData, TreatmentPreference } from '../types';
+import { AppData, MyLifeData, StudiesData, TreatmentPreference } from '../types';
 import { extractPlanFromRow } from './authorization';
 import { normalizeTreatmentPreference } from '../utils/treatment';
 import { pushAppDataToCloud, pullAppDataFromCloud } from './syncService';
@@ -809,6 +809,84 @@ export async function fetchMyLifeFromSupabase(userId: string): Promise<{ data: M
 
     if (data?.data?.myLife) {
       return { data: data.data.myLife as MyLifeData };
+    }
+
+    return { data: null };
+  } catch (err: any) {
+    return { data: null, error: err.message };
+  }
+}
+
+/**
+ * Dedicated sync for Caderno de Estudos (Subjects & Study Documents) with Supabase.
+ * Respects RLS - each record is strictly constrained by user_id = auth.uid().
+ */
+export async function syncStudiesToSupabase(
+  userId: string, 
+  studies: StudiesData
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabase();
+  if (!client || !userId) {
+    return { success: false, error: 'Usuário não autenticado ou Supabase indisponível.' };
+  }
+
+  try {
+    // 1. Sync directly to leve_user_data JSON structure (primary single source of truth)
+    const { data: current } = await client
+      .from('leve_user_data')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const mergedData = {
+      ...(current?.data || {}),
+      studies
+    };
+
+    const { error } = await client
+      .from('leve_user_data')
+      .upsert({
+        user_id: userId,
+        data: mergedData,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.warn('Erro ao sincronizar Caderno de Estudos com Supabase:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.warn('Exceção ao sincronizar Caderno de Estudos:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fetches Caderno de Estudos data from Supabase for the authenticated user.
+ */
+export async function fetchStudiesFromSupabase(
+  userId: string
+): Promise<{ data: StudiesData | null; error?: string }> {
+  const client = getSupabase();
+  if (!client || !userId) {
+    return { data: null, error: 'Usuário não conectado ao Supabase' };
+  }
+
+  try {
+    const { data, error } = await client
+      .from('leve_user_data')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    if (data?.data?.studies) {
+      return { data: data.data.studies as StudiesData };
     }
 
     return { data: null };

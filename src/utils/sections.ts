@@ -76,8 +76,8 @@ export const APP_SECTIONS: AppSectionDefinition[] = [
   },
   {
     id: 'studies',
-    label: 'Estudos & Cadernos',
-    description: 'Cadernos de matérias, resumos organizados, tópicos de estudo e fixação.',
+    label: 'Caderno de Estudos',
+    description: 'Matérias organizadas, documentos de estudo, resumos e anotações completas.',
     group: 'principal',
     groupLabel: 'Principal',
     icon: GraduationCap,

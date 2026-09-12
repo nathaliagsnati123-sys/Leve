@@ -174,11 +174,12 @@ export interface WorkoutRoutine {
 
 export interface StudySubject {
   id: string;
-  name: string; // Ex: "Direito Constitucional", "Anatomia", "Matemática", "Inglês"
-  color: string; // Cor visual do caderno (emerald, blue, purple, amber, rose, slate)
+  name: string; // Ex: "Administração", "Direito", "Matemática", "Português", "Concurso Público"
+  color: string; // Cor visual do caderno (emerald, blue, purple, amber, rose, slate, teal, indigo)
   description?: string;
-  icon?: string;
+  icon?: string; // Ícone ou emoji (📚, ⚖️, 📊, 🧮, 📝, 💼, 🎯, etc.)
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type StudyReviewStatus = 'novo' | 'em_revisao' | 'revisado' | 'dominado';
@@ -186,10 +187,10 @@ export type StudyReviewStatus = 'novo' | 'em_revisao' | 'revisado' | 'dominado';
 export interface StudySummary {
   id: string;
   subjectId: string; // ID da matéria/caderno
-  title: string; // Ex: "Direitos Fundamentais - Artigo 5º"
+  title: string; // Ex: "Administração Geral", "Teoria das Organizações", "Resumo para prova"
   topic?: string; // Ex: "Capítulo 1 / Parte Geral"
   tags?: string[];
-  content: string; // Texto formatado / tópicos do resumo
+  content: string; // Texto formatado / anotações / tópicos
   keyPoints?: string[]; // Pontos-chave ou perguntas rápidas
   keyConcepts?: string[];
   reviewStatus?: StudyReviewStatus;
@@ -198,6 +199,9 @@ export interface StudySummary {
   createdAt: string;
   updatedAt: string;
 }
+
+// Alias para documento de estudo
+export type StudyDocument = StudySummary;
 
 export interface StudiesData {
   subjects: StudySubject[];
