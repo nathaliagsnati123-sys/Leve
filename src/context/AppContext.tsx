@@ -5,7 +5,8 @@ import {
   SleepLog, EmotionalCheckIn, JournalEntry, Memory, Prayer, Devotional,
   FiveMinuteGodSession, Goal, Bill, Income, MenstrualPeriod, CycleDailyLog, UserProfile,
   Achievement, MyLifeBook, MyLifeMovie, MyLifeSeries, MyLifeHobby, MyLifePlace, MyLifeDream,
-  LeviaMyLifeAction, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS
+  LeviaMyLifeAction, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS,
+  WorkoutRoutine, WorkoutExercise, StudySubject, StudySummary, StudyReviewStatus, SelfCareAction
 } from '../types';
 import { 
   loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity,
@@ -34,6 +35,7 @@ export type ActiveTab =
   | 'calendar' 
   | 'habits' 
   | 'journal' 
+  | 'studies'
   | 'spirituality' 
   | 'goals' 
   | 'my-life'
@@ -41,6 +43,7 @@ export type ActiveTab =
   | 'hydration'
   | 'nutrition'
   | 'movement'
+  | 'workouts'
   | 'sleep'
   | 'self-care'
   | 'bills'
@@ -131,7 +134,28 @@ interface AppContextType {
   // Self-care
   toggleSelfCareAction: (actionId: string, date?: string) => void;
   toggleSelfCareItem: (actionId: string, date?: string) => void;
-  addCustomSelfCareAction: (title: string) => void;
+  addCustomSelfCareAction: (title: string, category?: string) => void;
+  updateSelfCareAction: (action: SelfCareAction) => void;
+  deleteSelfCareAction: (id: string) => void;
+  
+  // Workouts (Treinos e Atividades Físicas)
+  addWorkoutRoutine: (routine: Omit<WorkoutRoutine, 'id' | 'createdAt'>) => void;
+  updateWorkoutRoutine: (routine: WorkoutRoutine) => void;
+  deleteWorkoutRoutine: (id: string) => void;
+  completeWorkoutRoutine: (id: string, durationMinutes?: number) => void;
+  addExerciseToRoutine: (routineId: string, exercise: Omit<WorkoutExercise, 'id'>) => void;
+  updateExerciseInRoutine: (routineId: string, exercise: WorkoutExercise) => void;
+  deleteExerciseFromRoutine: (routineId: string, exerciseId: string) => void;
+
+  // Studies (Cadernos e Resumos de Estudos)
+  addStudySubject: (subject: Omit<StudySubject, 'id' | 'createdAt'>) => void;
+  updateStudySubject: (subject: StudySubject) => void;
+  deleteStudySubject: (id: string) => void;
+  addStudySummary: (summary: Omit<StudySummary, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateStudySummary: (summary: StudySummary) => void;
+  deleteStudySummary: (id: string) => void;
+  toggleSummaryFavorite: (id: string) => void;
+  updateSummaryReviewStatus: (id: string, status: StudyReviewStatus) => void;
   
   // Emotional Check-in
   saveCheckIn: (checkIn: EmotionalCheckIn) => void;
@@ -1147,17 +1171,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toggleSelfCareAction(actionId, date);
   }, [toggleSelfCareAction]);
 
-  const addCustomSelfCareAction = useCallback((title: string) => {
-    const newAction = {
+  const addCustomSelfCareAction = useCallback((title: string, category = 'Cuidado') => {
+    if (!title.trim()) return;
+    const newAction: SelfCareAction = {
       id: 'sc-custom-' + Date.now(),
-      title,
+      title: title.trim(),
+      category: category.trim() || 'Cuidado',
       isCustom: true
     };
     updateData((prev) => ({
       ...prev,
-      selfCareList: [...prev.selfCareList, newAction]
+      selfCareList: [...(prev.selfCareList || []), newAction]
     }));
-    showToast('Ação de autocuidado adicionada.');
+    showToast('Ação adicionada com sucesso!');
+  }, [updateData, showToast]);
+
+  const updateSelfCareAction = useCallback((action: SelfCareAction) => {
+    updateData((prev) => ({
+      ...prev,
+      selfCareList: (prev.selfCareList || []).map((a) => (a.id === action.id ? action : a))
+    }));
+    showToast('Ação atualizada!');
+  }, [updateData, showToast]);
+
+  const deleteSelfCareAction = useCallback((id: string) => {
+    updateData((prev) => ({
+      ...prev,
+      selfCareList: (prev.selfCareList || []).filter((a) => a.id !== id)
+    }));
+    showToast('Ação removida.');
   }, [updateData, showToast]);
 
   // EMOTIONAL CHECK-IN
@@ -1838,6 +1880,269 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [addMyLifeBook, addMyLifeMovie, addMyLifeSeries, addMyLifeHobby, addMyLifePlace, addMyLifeDream]);
 
+  // --------------------------------------------------------
+  // Workout Routines & Exercises Operations
+  // --------------------------------------------------------
+  const addWorkoutRoutine = useCallback((routine: Omit<WorkoutRoutine, 'id' | 'createdAt'>) => {
+    const newRoutine: WorkoutRoutine = {
+      ...routine,
+      id: 'routine-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString(),
+      timesCompleted: 0,
+      completedDates: [],
+      exercises: Array.isArray(routine.exercises) ? routine.exercises : []
+    };
+    updateData((prev) => ({
+      ...prev,
+      workoutRoutines: [newRoutine, ...(prev.workoutRoutines || [])]
+    }));
+    showToast(`Ficha "${routine.title}" criada com sucesso! 🏋️`);
+  }, [updateData, showToast]);
+
+  const updateWorkoutRoutine = useCallback((routine: WorkoutRoutine) => {
+    updateData((prev) => ({
+      ...prev,
+      workoutRoutines: (prev.workoutRoutines || []).map((r) => (r.id === routine.id ? routine : r))
+    }));
+    showToast('Ficha de treino atualizada!');
+  }, [updateData, showToast]);
+
+  const deleteWorkoutRoutine = useCallback((id: string) => {
+    updateData((prev) => ({
+      ...prev,
+      workoutRoutines: (prev.workoutRoutines || []).filter((r) => r.id !== id)
+    }));
+    showToast('Ficha de treino excluída.');
+  }, [updateData, showToast]);
+
+  const completeWorkoutRoutine = useCallback((id: string, durationMinutes = 30) => {
+    const today = getTodayDateString();
+    let routineTitle = 'Treino';
+    updateData((prev) => {
+      const routines = prev.workoutRoutines || [];
+      const updatedRoutines = routines.map((r) => {
+        if (r.id === id) {
+          routineTitle = r.title;
+          const currentDates = r.completedDates || [];
+          const alreadyToday = currentDates.includes(today);
+          return {
+            ...r,
+            lastPerformedDate: today,
+            timesCompleted: (r.timesCompleted || 0) + 1,
+            completedDates: alreadyToday ? currentDates : [...currentDates, today]
+          };
+        }
+        return r;
+      });
+
+      const newMovement: MovementActivity = {
+        id: 'mov-routine-' + Date.now(),
+        date: today,
+        type: routineTitle,
+        durationMinutes: durationMinutes || 30,
+        intensity: 'moderada',
+        notes: `Execução da ficha: ${routineTitle}`
+      };
+
+      return {
+        ...prev,
+        workoutRoutines: updatedRoutines,
+        movement: [newMovement, ...(prev.movement || [])]
+      };
+    });
+    showToast(`Parabéns! Treino "${routineTitle}" concluído e registrado! 🎉💪`);
+  }, [updateData, showToast]);
+
+  const addExerciseToRoutine = useCallback((routineId: string, exercise: Omit<WorkoutExercise, 'id'>) => {
+    const newEx: WorkoutExercise = {
+      ...exercise,
+      id: 'ex-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5)
+    };
+    updateData((prev) => ({
+      ...prev,
+      workoutRoutines: (prev.workoutRoutines || []).map((r) => {
+        if (r.id === routineId) {
+          return {
+            ...r,
+            exercises: [...(r.exercises || []), newEx]
+          };
+        }
+        return r;
+      })
+    }));
+    showToast(`Exercício "${exercise.name}" adicionado à ficha!`);
+  }, [updateData, showToast]);
+
+  const updateExerciseInRoutine = useCallback((routineId: string, exercise: WorkoutExercise) => {
+    updateData((prev) => ({
+      ...prev,
+      workoutRoutines: (prev.workoutRoutines || []).map((r) => {
+        if (r.id === routineId) {
+          return {
+            ...r,
+            exercises: (r.exercises || []).map((ex) => (ex.id === exercise.id ? exercise : ex))
+          };
+        }
+        return r;
+      })
+    }));
+    showToast('Exercício atualizado.');
+  }, [updateData, showToast]);
+
+  const deleteExerciseFromRoutine = useCallback((routineId: string, exerciseId: string) => {
+    updateData((prev) => ({
+      ...prev,
+      workoutRoutines: (prev.workoutRoutines || []).map((r) => {
+        if (r.id === routineId) {
+          return {
+            ...r,
+            exercises: (r.exercises || []).filter((ex) => ex.id !== exerciseId)
+          };
+        }
+        return r;
+      })
+    }));
+    showToast('Exercício removido da ficha.');
+  }, [updateData, showToast]);
+
+  // --------------------------------------------------------
+  // Studies & Notebooks (Cadernos & Resumos) Operations
+  // --------------------------------------------------------
+  const addStudySubject = useCallback((subject: Omit<StudySubject, 'id' | 'createdAt'>) => {
+    const newSub: StudySubject = {
+      ...subject,
+      id: 'subj-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: new Date().toISOString()
+    };
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          subjects: [...(curStudies.subjects || []), newSub]
+        }
+      };
+    });
+    showToast(`Caderno "${subject.name}" criado com sucesso! 📚`);
+  }, [updateData, showToast]);
+
+  const updateStudySubject = useCallback((subject: StudySubject) => {
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          subjects: (curStudies.subjects || []).map((s) => (s.id === subject.id ? subject : s))
+        }
+      };
+    });
+    showToast('Caderno atualizado!');
+  }, [updateData, showToast]);
+
+  const deleteStudySubject = useCallback((id: string) => {
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          subjects: (curStudies.subjects || []).filter((s) => s.id !== id),
+          summaries: (curStudies.summaries || []).filter((sm) => sm.subjectId !== id)
+        }
+      };
+    });
+    showToast('Caderno e resumos vinculados excluídos.');
+  }, [updateData, showToast]);
+
+  const addStudySummary = useCallback((summary: Omit<StudySummary, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString();
+    const newSummary: StudySummary = {
+      ...summary,
+      id: 'sum-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      createdAt: now,
+      updatedAt: now,
+      reviewStatus: summary.reviewStatus || 'novo',
+      favorite: Boolean(summary.favorite)
+    };
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          summaries: [newSummary, ...(curStudies.summaries || [])]
+        }
+      };
+    });
+    showToast(`Resumo "${summary.title}" salvo no caderno! 📝`);
+  }, [updateData, showToast]);
+
+  const updateStudySummary = useCallback((summary: StudySummary) => {
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          summaries: (curStudies.summaries || []).map((sm) => 
+            sm.id === summary.id ? { ...summary, updatedAt: new Date().toISOString() } : sm
+          )
+        }
+      };
+    });
+    showToast('Resumo atualizado com sucesso!');
+  }, [updateData, showToast]);
+
+  const deleteStudySummary = useCallback((id: string) => {
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          summaries: (curStudies.summaries || []).filter((sm) => sm.id !== id)
+        }
+      };
+    });
+    showToast('Resumo excluído.');
+  }, [updateData, showToast]);
+
+  const toggleSummaryFavorite = useCallback((id: string) => {
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          summaries: (curStudies.summaries || []).map((sm) =>
+            sm.id === id ? { ...sm, favorite: !sm.favorite, updatedAt: new Date().toISOString() } : sm
+          )
+        }
+      };
+    });
+  }, [updateData]);
+
+  const updateSummaryReviewStatus = useCallback((id: string, status: StudyReviewStatus) => {
+    const today = getTodayDateString();
+    updateData((prev) => {
+      const curStudies = prev.studies || { subjects: [], summaries: [] };
+      return {
+        ...prev,
+        studies: {
+          ...curStudies,
+          summaries: (curStudies.summaries || []).map((sm) =>
+            sm.id === id 
+              ? { ...sm, reviewStatus: status, lastReviewedAt: today, updatedAt: new Date().toISOString() }
+              : sm
+          )
+        }
+      };
+    });
+    showToast(`Status do resumo atualizado para: ${status}`);
+  }, [updateData, showToast]);
+
   const resetData = useCallback(() => {
     resetAllData();
     setData(loadAppData());
@@ -1943,6 +2248,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleSelfCareAction,
         toggleSelfCareItem,
         addCustomSelfCareAction,
+        updateSelfCareAction,
+        deleteSelfCareAction,
+        addWorkoutRoutine,
+        updateWorkoutRoutine,
+        deleteWorkoutRoutine,
+        completeWorkoutRoutine,
+        addExerciseToRoutine,
+        updateExerciseInRoutine,
+        deleteExerciseFromRoutine,
+        addStudySubject,
+        updateStudySubject,
+        deleteStudySubject,
+        addStudySummary,
+        updateStudySummary,
+        deleteStudySummary,
+        toggleSummaryFavorite,
+        updateSummaryReviewStatus,
         saveCheckIn,
         saveJournalEntry,
         addMemory,

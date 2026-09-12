@@ -38,6 +38,8 @@ import { SettingsView } from './components/views/SettingsView';
 import { RefreshCw } from 'lucide-react';
 import { LiaView } from './components/views/LiaView';
 import { MyLifeView } from './components/views/MyLifeView';
+import { WorkoutView } from './components/views/WorkoutView';
+import { StudiesView } from './components/views/StudiesView';
 import { EntitlementLockScreen } from './components/common/EntitlementLockScreen';
 import { WelcomeAccessScreen } from './components/auth/WelcomeAccessScreen';
 import { useAuth } from './context/AuthContext';
@@ -149,6 +151,10 @@ const AppContent: React.FC = () => {
         return <ProgressView />;
       case 'my-life':
         return <MyLifeView />;
+      case 'workouts':
+        return <WorkoutView />;
+      case 'studies':
+        return <StudiesView />;
       case 'lia':
         return <LiaView />;
       default:

@@ -50,10 +50,10 @@ export const MovementView: React.FC = () => {
           </div>
           <div>
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
-              Meu Movimento
+              Registro de Atividades
             </h1>
             <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
-              Mover o corpo é um ato de respeito e cuidado com a sua saúde.
+              Registre suas caminhadas, corridas, treinos e atividades do dia a dia.
             </p>
           </div>
         </div>

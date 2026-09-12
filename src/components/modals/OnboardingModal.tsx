@@ -413,25 +413,17 @@ export const OnboardingModal: React.FC = () => {
                           key={opt.id}
                           type="button"
                           onClick={() => setTreatmentPreference(opt.id)}
-                          className={`py-2 px-2 rounded-xl text-center border transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                          className={`py-2 px-2 rounded-xl text-center border transition cursor-pointer flex items-center justify-center ${
                             isSel
                               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-900 dark:text-emerald-200 font-semibold ring-1 ring-emerald-600/30'
                               : 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100'
                           }`}
                         >
-                          <span className="text-xs">{opt.label}</span>
-                          <span className="text-[10px] text-stone-400 dark:text-stone-400 font-normal">({opt.badge})</span>
+                          <span className="text-xs font-semibold">{opt.label}</span>
                         </button>
                       );
                     })}
                   </div>
-                  <p className="text-[11px] text-stone-400 dark:text-stone-400">
-                    {treatmentPreference === 'masculino' 
-                      ? 'Adapta o app 100% para homens: rotina, vocabulário e foco prático.' 
-                      : treatmentPreference === 'feminino'
-                      ? 'Adapta o app para o público feminino com ciclo menstrual e autocuidado.'
-                      : 'Linguagem neutra e acolhedora para qualquer pessoa.'}
-                  </p>
                 </div>
 
                 {/* 2. E-mail */}

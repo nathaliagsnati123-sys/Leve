@@ -1,7 +1,8 @@
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Sparkles, Film, LucideIcon, Zap, Shield
+  BarChart3, Sparkles, Film, LucideIcon, Zap, Shield,
+  GraduationCap, Dumbbell
 } from 'lucide-react';
 import { ActiveTab } from '../context/AppContext';
 import { normalizeTreatmentPreference } from './treatment';
@@ -74,6 +75,15 @@ export const APP_SECTIONS: AppSectionDefinition[] = [
     canHide: true
   },
   {
+    id: 'studies',
+    label: 'Estudos & Cadernos',
+    description: 'Cadernos de matérias, resumos organizados, tópicos de estudo e fixação.',
+    group: 'principal',
+    groupLabel: 'Principal',
+    icon: GraduationCap,
+    canHide: true
+  },
+  {
     id: 'my-life',
     label: 'Entretenimento & Lazer',
     description: 'Livros, filmes, séries, hobbies, lugares para visitar e sonhos.',
@@ -114,11 +124,20 @@ export const APP_SECTIONS: AppSectionDefinition[] = [
   },
   {
     id: 'movement',
-    label: 'Meu Movimento',
-    description: 'Atividades físicas, caminhadas, treinos e sensações corporais.',
+    label: 'Registro de Atividades',
+    description: 'Registro de caminhadas, corridas, passos e atividades físicas.',
     group: 'wellness',
     groupLabel: 'Corpo & Cuidado',
     icon: Activity,
+    canHide: true
+  },
+  {
+    id: 'workouts',
+    label: 'Fichas de Treino',
+    description: 'Fichas personalizadas, rotinas, exercícios de musculação, ballet e flexibilidade.',
+    group: 'wellness',
+    groupLabel: 'Corpo & Cuidado',
+    icon: Dumbbell,
     canHide: true
   },
   {
@@ -201,8 +220,8 @@ export function getAvailableSections(treatmentPreference?: string | null): AppSe
       if (isMale && sec.id === 'self-care') {
         return {
           ...sec,
-          label: 'Recarga & Foco',
-          description: 'Pausas estratégicas, recarga de energia, foco e alinhamento pessoal.',
+          label: 'Recarga & Força',
+          description: 'Pausas estratégicas, recarga de energia física, foco e alinhamento pessoal.',
           icon: Zap
         };
       }
@@ -220,13 +239,6 @@ export function getAvailableSections(treatmentPreference?: string | null): AppSe
           label: 'Hábitos & Disciplina',
           description: 'Constância diária, hábitos prioritários e execução.',
           icon: Target
-        };
-      }
-      if (isMale && sec.id === 'movement') {
-        return {
-          ...sec,
-          label: 'Treino & Movimento',
-          description: 'Atividades físicas, musculação, treinos e disciplina corporal.'
         };
       }
       if (isMale && sec.id === 'journal') {

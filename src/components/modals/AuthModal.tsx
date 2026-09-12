@@ -533,7 +533,7 @@ export const AuthModal: React.FC = () => {
                     Preferência de Tratamento
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {TREATMENT_OPTIONS.map((opt) => {
                     const currentPref = data.user?.treatmentPreference || authTreatmentPref || 'nao_informar';
                     const isSelected = currentPref === opt.id;
@@ -563,9 +563,6 @@ export const AuthModal: React.FC = () => {
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-stone-400 dark:text-stone-500">
-                  Como a LEVIA e o LEVE se comunicam com você.
-                </p>
               </div>
 
               {/* Sync and Logout Actions */}
@@ -761,14 +758,13 @@ export const AuthModal: React.FC = () => {
                             key={opt.id}
                             type="button"
                             onClick={() => setTreatmentPreference(opt.id)}
-                            className={`py-1.5 px-2 rounded-xl text-center border transition cursor-pointer flex flex-col items-center justify-center ${
+                            className={`py-2 px-2 rounded-xl text-center border transition cursor-pointer flex items-center justify-center ${
                               isSel
                                 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-900 dark:text-emerald-200 font-semibold ring-1 ring-emerald-600/30'
                                 : 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100'
                             }`}
                           >
-                            <span className="text-xs">{opt.label}</span>
-                            <span className="text-[10px] text-stone-400 font-normal">({opt.badge})</span>
+                            <span className="text-xs font-semibold">{opt.label}</span>
                           </button>
                         );
                       })}

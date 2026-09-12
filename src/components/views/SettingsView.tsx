@@ -195,16 +195,11 @@ export const SettingsView: React.FC = () => {
 
       {/* 2. Como você prefere ser tratado? */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
-        <div className="flex items-start justify-between flex-wrap gap-2">
-          <div>
-            <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <HeartHandshake className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-              <span>Como você prefere ser tratado?</span>
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-              Escolha como o LEVE e a Levia devem conversar com você. O aplicativo adapta as saudações e mensagens para você.
-            </p>
-          </div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <HeartHandshake className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+            <span>Como você prefere ser tratado?</span>
+          </h3>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             Ativo: <strong>{TREATMENT_OPTIONS.find((o) => o.id === selectedPreference)?.label || 'Prefiro não informar'}</strong>
           </span>
@@ -224,13 +219,8 @@ export const SettingsView: React.FC = () => {
                     : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
                 }`}
               >
-                <div>
-                  <div className="text-xs sm:text-sm font-semibold">
-                    {opt.label}
-                  </div>
-                  <div className="text-[11px] text-stone-500 dark:text-stone-300 font-normal">
-                    {opt.description}
-                  </div>
+                <div className="text-xs sm:text-sm font-semibold">
+                  {opt.label}
                 </div>
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center border shrink-0 transition ${

@@ -6,7 +6,7 @@ import {
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
   BarChart3, Settings, Sparkles, Award, Cloud, User, Compass, Lock, Film,
-  Zap, Shield
+  Zap, Shield, GraduationCap, Dumbbell
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -28,6 +28,7 @@ export const Sidebar: React.FC = () => {
     { id: 'calendar' as ActiveTab, label: 'Calendário & Semana', icon: Calendar },
     { id: 'habits' as ActiveTab, label: isMale ? 'Hábitos & Disciplina' : 'Meus Hábitos', icon: isMale ? Target : Sprout },
     { id: 'journal' as ActiveTab, label: isMale ? 'Meu Caderno & Notas' : 'Meu Caderno & Gratidão', icon: BookOpen },
+    { id: 'studies' as ActiveTab, label: 'Cadernos & Estudos', icon: GraduationCap },
     { id: 'spirituality' as ActiveTab, label: isMale ? 'Fé & Oração' : 'Fé & Momento com Deus', icon: isMale ? Shield : HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
     { 
@@ -46,9 +47,10 @@ export const Sidebar: React.FC = () => {
   const wellnessNav = [
     { id: 'hydration' as ActiveTab, label: 'Minha Água', icon: Droplets },
     { id: 'nutrition' as ActiveTab, label: 'Alimentação & Compras', icon: Utensils },
-    { id: 'movement' as ActiveTab, label: isMale ? 'Treino & Movimento' : 'Meu Movimento', icon: Activity },
+    { id: 'movement' as ActiveTab, label: 'Registro de Atividades', icon: Activity },
+    { id: 'workouts' as ActiveTab, label: 'Fichas de Treino', icon: Dumbbell },
     { id: 'sleep' as ActiveTab, label: 'Meu Sono', icon: Moon },
-    { id: 'self-care' as ActiveTab, label: isMale ? 'Recarga & Foco' : 'Meu Autocuidado', icon: isMale ? Zap : Heart },
+    { id: 'self-care' as ActiveTab, label: isMale ? 'Recarga & Força' : 'Meu Autocuidado', icon: isMale ? Zap : Heart },
     { id: 'cycle' as ActiveTab, label: 'Ciclo & Menstruação', icon: Sparkles },
   ];
 

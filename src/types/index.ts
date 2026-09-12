@@ -136,6 +136,7 @@ export interface MovementActivity {
   type?: MovementActivityType;
   durationMinutes: number;
   feeling?: MovementFeeling;
+  intensity?: string;
   notes?: string;
   routineId?: string;
   routineTitle?: string;
@@ -144,6 +145,9 @@ export interface MovementActivity {
 export interface WorkoutExercise {
   id: string;
   name: string; // Ex: "Espacate frontal", "Abertura de pernas borboleta", "Agachamento livre"
+  sets?: number;
+  reps?: string;
+  weight?: string;
   setsRepsOrDuration?: string; // Ex: "3x 45s", "4x 12 reps", "15 min"
   notes?: string; // Instruções de postura, flexibilidade, dicas
 }
@@ -153,10 +157,15 @@ export interface WorkoutRoutine {
   title: string; // Ex: "Ballet - Exercícios de Flexibilidade", "Musculação - Treino A"
   category: string; // "Ballet", "Dança", "Musculação", "Alongamento & Flexibilidade", "Pilates / Yoga", "Corrida", "Funcional", "Outro"
   targetDays?: string[]; // Ex: ["Seg", "Qua", "Sex"]
+  scheduledDays?: string;
+  targetDurationMinutes?: number;
+  notes?: string;
   description?: string;
   exercises: WorkoutExercise[];
   createdAt: string;
   lastPerformedDate?: string;
+  timesCompleted?: number;
+  completedDates?: string[];
 }
 
 // --------------------------------------------------------
@@ -182,6 +191,7 @@ export interface StudySummary {
   tags?: string[];
   content: string; // Texto formatado / tópicos do resumo
   keyPoints?: string[]; // Pontos-chave ou perguntas rápidas
+  keyConcepts?: string[];
   reviewStatus?: StudyReviewStatus;
   lastReviewedAt?: string;
   favorite?: boolean;

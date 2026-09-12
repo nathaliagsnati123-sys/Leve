@@ -84,6 +84,7 @@ export type AppFeature =
   | 'progress'
   | 'my-life'
   | 'studies'
+  | 'workouts'
   | 'lia'
   | 'settings';
 
@@ -95,10 +96,11 @@ export const FEATURE_NAMES: Record<AppFeature | string, string> = {
   'spirituality': 'Fé & Momento com Deus',
   'goals': 'Minhas Metas',
   'studies': 'Estudos & Resumos',
+  'workouts': 'Fichas de Treino',
   'my-life': 'Entretenimento & Lazer',
   'hydration': 'Minha Água',
   'nutrition': 'Alimentação & Compras',
-  'movement': 'Meu Movimento',
+  'movement': 'Registro de Atividades',
   'sleep': 'Meu Sono',
   'self-care': 'Meu Autocuidado',
   'bills': 'Contas & Pendências',

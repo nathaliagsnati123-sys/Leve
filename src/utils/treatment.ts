@@ -8,22 +8,22 @@ export const TREATMENT_OPTIONS: {
   description: string; 
 }[] = [
   { 
-    id: 'masculino', 
-    label: 'Masculino', 
-    badge: 'ele/dele',
-    description: 'Perfil 100% voltado para homens: direto ao ponto, foco em disciplina e execução, sem frufru, sem corações ou tons rosas. Linguagem objetiva e ciclo menstrual desativado.' 
-  },
-  { 
     id: 'feminino', 
     label: 'Feminino', 
     badge: 'ela/dela',
-    description: 'Perfil 100% voltado para o público feminino: acolhedor, delicado, linguagem no feminino, acompanhamento de ciclo menstrual e autocuidado suave.' 
+    description: '' 
+  },
+  { 
+    id: 'masculino', 
+    label: 'Masculino', 
+    badge: 'ele/dele',
+    description: '' 
   },
   { 
     id: 'nao_informar', 
-    label: 'Desejo não informar', 
+    label: 'Prefiro não informar', 
     badge: 'neutro',
-    description: 'Linguagem neutra, serena e equilibrada para qualquer pessoa.' 
+    description: '' 
   }
 ];
 
