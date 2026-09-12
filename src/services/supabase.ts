@@ -76,7 +76,85 @@ export function clearLocalAuthSession(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(LOCAL_AUTH_SESSION_KEY);
+    // Clear cached entitlements and user profiles
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith(LOCAL_ENTITLEMENTS_PREFIX) || k.startsWith(LOCAL_PROFILE_PREFIX))) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
   } catch {}
+}
+
+const LOCAL_ENTITLEMENTS_PREFIX = 'leve_user_entitlements_';
+const LOCAL_PROFILE_PREFIX = 'leve_user_profile_';
+
+export function getCachedEntitlements(userId?: string): UserEntitlements | null {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_ENTITLEMENTS_PREFIX + userId);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+export function saveCachedEntitlements(userId: string, entitlements: UserEntitlements): void {
+  if (typeof window === 'undefined' || !userId || !entitlements) return;
+  try {
+    localStorage.setItem(LOCAL_ENTITLEMENTS_PREFIX + userId, JSON.stringify(entitlements));
+  } catch {}
+}
+
+export function getCachedUserProfile(userId?: string): any | null {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_PROFILE_PREFIX + userId);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+export function saveCachedUserProfile(userId: string, profile: any): void {
+  if (typeof window === 'undefined' || !userId || !profile) return;
+  try {
+    localStorage.setItem(LOCAL_PROFILE_PREFIX + userId, JSON.stringify(profile));
+  } catch {}
+}
+
+/**
+ * Obtém a sessão do usuário de forma ultra-rápida e síncrona do cache local,
+ * permitindo renderizar o app instantaneamente sem aguardar requisições de rede.
+ */
+export function getInitialCachedSession(): Session | null {
+  if (typeof window === 'undefined') return null;
+
+  // 1. Tenta a sessão salva personalizada
+  try {
+    const local = getLocalAuthSession();
+    if (local && (local.user || local.access_token)) {
+      return local;
+    }
+  } catch {}
+
+  // 2. Tenta as chaves padrão do Supabase no localStorage (sb-*-auth-token)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.user || parsed.access_token)) {
+            return parsed as Session;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  return null;
 }
 
 function cleanEnvKey(raw?: string | null): string {
@@ -1120,6 +1198,7 @@ export async function fetchUserEntitlements(
               lia_access: serverData.lia_access,
               hotmart_status: serverData.hotmart_status || 'approved'
             };
+            saveCachedEntitlements(effectiveUserId, serverEntitlements);
             return { data: serverEntitlements };
           }
         }
@@ -1145,6 +1224,7 @@ export async function fetchUserEntitlements(
           lia_access: isVip,
           hotmart_status: 'approved'
         };
+        saveCachedEntitlements(effectiveUserId, metaEntitlements);
         return { data: metaEntitlements };
       }
 
@@ -1165,6 +1245,7 @@ export async function fetchUserEntitlements(
         hotmart_status: 'gratuito'
       };
 
+      saveCachedEntitlements(effectiveUserId, defaultFree);
       return { data: defaultFree };
     }
 
@@ -1214,6 +1295,7 @@ export async function fetchUserEntitlements(
       hotmart_transaction_id: activeRow.hotmart_transaction_id
     };
 
+    saveCachedEntitlements(effectiveUserId, entitlements);
     return { data: entitlements };
   } catch (err: any) {
     console.error('Exceção ao consultar user_entitlements:', err);
@@ -1255,12 +1337,14 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
 
     if (res.data) {
       const pref = normalizeTreatmentPreference(res.data.treatment_preference || cachedPref);
+      const profileData = {
+        ...res.data,
+        avatar: res.data.avatar || '',
+        treatment_preference: pref
+      };
+      saveCachedUserProfile(userId, profileData);
       return {
-        data: {
-          ...res.data,
-          avatar: res.data.avatar || '',
-          treatment_preference: pref
-        }
+        data: profileData
       };
     }
 
@@ -1269,28 +1353,32 @@ export async function fetchUserProfile(userId: string): Promise<{ data: any | nu
     if (authUserData?.user && authUserData.user.id === userId) {
       const meta = authUserData.user.user_metadata || {};
       const pref = normalizeTreatmentPreference(meta.treatment_preference || cachedPref);
+      const profileData = {
+        id: userId,
+        user_id: userId,
+        name: meta.name || meta.full_name || '',
+        full_name: meta.full_name || meta.name || '',
+        avatar: meta.avatar || '',
+        treatment_preference: pref
+      };
+      saveCachedUserProfile(userId, profileData);
       return {
-        data: {
-          id: userId,
-          user_id: userId,
-          name: meta.name || meta.full_name || '',
-          full_name: meta.full_name || meta.name || '',
-          avatar: meta.avatar || '',
-          treatment_preference: pref
-        }
+        data: profileData
       };
     }
 
     if (cachedPref) {
+      const profileData = {
+        id: userId,
+        user_id: userId,
+        name: '',
+        full_name: '',
+        avatar: '',
+        treatment_preference: cachedPref
+      };
+      saveCachedUserProfile(userId, profileData);
       return {
-        data: {
-          id: userId,
-          user_id: userId,
-          name: '',
-          full_name: '',
-          avatar: '',
-          treatment_preference: cachedPref
-        }
+        data: profileData
       };
     }
 

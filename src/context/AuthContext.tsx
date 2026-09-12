@@ -23,7 +23,12 @@ import {
   SUPABASE_URL,
   getSupabaseDiagnostics,
   SupabaseAuthDiagnostics,
-  fetchServerAuthConfig
+  fetchServerAuthConfig,
+  getInitialCachedSession,
+  getCachedEntitlements,
+  saveCachedEntitlements,
+  getCachedUserProfile,
+  saveCachedUserProfile
 } from '../services/supabase';
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
@@ -82,21 +87,34 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // 1. Hidratação síncrona instantânea a partir do cache local
+  const initialSession = getInitialCachedSession();
+  const initialUser = initialSession?.user || null;
+  const initialUserId = initialUser?.id;
+
+  const [user, setUser] = useState<User | null>(() => initialUser);
+  const [session, setSession] = useState<Session | null>(() => initialSession);
+
+  // Apenas exibe spinner de bloqueio se houver parâmetros de confirmação de e-mail na URL para trocar
+  const hasUrlAuthCode = typeof window !== 'undefined' && (
+    window.location.search.includes('code=') ||
+    window.location.search.includes('token_hash=')
+  );
+
+  // Se já temos a sessão ou sabemos que não há código na URL, NÃO BLOQUEIA O USUÁRIO com tela de carregamento
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(hasUrlAuthCode));
   const [isConfigured, setIsConfigured] = useState<boolean>(isSupabaseConfigured());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authTab, setAuthTab] = useState<'login' | 'signup' | 'reset'>('login');
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>(isSupabaseConfigured() ? 'offline' : 'local-only');
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => initialUser ? 'synced' : (isSupabaseConfigured() ? 'offline' : 'local-only'));
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [anonKey, setAnonKey] = useState<string>(getSupabaseAnonKey());
 
   // User Entitlements & Profile State
   const signupInProgressRef = useRef(false);
-  const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
+  const [entitlements, setEntitlements] = useState<UserEntitlements | null>(() => getCachedEntitlements(initialUserId));
   const [isCheckingEntitlements, setIsCheckingEntitlements] = useState<boolean>(false);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(() => getCachedUserProfile(initialUserId));
   const [localTreatmentPref, setLocalTreatmentPref] = useState<TreatmentPreference | null>(() => {
     try {
       const cached = localStorage.getItem('leve_treatment_pref_current');
@@ -111,14 +129,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // 1. Primeira consulta usando a sessão autenticada atual (auth.uid() / session.user.id)
       let res = await fetchUserEntitlements(userId, activeSession);
 
-      // 2. Se não retornou dados imediatamente, tenta mais uma vez após uma breve espera
+      // 2. Se não retornou dados imediatamente e não tínhamos nada em cache, tenta mais uma vez após uma breve espera
       if (!res.data) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        res = await fetchUserEntitlements(userId, activeSession);
+        const existingCache = getCachedEntitlements(userId);
+        if (!existingCache) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          res = await fetchUserEntitlements(userId, activeSession);
+        }
       }
 
       if (res.data) {
         setEntitlements(res.data);
+        if (userId) saveCachedEntitlements(userId, res.data);
         return res.data;
       } else {
         setEntitlements(null);
@@ -126,7 +148,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (err) {
       console.error('Erro ao carregar permissões:', err);
-      setEntitlements(null);
       return null;
     } finally {
       setIsCheckingEntitlements(false);
@@ -138,6 +159,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await fetchUserProfile(userId);
       if (res.data) {
         setUserProfile(res.data);
+        saveCachedUserProfile(userId, res.data);
         if (res.data.name && res.data.name.trim()) {
           try {
             localStorage.setItem('leve_user_name', res.data.name.trim());
@@ -165,10 +187,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let mounted = true;
 
     async function initAuth() {
-      setIsLoading(true);
-      try {
-        await fetchServerAuthConfig();
-      } catch {}
+      // Busca configuração do servidor em segundo plano de forma não-bloqueante
+      fetchServerAuthConfig().catch(() => {});
 
       const configured = isSupabaseConfigured();
       setIsConfigured(configured);
@@ -215,10 +235,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               saveRememberedEmail(currentSession.user.email);
             }
             markPresentationCompleted();
-            await Promise.all([
-              loadEntitlements(currentSession.user.id, currentSession),
-              loadProfile(currentSession.user.id)
-            ]);
+            // Carrega permissões e perfil em segundo plano sem travar a interface do usuário
+            loadEntitlements(currentSession.user.id, currentSession).catch(() => {});
+            loadProfile(currentSession.user.id).catch(() => {});
           }
         }
       } catch (err) {
