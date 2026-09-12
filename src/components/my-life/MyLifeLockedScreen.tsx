@@ -39,10 +39,10 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
             <span>Disponível nos Planos LEVE Especial & VIP</span>
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 pt-1">
-            Minha Vida 🌿
+            Entretenimento & Lazer 🎬
           </h2>
           <p className="text-sm text-stone-600 dark:text-stone-300 max-w-md mx-auto leading-relaxed">
-            Guarde seus livros, filmes, séries, hobbies, lugares que você quer conhecer e sonhos para a sua jornada.
+            Guarde seus filmes, séries, livros, hobbies, lugares que você quer conhecer e sonhos para a sua jornada.
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export const MyLifeLockedScreen: React.FC<MyLifeLockedScreenProps> = ({ onBypass
                 Acesse sua conta para sincronizar seus itens com segurança:
               </p>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                Todos os dados de Minha Vida são vinculados de forma protegida e privada exclusivamente ao seu usuário logado na nuvem.
+                Todos os dados de Entretenimento & Lazer são vinculados de forma protegida e privada exclusivamente ao seu usuário logado na nuvem.
               </p>
             </div>
           )}

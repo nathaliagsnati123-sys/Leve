@@ -228,7 +228,7 @@ export const MyLifeItemModal: React.FC<MyLifeItemModalProps> = ({
       case 'hobbies': return initialItem ? 'Editar Hobby' : 'Adicionar Hobby';
       case 'places': return initialItem ? 'Editar Lugar' : 'Adicionar Lugar para Conhecer';
       case 'dreams': return initialItem ? 'Editar Sonho' : 'Registrar Sonho ou Desejo';
-      default: return 'Item de Minha Vida';
+      default: return 'Item de Entretenimento & Lazer';
     }
   };
 
@@ -726,7 +726,7 @@ export const MyLifeItemModal: React.FC<MyLifeItemModalProps> = ({
               type="submit"
               className="px-6 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162A25] text-white font-medium shadow-sm transition cursor-pointer"
             >
-              {initialItem ? 'Salvar Alterações' : 'Adicionar a Minha Vida'}
+              {initialItem ? 'Salvar Alterações' : 'Adicionar ao Entretenimento'}
             </button>
           </div>
         </form>

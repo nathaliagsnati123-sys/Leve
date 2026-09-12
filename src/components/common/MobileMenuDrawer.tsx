@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Lock
+  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Lock, Film
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -53,8 +53,8 @@ export const MobileMenuDrawer: React.FC = () => {
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
     { 
       id: 'my-life' as ActiveTab, 
-      label: 'Minha Vida', 
-      icon: Compass
+      label: 'Entretenimento & Lazer', 
+      icon: Film
     },
     { 
       id: 'lia' as ActiveTab, 

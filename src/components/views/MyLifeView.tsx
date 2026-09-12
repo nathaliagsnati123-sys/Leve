@@ -173,10 +173,10 @@ export const MyLifeView: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-200/80 dark:border-stone-800 pb-6">
         <div className="space-y-1.5">
           <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-            Minha Vida 🌿
+            Entretenimento & Lazer 🎬
           </h1>
           <p className="text-sm text-stone-600 dark:text-stone-400 max-w-xl leading-relaxed">
-            Guarde tudo aquilo que faz parte de você: suas leituras, filmes, séries, hobbies, lugares que sonha em visitar e desejos para a sua caminhada.
+            Seu espaço especial para filmes, séries, livros, hobbies, lugares dos sonhos e momentos de lazer e inspiração.
           </p>
         </div>
 
@@ -187,7 +187,7 @@ export const MyLifeView: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar em Minha Vida..."
+            placeholder="Buscar em entretenimento e lazer..."
             className="w-full pl-9.5 pr-4 py-2 text-xs sm:text-sm rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 shadow-2xs"
           />
           {searchQuery && (

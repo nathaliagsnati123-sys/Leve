@@ -45,9 +45,9 @@ export const AppTourModal: React.FC = () => {
       tabKey: 'spirituality'
     },
     {
-      title: 'Metas & Minha Vida',
-      subtitle: 'Seus sonhos organizados em passos reais',
-      description: 'Estruture seus grandes objetivos em etapas simples e mantenha uma lista carinhosa dos livros que quer ler, filmes, séries, hobbies e sonhos futuros.',
+      title: 'Metas & Entretenimento',
+      subtitle: 'Seus sonhos e momentos de lazer organizados',
+      description: 'Estruture seus grandes objetivos em etapas simples e mantenha uma lista carinhosa dos filmes, séries, livros, hobbies e viagens dos sonhos.',
       icon: <Target className="w-8 h-8 text-emerald-600" />,
       tag: 'Propósito & Lazer',
       tabKey: 'my-life'

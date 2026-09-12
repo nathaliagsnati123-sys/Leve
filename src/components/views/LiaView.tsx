@@ -247,6 +247,8 @@ export const LiaView: React.FC = () => {
       case 'Conta':
         return <Receipt className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
       case 'Minha Vida':
+      case 'Entretenimento':
+      case 'Entretenimento & Lazer':
         return <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />;
       default:
         return <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
