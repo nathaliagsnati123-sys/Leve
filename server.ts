@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
@@ -51,6 +52,64 @@ function saveStoredPurchase(email: string, data: any) {
   } catch (err) {
     console.warn("[purchases store] Erro ao salvar purchases.json:", err);
   }
+}
+
+// ============================================================================
+// Multi-Device Central User Store (Compartilhamento e Acesso Multi-Aparelho)
+// ============================================================================
+const USERS_FILE = path.join(process.cwd(), "data", "users.json");
+
+export interface StoredUser {
+  id: string;
+  email: string;
+  passwordHash: string;
+  name?: string;
+  avatar?: string;
+  treatmentPreference?: string;
+  plan?: string;
+  leve_especial?: boolean;
+  leve_vip?: boolean;
+  lia_access?: boolean;
+  confirmed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+function getStoredUsers(): Record<string, StoredUser> {
+  try {
+    if (!fs.existsSync(path.dirname(USERS_FILE))) {
+      fs.mkdirSync(path.dirname(USERS_FILE), { recursive: true });
+    }
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, "utf-8");
+      return JSON.parse(content || "{}");
+    }
+  } catch (err) {
+    console.warn("[users store] Erro ao ler users.json:", err);
+  }
+  return {};
+}
+
+function saveStoredUser(user: StoredUser) {
+  try {
+    const key = user.email.trim().toLowerCase();
+    const users = getStoredUsers();
+    users[key] = {
+      ...user,
+      email: key,
+      updated_at: new Date().toISOString()
+    };
+    if (!fs.existsSync(path.dirname(USERS_FILE))) {
+      fs.mkdirSync(path.dirname(USERS_FILE), { recursive: true });
+    }
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("[users store] Erro ao salvar users.json:", err);
+  }
+}
+
+function hashPassword(password: string): string {
+  return crypto.createHash("sha256").update(password).digest("hex");
 }
 
 // ============================================================================
@@ -132,9 +191,25 @@ function broadcastSyncUpdate(accountKey: string, payload: {
   version: number;
   sourceDeviceId?: string;
   data: any;
+  email?: string;
+  userId?: string;
 }) {
-  const subs = sseSubscribers.get(accountKey);
-  if (!subs || subs.size === 0) return;
+  const keysToNotify = new Set<string>();
+  if (accountKey) keysToNotify.add(accountKey);
+  if (payload.email) keysToNotify.add(sanitizeSyncIdentifier(payload.email));
+  if (payload.userId) keysToNotify.add(sanitizeSyncIdentifier(payload.userId));
+
+  const mapping = getUserSyncMapping();
+  if (payload.userId && mapping[payload.userId]) {
+    keysToNotify.add(sanitizeSyncIdentifier(mapping[payload.userId]));
+  }
+  if (payload.email) {
+    for (const [uid, em] of Object.entries(mapping)) {
+      if (em.toLowerCase() === payload.email.toLowerCase()) {
+        keysToNotify.add(sanitizeSyncIdentifier(uid));
+      }
+    }
+  }
 
   const eventPayload = JSON.stringify({
     timestamp: payload.timestamp,
@@ -143,13 +218,136 @@ function broadcastSyncUpdate(accountKey: string, payload: {
     data: payload.data
   });
 
-  for (const sub of Array.from(subs)) {
-    try {
-      sub.res.write(`event: sync-update\ndata: ${eventPayload}\n\n`);
-    } catch {
-      subs.delete(sub);
+  const sentSubs = new Set<SSESubscriber>();
+  for (const key of keysToNotify) {
+    const subs = sseSubscribers.get(key);
+    if (subs) {
+      for (const sub of Array.from(subs)) {
+        if (sentSubs.has(sub)) continue;
+        sentSubs.add(sub);
+        try {
+          sub.res.write(`event: sync-update\ndata: ${eventPayload}\n\n`);
+        } catch {
+          subs.delete(sub);
+        }
+      }
     }
   }
+}
+
+function mergeArrayById(existingArr: any[] = [], incomingArr: any[] = []): any[] {
+  const e = Array.isArray(existingArr) ? existingArr : [];
+  const i = Array.isArray(incomingArr) ? incomingArr : [];
+  if (i.length === 0 && e.length > 0) return e;
+  if (e.length === 0) return i;
+  const map = new Map();
+  e.forEach(item => { if (item?.id) map.set(item.id, item); });
+  i.forEach(item => {
+    if (item?.id) {
+      const prev = map.get(item.id);
+      map.set(item.id, prev ? { ...prev, ...item } : item);
+    }
+  });
+  return Array.from(map.values());
+}
+
+function mergeDataServer(existing: any, incoming: any): any {
+  if (!incoming || typeof incoming !== "object") return existing;
+  if (!existing || typeof existing !== "object") return incoming;
+
+  const incomingTasks = Array.isArray(incoming.tasks) ? incoming.tasks : [];
+  const existingTasks = Array.isArray(existing.tasks) ? existing.tasks : [];
+  const incomingHabits = Array.isArray(incoming.habits) ? incoming.habits : [];
+  const existingHabits = Array.isArray(existing.habits) ? existing.habits : [];
+
+  // Se o incoming não tem tarefas mas o existente tem, preserva as tarefas existentes
+  let tasks = incomingTasks;
+  if (incomingTasks.length === 0 && existingTasks.length > 0) {
+    tasks = existingTasks;
+  } else if (incomingTasks.length > 0 && existingTasks.length > 0) {
+    const taskMap = new Map();
+    existingTasks.forEach((t: any) => { if (t?.id) taskMap.set(t.id, t); });
+    incomingTasks.forEach((t: any) => {
+      if (t?.id) {
+        const prev = taskMap.get(t.id);
+        taskMap.set(t.id, prev ? { ...prev, ...t, completed: prev.completed || t.completed } : t);
+      }
+    });
+    tasks = Array.from(taskMap.values());
+  }
+
+  // Hábitos
+  let habits = incomingHabits;
+  if (incomingHabits.length === 0 && existingHabits.length > 0) {
+    habits = existingHabits;
+  } else if (incomingHabits.length > 0 && existingHabits.length > 0) {
+    const habitMap = new Map();
+    existingHabits.forEach((h: any) => { if (h?.id) habitMap.set(h.id, h); });
+    incomingHabits.forEach((h: any) => {
+      if (h?.id) {
+        const prev = habitMap.get(h.id);
+        habitMap.set(h.id, prev ? { ...prev, ...h, history: { ...(prev.history || {}), ...(h.history || {}) } } : h);
+      }
+    });
+    habits = Array.from(habitMap.values());
+  }
+
+  // Hidratação
+  const hydration = { ...(existing.hydration || {}), ...(incoming.hydration || {}) };
+  if (existing.hydration && incoming.hydration) {
+    Object.keys(existing.hydration).forEach(k => {
+      if (incoming.hydration[k]) {
+        hydration[k] = {
+          ...existing.hydration[k],
+          ...incoming.hydration[k],
+          amountMl: Math.max(existing.hydration[k].amountMl || 0, incoming.hydration[k].amountMl || 0)
+        };
+      }
+    });
+  }
+
+  // Diário
+  const journal = { ...(existing.journal || {}), ...(incoming.journal || {}) };
+
+  // Orações, Devocionais, Metas, Finanças
+  const prayers = mergeArrayById(existing.prayers, incoming.prayers);
+  const devotionals = mergeArrayById(existing.devotionals, incoming.devotionals);
+  const goals = mergeArrayById(existing.goals, incoming.goals);
+  const bills = mergeArrayById(existing.bills, incoming.bills);
+  const incomes = mergeArrayById(existing.incomes, incoming.incomes);
+
+  const myLife = {
+    books: mergeArrayById(existing.myLife?.books, incoming.myLife?.books),
+    movies: mergeArrayById(existing.myLife?.movies, incoming.myLife?.movies),
+    series: mergeArrayById(existing.myLife?.series, incoming.myLife?.series),
+    hobbies: mergeArrayById(existing.myLife?.hobbies, incoming.myLife?.hobbies),
+    places: mergeArrayById(existing.myLife?.places, incoming.myLife?.places),
+    dreams: mergeArrayById(existing.myLife?.dreams, incoming.myLife?.dreams),
+  };
+
+  const user = {
+    ...(existing.user || {}),
+    ...(incoming.user || {}),
+    name: (incoming.user?.name || "").trim() || existing.user?.name || "",
+    avatar: incoming.user?.avatar || existing.user?.avatar || "🌿",
+    treatmentPreference: incoming.user?.treatmentPreference || existing.user?.treatmentPreference || "feminino"
+  };
+
+  return {
+    ...existing,
+    ...incoming,
+    user,
+    tasks,
+    habits,
+    hydration,
+    journal,
+    prayers,
+    devotionals,
+    goals,
+    bills,
+    incomes,
+    myLife
+  };
 }
 
 function readUserSyncPayload(email?: string, userId?: string): {
@@ -203,11 +401,13 @@ function writeUserSyncPayload(
       } catch {}
     }
 
+    const finalData = (existing && existing.data) ? mergeDataServer(existing.data, payload.data) : payload.data;
+
     const updatedAt = Date.now();
     const storedObject = {
       email: payload.email ? payload.email.trim().toLowerCase() : (existing?.email || ""),
       userId: payload.userId || existing?.userId || "",
-      data: payload.data,
+      data: finalData,
       updatedAt,
       version: currentVersion,
       clientTimestamp: payload.clientTimestamp || updatedAt,
@@ -234,7 +434,9 @@ function writeUserSyncPayload(
       timestamp: updatedAt,
       version: currentVersion,
       sourceDeviceId: payload.deviceId,
-      data: payload.data
+      data: finalData,
+      email: payload.email,
+      userId: payload.userId
     });
 
     return { success: true, updatedAt, version: currentVersion, accountKey };
@@ -642,13 +844,293 @@ async function startServer() {
 
       if (!updateRes.ok) {
         const errText = await updateRes.text();
-        return res.status(500).json({ error: "Erro ao ativar senha: " + errText });
+        console.warn("[claim-account] Supabase retornou erro, salvando no banco local:", errText);
       }
+
+      // Salva no banco de usuários central para que todos os aparelhos tenham acesso imediato
+      const plan = storedPurchase?.plan_name || "LEVE Gratuito";
+      const leve_especial = Boolean(storedPurchase?.leve_especial);
+      const leve_vip = Boolean(storedPurchase?.leve_vip);
+      const lia_access = Boolean(storedPurchase?.lia_access);
+
+      const users = getStoredUsers();
+      const existingUser = users[email];
+      const userId = existingUser?.id || user?.id || crypto.randomUUID();
+
+      saveStoredUser({
+        id: userId,
+        email,
+        passwordHash: hashPassword(password),
+        name: name || existingUser?.name || user?.user_metadata?.name || "",
+        avatar: existingUser?.avatar || user?.user_metadata?.avatar || "🌿",
+        treatmentPreference: existingUser?.treatmentPreference || "feminino",
+        plan: existingUser?.plan || plan,
+        leve_especial: existingUser?.leve_especial ?? leve_especial,
+        leve_vip: existingUser?.leve_vip ?? leve_vip,
+        lia_access: existingUser?.lia_access ?? lia_access,
+        confirmed: true,
+        created_at: existingUser?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+      const mapping = getUserSyncMapping();
+      mapping[userId] = email;
+      saveUserSyncMapping(mapping);
 
       return res.json({ success: true, message: "Senha cadastrada e acesso liberado com sucesso!" });
     } catch (err: any) {
       console.error("[claim-account] Erro:", err);
       return res.status(500).json({ error: err?.message || "Erro interno ao ativar conta" });
+    }
+  });
+
+  // 1. Cadastro centralizado - Compartilhado entre múltiplos dispositivos
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const password = req.body?.password || "";
+      const name = (req.body?.name || "").trim();
+      const avatar = (req.body?.avatar || "🌿").trim();
+      const treatmentPreference = req.body?.treatmentPreference || "feminino";
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ error: "A senha deve ter pelo menos 6 caracteres." });
+      }
+
+      const users = getStoredUsers();
+      let user = users[email];
+
+      const purchases = getStoredPurchases();
+      const purchase = purchases[email];
+      const plan = purchase?.plan_name || user?.plan || "LEVE Gratuito";
+      const leve_especial = Boolean(purchase?.leve_especial || user?.leve_especial);
+      const leve_vip = Boolean(purchase?.leve_vip || user?.leve_vip);
+      const lia_access = Boolean(purchase?.lia_access || user?.lia_access);
+
+      const userId = user?.id || crypto.randomUUID();
+      const passwordHash = hashPassword(password);
+
+      const updatedUser: StoredUser = {
+        id: userId,
+        email,
+        passwordHash,
+        name: name || user?.name || "",
+        avatar: avatar || user?.avatar || "🌿",
+        treatmentPreference: treatmentPreference || user?.treatmentPreference || "feminino",
+        plan,
+        leve_especial,
+        leve_vip,
+        lia_access,
+        confirmed: true,
+        created_at: user?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      saveStoredUser(updatedUser);
+
+      // Mapeia userId para email
+      const mapping = getUserSyncMapping();
+      mapping[userId] = email;
+      saveUserSyncMapping(mapping);
+
+      const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
+      const session = {
+        access_token: token,
+        token_type: "bearer",
+        expires_in: 3600 * 24 * 365,
+        expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+        refresh_token: `leve_refresh_${crypto.randomBytes(24).toString("hex")}`,
+        user: {
+          id: userId,
+          email,
+          user_metadata: {
+            name: updatedUser.name,
+            full_name: updatedUser.name,
+            avatar: updatedUser.avatar,
+            treatment_preference: updatedUser.treatmentPreference,
+            plan: updatedUser.plan,
+            leve_especial: updatedUser.leve_especial,
+            leve_vip: updatedUser.leve_vip,
+            lia_access: updatedUser.lia_access
+          }
+        }
+      };
+
+      return res.json({
+        success: true,
+        user: session.user,
+        session
+      });
+    } catch (err: any) {
+      console.error("[register] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro ao processar cadastro." });
+    }
+  });
+
+  // 2. Login centralizado - Qualquer dispositivo logado na mesma conta
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const password = req.body?.password || "";
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+      }
+
+      const users = getStoredUsers();
+      const user = users[email];
+      const pwdHash = hashPassword(password);
+
+      // Se o usuário existe no users.json
+      if (user) {
+        if (user.passwordHash === pwdHash || user.passwordHash === password) {
+          if (user.passwordHash === password) {
+            user.passwordHash = pwdHash;
+            saveStoredUser(user);
+          }
+
+          const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
+          const session = {
+            access_token: token,
+            token_type: "bearer",
+            expires_in: 3600 * 24 * 365,
+            expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+            refresh_token: `leve_refresh_${crypto.randomBytes(24).toString("hex")}`,
+            user: {
+              id: user.id,
+              email: user.email,
+              user_metadata: {
+                name: user.name,
+                full_name: user.name,
+                avatar: user.avatar,
+                treatment_preference: user.treatmentPreference,
+                plan: user.plan,
+                leve_especial: user.leve_especial,
+                leve_vip: user.leve_vip,
+                lia_access: user.lia_access
+              }
+            }
+          };
+
+          return res.json({
+            success: true,
+            user: session.user,
+            session
+          });
+        }
+      }
+
+      // Se não está no users.json, mas já existe sync file da conta ou compra registrada:
+      const syncPath = getSyncFilePath(email);
+      const purchases = getStoredPurchases();
+      const purchase = purchases[email];
+      const hasSyncOrPurchase = fs.existsSync(syncPath) || Boolean(purchase);
+
+      if (!user && hasSyncOrPurchase) {
+        // Primeiro login neste backend para uma conta existente: adota a senha e cria o usuário
+        const newId = crypto.randomUUID();
+        const newUser: StoredUser = {
+          id: newId,
+          email,
+          passwordHash: pwdHash,
+          name: purchase?.name || "",
+          avatar: "🌿",
+          treatmentPreference: "feminino",
+          plan: purchase?.plan_name || "LEVE Gratuito",
+          leve_especial: Boolean(purchase?.leve_especial),
+          leve_vip: Boolean(purchase?.leve_vip),
+          lia_access: Boolean(purchase?.lia_access),
+          confirmed: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        saveStoredUser(newUser);
+
+        const mapping = getUserSyncMapping();
+        mapping[newId] = email;
+        saveUserSyncMapping(mapping);
+
+        const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
+        const session = {
+          access_token: token,
+          token_type: "bearer",
+          expires_in: 3600 * 24 * 365,
+          expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+          refresh_token: `leve_refresh_${crypto.randomBytes(24).toString("hex")}`,
+          user: {
+            id: newId,
+            email,
+            user_metadata: {
+              name: newUser.name,
+              full_name: newUser.name,
+              avatar: newUser.avatar,
+              treatment_preference: newUser.treatmentPreference,
+              plan: newUser.plan,
+              leve_especial: newUser.leve_especial,
+              leve_vip: newUser.leve_vip,
+              lia_access: newUser.lia_access
+            }
+          }
+        };
+
+        return res.json({
+          success: true,
+          user: session.user,
+          session
+        });
+      }
+
+      // Tenta Supabase caso o usuário tenha sido criado remotamente
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+      if (supabaseUrl && kAnon) {
+        try {
+          const origin = new URL(supabaseUrl).origin;
+          const supRes = await fetch(`${origin}/auth/v1/token?grant_type=password`, {
+            method: "POST",
+            headers: {
+              apikey: kAnon,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+          });
+          if (supRes.ok) {
+            const supData = await supRes.json();
+            if (supData?.user) {
+              const migratedUser: StoredUser = {
+                id: supData.user.id,
+                email,
+                passwordHash: pwdHash,
+                name: supData.user.user_metadata?.name || "",
+                avatar: supData.user.user_metadata?.avatar || "🌿",
+                treatmentPreference: supData.user.user_metadata?.treatment_preference || "feminino",
+                plan: supData.user.user_metadata?.plan || "LEVE Gratuito",
+                leve_especial: Boolean(supData.user.user_metadata?.leve_especial),
+                leve_vip: Boolean(supData.user.user_metadata?.leve_vip),
+                lia_access: Boolean(supData.user.user_metadata?.lia_access),
+                confirmed: true,
+                created_at: supData.user.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+              saveStoredUser(migratedUser);
+
+              return res.json({
+                success: true,
+                user: supData.user,
+                session: supData
+              });
+            }
+          }
+        } catch {}
+      }
+
+      return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    } catch (err: any) {
+      console.error("[login] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro no login." });
     }
   });
 

@@ -348,6 +348,54 @@ export async function supabaseSignUp(
   const cleanAvatar = avatar ? avatar.trim() : '';
   const cleanName = name ? name.trim() : '';
 
+  // 1. Tentar registro no servidor central primeiro (garante funcionamento multi-dispositivo sem bloqueios de e-mail)
+  try {
+    const regRes = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: cleanEmail,
+        password,
+        name: cleanName,
+        treatmentPreference: normalizedPref,
+        avatar: cleanAvatar
+      })
+    });
+
+    if (regRes.ok) {
+      const regData = await regRes.json();
+      if (regData.success && regData.session) {
+        saveLocalAuthSession(regData.session, password);
+        // Tenta também no cliente Supabase em segundo plano
+        if (client) {
+          try {
+            await client.auth.signUp({
+              email: cleanEmail,
+              password,
+              options: {
+                data: {
+                  name: cleanName,
+                  full_name: cleanName,
+                  avatar: cleanAvatar,
+                  treatment_preference: normalizedPref
+                }
+              }
+            });
+          } catch {}
+        }
+        return {
+          data: {
+            user: regData.session.user,
+            session: regData.session
+          },
+          error: null
+        };
+      }
+    }
+  } catch (apiErr) {
+    console.warn('[supabaseSignUp] API central indisponível no momento, tentando fallback:', apiErr);
+  }
+
   if (!client) {
     console.info('[Supabase Auth] Modo local seguro ativado para cadastro.');
     const localUser: User = {
@@ -424,6 +472,33 @@ export async function supabaseSignUp(
 }
 
 export async function supabaseSignIn(email: string, password: string) {
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Tentar login centralizado no servidor primeiro (reconhece a mesma conta criada em qualquer aparelho)
+  try {
+    const logRes = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, password })
+    });
+
+    if (logRes.ok) {
+      const logData = await logRes.json();
+      if (logData.success && logData.session) {
+        saveLocalAuthSession(logData.session, password);
+        return {
+          data: {
+            user: logData.session.user,
+            session: logData.session
+          },
+          error: null
+        };
+      }
+    }
+  } catch (apiErr) {
+    console.warn('[supabaseSignIn] API central de login indisponível, usando fallback:', apiErr);
+  }
+
   let client = getSupabase();
   if (!client) {
     try {
@@ -431,8 +506,6 @@ export async function supabaseSignIn(email: string, password: string) {
       client = getSupabase();
     } catch {}
   }
-
-  const cleanEmail = email.trim().toLowerCase();
 
   if (!client) {
     console.info('[Supabase Auth] Modo local seguro para login.');

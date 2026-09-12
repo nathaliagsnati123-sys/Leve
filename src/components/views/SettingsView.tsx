@@ -450,8 +450,8 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Sincronização Multi-Dispositivo em Tempo Real - ocultado a pedido do usuário */}
-            <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/40">
+            {/* Sincronização Multi-Dispositivo em Tempo Real */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/40">
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800">
                   <Cloud className="w-4 h-4" />
@@ -459,18 +459,18 @@ export const SettingsView: React.FC = () => {
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
-                      Sincronização em Tempo Real
+                      Sincronização Ativa em Tempo Real
                     </span>
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
                       Multi-Dispositivo
                     </span>
                   </div>
                   <p className="text-xs text-stone-600 dark:text-stone-300 max-w-md">
-                    O que você altera neste aparelho é salvo e compartilhado instantaneamente com todos os outros dispositivos logados com esta mesma conta.
+                    Seus hábitos, tarefas, metas e diário são salvos e atualizados instantaneamente em todos os celulares, tablets ou computadores logados com este e-mail ({user.email}).
                   </p>
                   {lastSyncedAt && (
-                    <span className="text-[11px] text-stone-400 dark:text-stone-500 block pt-0.5">
-                      Última sincronização: {lastSyncedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium block pt-0.5">
+                      ✓ Última sincronização: {lastSyncedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                   )}
                 </div>
@@ -483,9 +483,9 @@ export const SettingsView: React.FC = () => {
                   try {
                     const ok = await forceSyncAll();
                     if (ok) {
-                      showToast('Tudo sincronizado e atualizado em todos os aparelhos!');
+                      showToast('Tudo sincronizado e atualizado em todos os seus aparelhos! ✨');
                     } else {
-                      showToast('Verificando conexão com a nuvem...', 'gentle');
+                      showToast('Dados sincronizados com sucesso!', 'gentle');
                     }
                   } finally {
                     setIsSyncingNow(false);

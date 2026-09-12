@@ -345,6 +345,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ============================================================================
   const isApplyingRemoteRef = React.useRef(false);
   const isSyncingRef = React.useRef(false);
+  const isInitialPullCompleteRef = React.useRef(false);
   const lastSyncedTimestampRef = React.useRef<number>(getLastSyncTimestamp());
   const lastLocalEditTimeRef = React.useRef<number>(0);
 
@@ -400,14 +401,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!hasAccount) return;
     let isCancelled = false;
+    isInitialPullCompleteRef.current = false;
 
     async function syncOnLoginOrMount() {
       try {
+        isSyncingRef.current = true;
         const cloudData = await pullCloudData();
         if (cloudData && !isCancelled) {
           isApplyingRemoteRef.current = true;
           setData((prev) => {
-            const next = isDefaultPlaceholderData(prev) ? sanitizeAppData(cloudData) : mergeAppData(prev, cloudData);
+            const hasCloudContent = (cloudData.tasks?.length || 0) > 0 ||
+              (cloudData.habits?.length || 0) > 0 ||
+              Object.keys(cloudData.journal || {}).length > 0;
+            const next = (!hasCloudContent || isDefaultPlaceholderData(prev))
+              ? sanitizeAppData(cloudData)
+              : mergeAppData(prev, cloudData);
             saveAppData(next);
             return next;
           });
@@ -416,14 +424,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setLastSyncTimestamp(now);
           broadcastLocalTabUpdate(cloudData, now);
         } else if (!cloudData && !isCancelled) {
-          // Nuvem ainda sem dados: envia os dados atuais para a conta
-          await syncDataNow(data);
-          const now = Date.now();
-          lastSyncedTimestampRef.current = now;
-          setLastSyncTimestamp(now);
+          // Nuvem ainda sem dados: apenas envia se tivermos dados reais locais
+          const hasLocalContent = (data.tasks?.length || 0) > 0 || (data.habits?.length || 0) > 0;
+          if (hasLocalContent) {
+            await syncDataNow(data);
+            const now = Date.now();
+            lastSyncedTimestampRef.current = now;
+            setLastSyncTimestamp(now);
+          }
         }
       } catch (e) {
         console.warn('Sync on mount error:', e);
+      } finally {
+        isInitialPullCompleteRef.current = true;
+        isSyncingRef.current = false;
       }
     }
 
@@ -472,7 +486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 3. Debounced auto-sync (Push): Envia alterações locais para a nuvem de forma ágil (350ms)
   useEffect(() => {
-    if (!hasAccount) return;
+    if (!hasAccount || !isInitialPullCompleteRef.current) return;
 
     if (isApplyingRemoteRef.current) {
       isApplyingRemoteRef.current = false;
