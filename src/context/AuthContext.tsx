@@ -1,5 +1,5 @@
 // Contexto de Autenticação e Sincronização Supabase - LEVE
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import {
   isSupabaseConfigured,
@@ -372,85 +372,99 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [loadEntitlements, loadProfile]);
 
   const signup = useCallback(async (
-    email: string, 
-    password: string, 
-    name?: string,
-    preference: TreatmentPreference = 'nao_informar',
-    avatar?: string
-  ) => {
-    // Note: Do NOT set setIsLoading(true) here! AuthModal has its own isSubmitting spinner.
-    setIsCheckingEntitlements(true);
+  email: string,
+  password: string,
+  name?: string,
+  preference: TreatmentPreference = 'nao_informar',
+  avatar?: string
+) => {
+  // Impede duas chamadas de cadastro ao mesmo tempo
+  if (signupInProgressRef.current) {
+    return {
+      success: false,
+      error: 'O cadastro já está sendo processado. Aguarde um instante.'
+    };
+  }
 
-    try {
-      const cleanName = name ? name.trim() : '';
-      const cleanAvatar = avatar ? avatar.trim() : '';
-      const { data, error } = await supabaseSignUp(email, password, cleanName, preference, cleanAvatar);
-      
-      if (error) {
-        const errMsg = (error.message || '').toLowerCase();
-        // Se a conta já existe (pré-criada pela Hotmart na hora da compra):
-        if (
-          errMsg.includes('already registered') || 
-          errMsg.includes('already been registered') ||
-          errMsg.includes('user already exists')
-        ) {
-          console.log('[AuthContext] Usuário pré-existente detectado. Ativando conta e vinculando senha...');
-          try {
-            const claimRes = await fetch('/api/auth/claim-account', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: cleanName })
-            });
-            if (claimRes.ok) {
-              const logRes = await login(email, password);
-              if (logRes.success) {
-                return { 
-                  success: true, 
-                  message: 'Acesso liberado e compra vinculada com sucesso! Bem-vinda ao LEVE.' 
-                };
-              }
-            }
-          } catch (claimErr) {
-            console.warn('[AuthContext] Falha ao reivindicar conta:', claimErr);
-          }
-        }
-        return { success: false, error: translateAuthError(error.message) };
-      }
-      if (data?.user) {
-        saveRememberedEmail(email);
-        markPresentationCompleted();
-        if (cleanName) {
-          try { localStorage.setItem('leve_user_name', cleanName); } catch {}
-        }
-        if (cleanAvatar) {
-          try { localStorage.setItem('leve_user_avatar', cleanAvatar); } catch {}
-        }
-        setUser(data.user);
-        setSession(data.session);
-        const needsConfirmation = !data.session;
-        if (data.session) {
-          await Promise.all([
-            loadEntitlements(data.user.id, data.session),
-            loadProfile(data.user.id)
-          ]);
-        }
-        return { 
-          success: true, 
-          message: needsConfirmation 
-            ? 'Cadastro realizado! Verifique seu e-mail para confirmar a conta.' 
-            : 'Conta criada com sucesso! Perfil e permissões vinculados.' 
-        };
-      }
-      return { success: false, error: 'Não foi possível cadastrar a conta.' };
-    } catch (err: any) {
-      console.error('[AuthContext] Exceção capturada durante cadastro:', err);
-      return { success: false, error: translateAuthError(err?.message) || 'Erro ao realizar cadastro' };
-    } finally {
-      setIsCheckingEntitlements(false);
+  signupInProgressRef.current = true;
+  setIsCheckingEntitlements(true);
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name?.trim() || '';
+
+    if (!cleanEmail || !password) {
+      return {
+        success: false,
+        error: 'Preencha seu e-mail e sua senha.'
+      };
     }
-  }, [loadEntitlements, loadProfile]);
 
-  const treatmentPreference: TreatmentPreference =
+    if (password.length < 8) {
+      return {
+        success: false,
+        error: 'A senha precisa ter pelo menos 8 caracteres.'
+      };
+    }
+
+    console.log('[AuthContext] Iniciando cadastro:', cleanEmail);
+
+    const { data, error } = await supabaseSignUp(
+      cleanEmail,
+      password,
+      cleanName,
+      preference,
+      avatar
+    );
+
+    if (error) {
+      console.error('[AuthContext] Erro no cadastro:', error);
+      return {
+        success: false,
+        error: translateAuthError(error.message)
+      };
+    }
+
+    if (!data?.user) {
+      return {
+        success: false,
+        error: 'Não foi possível criar sua conta. Tente novamente.'
+      };
+    }
+
+    setUser(data.user);
+    setSession(data.session);
+
+    // Conta criada com sessão: carregar perfil e plano
+    if (data.session) {
+      await Promise.all([
+        loadEntitlements(data.user.id, data.session),
+        loadProfile(data.user.id)
+      ]);
+    }
+
+    return {
+      success: true,
+      message: data.session
+        ? 'Conta criada com sucesso!'
+        : 'Conta criada com sucesso! Verifique seu e-mail para confirmar a conta.'
+    };
+
+  } catch (err: any) {
+    console.error('[AuthContext] Exceção durante cadastro:', err);
+
+    return {
+      success: false,
+      error:
+        translateAuthError(err?.message) ||
+        'Não foi possível criar sua conta. Tente novamente.'
+    };
+
+  } finally {
+    signupInProgressRef.current = false;
+    setIsCheckingEntitlements(false);
+  }
+}, [loadEntitlements, loadProfile]);
     localTreatmentPref ||
     (userProfile?.treatment_preference ? normalizeTreatmentPreference(userProfile.treatment_preference) : null) ||
     (user?.user_metadata?.treatment_preference ? normalizeTreatmentPreference(user.user_metadata.treatment_preference) : null) ||
