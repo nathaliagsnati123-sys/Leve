@@ -44,7 +44,11 @@ import { useAuth } from './context/AuthContext';
 
 const AppContent: React.FC = () => {
   const { activeTab, setActiveTab } = useApp();
-  const { user, canAccessFeature, isCheckingEntitlements, isLoading, setIsAuthModalOpen, setAuthTab } = useAuth();
+  const { user, entitlements, canAccessFeature, isCheckingEntitlements, isLoading, setIsAuthModalOpen, setAuthTab } = useAuth();
+
+  useEffect(() => {
+    trackPixelPageView(activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     trackPixelPageView(activeTab);
@@ -95,8 +99,8 @@ const AppContent: React.FC = () => {
       return <SettingsView />;
     }
 
-    // 3. Se estiver em processo de verificação das permissões no Supabase
-    if (user && (isCheckingEntitlements || isLoading)) {
+    // 3. Somente exibe carregamento se for o primeiríssimo acesso e ainda não houver permissões em cache
+    if (user && !entitlements && isCheckingEntitlements) {
       return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
           <RefreshCw className="w-6 h-6 text-[#1F3A34] dark:text-emerald-400 animate-spin" />

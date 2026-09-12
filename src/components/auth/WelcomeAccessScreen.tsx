@@ -27,16 +27,16 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
   const savedEmail = getRememberedEmail();
   const presentationAlreadyDone = isPresentationAlreadyCompleted();
 
-  // Step 1, 2, 3: Apresentação | Step 4: Login ou Cadastro
-  // Se a apresentação já foi feita ou se já existe e-mail salvo no aparelho, exibe diretamente a tela de acesso (Step 4)
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
-    return presentationAlreadyDone || Boolean(savedEmail) ? 4 : 1;
+  // Step 1, 2, 3, 4: Apresentação (1: Boas-vindas, 2: Mente livre, 3: Cuidado integral, 4: LEVIA) | Step 5: Login ou Cadastro
+  // Se a apresentação já foi feita ou se já existe e-mail salvo no aparelho, exibe diretamente a tela de acesso (Step 5)
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(() => {
+    return presentationAlreadyDone || Boolean(savedEmail) ? 5 : 1;
   });
   const [authMode, setAuthMode] = useState<'signup' | 'login' | 'reset'>(() => {
     return savedEmail ? 'login' : 'signup';
   });
 
-  // Form states
+  // Form states - criação de conta simples: apenas nome, email, senha e confirmação de senha
   const [name, setName] = useState(data.user.name || '');
   const [avatar, setAvatar] = useState(data.user.avatar || '🌿');
   const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
@@ -46,7 +46,9 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
   // E-mail preenchido automaticamente com o e-mail salvo neste dispositivo
   const [email, setEmail] = useState(() => savedEmail);
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
   const handleGoToLogin = () => {
     markPresentationCompleted();
     setAuthMode('login');
-    setStep(4);
+    setStep(5);
     setErrorMessage(null);
     setSuccessMessage(null);
   };
@@ -75,12 +77,18 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
 
     const cleanName = name.trim();
     if (!cleanName) {
-      setErrorMessage('Por favor, digite como você gostaria de ser chamado(a).');
+      setErrorMessage('Por favor, informe seu nome.');
       return;
     }
 
-    if (!email || !password) {
-      setErrorMessage('Por favor, informe seu e-mail e crie uma senha.');
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMessage('Por favor, informe seu e-mail.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Por favor, crie uma senha.');
       return;
     }
 
@@ -89,9 +97,19 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
       return;
     }
 
+    if (!confirmPassword) {
+      setErrorMessage('Por favor, confirme sua senha.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage('As senhas não coincidem. Por favor, confira a digitação.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const res = await signup(email, password, cleanName, treatmentPreference, avatar);
+      const res = await signup(cleanEmail, password, cleanName, treatmentPreference, avatar);
       setIsSubmitting(false);
 
       if (res.success) {
@@ -240,7 +258,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
           </span>
         </div>
 
-        {step < 4 ? (
+        {step < 5 ? (
           <button
             type="button"
             onClick={handleGoToLogin}
@@ -391,9 +409,61 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setStep(4)}
+                  className="flex-1 py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] active:scale-[0.99] font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                >
+                  <span>Continuar</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* SLIDE 4: Apresentação - Conheça a LEVIA                      */}
+          {/* ============================================================ */}
+          {step === 4 && (
+            <div className="space-y-6 text-center animate-in fade-in duration-200">
+              <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                ✨
+              </div>
+
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-900/60 text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                  <span>Inteligência & Acolhimento</span>
+                </div>
+                <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
+                  Conheça a LEVIA
+                </h2>
+                <p className="font-serif text-base sm:text-lg text-stone-600 dark:text-stone-300 italic">
+                  “Você fala. A LEVIA organiza.”
+                </p>
+                <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-sm mx-auto pt-2 leading-relaxed">
+                  Sua assistente inteligente para tirar as pendências da cabeça. Conte tarefas, compromissos ou desabafe em linguagem natural — a LEVIA estrutura tudo e respeita o seu tempo.
+                </p>
+              </div>
+
+              {/* Indicador de passos */}
+              <div className="flex items-center justify-center gap-1.5 pt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-700" />
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-700" />
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-700" />
+                <span className="w-6 h-1.5 rounded-full bg-[#1F3A34] dark:bg-emerald-400" />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="py-3 px-5 rounded-2xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 text-xs font-semibold transition cursor-pointer"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     markPresentationCompleted();
-                    setStep(4);
+                    setStep(5);
                   }}
                   className="flex-1 py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] active:scale-[0.99] font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
@@ -405,9 +475,9 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
           )}
 
           {/* ============================================================ */}
-          {/* SLIDE 4: Após a apresentação: Fazer Login ou Criar Conta     */}
+          {/* SLIDE 5: Após a apresentação: Fazer Login ou Criar Conta     */}
           {/* ============================================================ */}
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-5 text-left animate-in fade-in duration-200">
               <div className="text-center space-y-1">
                 <h2 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100">
@@ -416,7 +486,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                   {authMode === 'reset' && 'Recuperar senha'}
                 </h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto">
-                  {authMode === 'signup' && 'Personalize seu perfil e guarde tudo com segurança.'}
+                  {authMode === 'signup' && 'Guarde suas anotações e rotina com segurança.'}
                   {authMode === 'login' && 'Entre para sincronizar suas anotações e rotina.'}
                   {authMode === 'reset' && 'Informe seu e-mail para receber as instruções.'}
                 </p>
@@ -476,13 +546,13 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                 </div>
               )}
 
-              {/* FORMULÁRIO 1: CRIAR CONTA */}
+              {/* FORMULÁRIO 1: CRIAR CONTA (Apenas nome, email, senha e confirmação de senha) */}
               {authMode === 'signup' && (
                 <form onSubmit={handleSignUpSubmit} className="space-y-4">
-                  {/* 1. Nome preferido */}
+                  {/* 1. Nome */}
                   <div className="space-y-1">
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                      Como prefere ser chamado(a)? <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                      Nome <span className="text-emerald-700 dark:text-emerald-400">*</span>
                     </label>
                     <div className="relative">
                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -491,68 +561,16 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Ex: Nathália, Lu, Gui..."
+                        placeholder="Como gostaria de ser chamado(a)?"
                         className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                       />
                     </div>
-                    <p className="text-[10px] text-stone-400">
-                      Seu nome e ícone ficarão sempre salvos até que você deseje alterar.
-                    </p>
                   </div>
 
-                  {/* 2. Preferência de Tratamento: Feminino, Masculino, Desejo não informar */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                      Preferência de tratamento
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {TREATMENT_OPTIONS.map((opt) => {
-                        const isSelected = treatmentPreference === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setTreatmentPreference(opt.id)}
-                            className={`py-2 px-2 rounded-xl border text-xs font-medium transition cursor-pointer text-center ${
-                              isSelected
-                                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold ring-1 ring-emerald-600/30'
-                                : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
-                            }`}
-                          >
-                            <span className="block truncate">{opt.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 3. Ícone do Perfil */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                      Escolha um ícone para seu perfil
-                    </label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {avatarOptions.map((av) => (
-                        <button
-                          key={av}
-                          type="button"
-                          onClick={() => setAvatar(av)}
-                          className={`w-9 h-9 rounded-2xl text-lg flex items-center justify-center transition cursor-pointer ${
-                            avatar === av
-                              ? 'bg-emerald-100 dark:bg-emerald-950 border-2 border-emerald-600 scale-105 shadow-xs'
-                              : 'bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-100'
-                          }`}
-                        >
-                          {av}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 4. E-mail */}
+                  {/* 2. E-mail */}
                   <div className="space-y-1">
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                      Seu e-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                      E-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -582,10 +600,10 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                     )}
                   </div>
 
-                  {/* 5. Senha */}
+                  {/* 3. Senha */}
                   <div className="space-y-1">
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                      Crie uma senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                      Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -605,6 +623,33 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                         title={showPassword ? 'Ocultar senha' : 'Ver senha'}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4. Confirmação de Senha */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      Confirmação de Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Digite a senha novamente"
+                        className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                        title={showConfirmPassword ? 'Ocultar senha' : 'Ver senha'}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>

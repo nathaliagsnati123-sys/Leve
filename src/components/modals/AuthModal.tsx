@@ -54,13 +54,15 @@ export const AuthModal: React.FC = () => {
 
   const [email, setEmail] = useState(() => getRememberedEmail());
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState(data.user?.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(data.user?.avatar || '🌿');
   const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
-    return normalizeTreatmentPreference(data.user?.treatmentPreference || 'nao_informar');
+    return normalizeTreatmentPreference(data.user?.treatmentPreference || 'feminino');
   });
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -137,8 +139,20 @@ export const AuthModal: React.FC = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!email || !password) {
-      setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setErrorMessage('Por favor, informe seu nome.');
+      return;
+    }
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMessage('Por favor, informe seu e-mail.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Por favor, crie uma senha.');
       return;
     }
 
@@ -147,9 +161,18 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
+    if (!confirmPassword) {
+      setErrorMessage('Por favor, confirme sua senha.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage('As senhas não coincidem. Por favor, confira a digitação.');
+      return;
+    }
+
     setIsSubmitting(true);
-    const cleanName = name.trim();
-    const res = await signup(email, password, cleanName, treatmentPreference, selectedAvatar);
+    const res = await signup(cleanEmail, password, cleanName, treatmentPreference, selectedAvatar);
     setIsSubmitting(false);
 
     if (res.success) {
@@ -709,74 +732,25 @@ export const AuthModal: React.FC = () => {
                 <form onSubmit={handleSignup} className="space-y-3.5">
                   <div>
                     <label htmlFor="signup-name" className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
-                      Como gostaria de ser chamado(a)?
+                      Nome <span className="text-emerald-700 dark:text-emerald-400">*</span>
                     </label>
                     <div className="relative">
                       <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
                       <input
                         id="signup-name"
                         type="text"
+                        required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Seu nome"
+                        placeholder="Como gostaria de ser chamado(a)?"
                         className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#1E2522] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#1F3A34]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1.5">
-                      Preferência de tratamento
-                    </label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {TREATMENT_OPTIONS.map((opt) => {
-                        const isSelected = treatmentPreference === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setTreatmentPreference(opt.id)}
-                            className={`py-2 px-1.5 rounded-xl border text-xs font-medium transition cursor-pointer text-center ${
-                              isSelected
-                                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold ring-1 ring-emerald-600/30'
-                                : 'bg-white dark:bg-[#1E2522] border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
-                            }`}
-                          >
-                            <span className="block truncate">{opt.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="text-[10px] text-stone-400 dark:text-stone-500 mt-1">
-                      Feminino, Masculino ou Desejo não informar. O aplicativo adapta as conversas para você.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1.5">
-                      Escolha seu ícone de perfil
-                    </label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {avatarOptions.map((av) => (
-                        <button
-                          key={av}
-                          type="button"
-                          onClick={() => setSelectedAvatar(av)}
-                          className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition cursor-pointer ${
-                            selectedAvatar === av
-                              ? 'bg-emerald-100 dark:bg-emerald-950 border-2 border-emerald-600 scale-105 shadow-2xs'
-                              : 'bg-white dark:bg-[#1E2522] border border-stone-200 dark:border-stone-800 hover:bg-stone-50'
-                          }`}
-                        >
-                          {av}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
                     <label htmlFor="signup-email" className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
-                      Seu E-mail
+                      Seu E-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>
                     </label>
                     <div className="relative">
                       <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -794,7 +768,7 @@ export const AuthModal: React.FC = () => {
 
                   <div>
                     <label htmlFor="signup-password" className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
-                      Crie uma Senha (mínimo 6 caracteres)
+                      Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
                     </label>
                     <div className="relative">
                       <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
@@ -816,6 +790,38 @@ export const AuthModal: React.FC = () => {
                         aria-label={showSignupPassword ? 'Ocultar senha' : 'Ver senha'}
                       >
                         {showSignupPassword ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="signup-confirm-password" className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
+                      Confirmação de Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                      <input
+                        id="signup-confirm-password"
+                        type={showSignupConfirmPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Digite a senha novamente"
+                        className="w-full pl-9 pr-10 py-2 text-xs rounded-xl bg-white dark:bg-[#1E2522] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#1F3A34]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition cursor-pointer"
+                        title={showSignupConfirmPassword ? 'Ocultar senha' : 'Ver senha'}
+                        aria-label={showSignupConfirmPassword ? 'Ocultar senha' : 'Ver senha'}
+                      >
+                        {showSignupConfirmPassword ? (
                           <EyeOff className="w-3.5 h-3.5" />
                         ) : (
                           <Eye className="w-3.5 h-3.5" />

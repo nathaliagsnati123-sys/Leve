@@ -21,10 +21,10 @@ export const OnboardingModal: React.FC = () => {
   const savedEmail = getRememberedEmail();
   const presentationAlreadyDone = isPresentationAlreadyCompleted();
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [authMode, setAuthMode] = useState<'signup' | 'login'>(() => (savedEmail ? 'login' : 'signup'));
 
-  // Form states
+  // Form states - criação de conta simples: apenas nome, email, senha e confirmação de senha
   const [name, setName] = useState(data.user.name || '');
   const [avatar, setAvatar] = useState(data.user.avatar || '🌿');
   const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
@@ -33,7 +33,9 @@ export const OnboardingModal: React.FC = () => {
 
   const [email, setEmail] = useState(() => savedEmail);
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -53,12 +55,18 @@ export const OnboardingModal: React.FC = () => {
 
     const cleanName = name.trim();
     if (!cleanName) {
-      setErrorMessage('Por favor, digite como você gostaria de ser chamado(a).');
+      setErrorMessage('Por favor, informe seu nome.');
       return;
     }
 
-    if (!email || !password) {
-      setErrorMessage('Por favor, informe seu e-mail e crie uma senha.');
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMessage('Por favor, informe seu e-mail.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Por favor, crie uma senha.');
       return;
     }
 
@@ -67,9 +75,19 @@ export const OnboardingModal: React.FC = () => {
       return;
     }
 
+    if (!confirmPassword) {
+      setErrorMessage('Por favor, confirme sua senha.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage('As senhas não coincidem. Por favor, confira a digitação.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const res = await signup(email, password, cleanName, treatmentPreference);
+      const res = await signup(cleanEmail, password, cleanName, treatmentPreference, avatar);
       setIsSubmitting(false);
 
       if (res.success) {
@@ -265,6 +283,46 @@ export const OnboardingModal: React.FC = () => {
                 onClick={() => setStep(4)}
                 className="flex-1 py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
               >
+                <span>Continuar</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Apresentação - Conheça a LEVIA */}
+        {step === 4 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-200">
+            <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 flex items-center justify-center mx-auto text-3xl shadow-xs">
+              ✨
+            </div>
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-900/60 text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                <span>Inteligência & Acolhimento</span>
+              </div>
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold">
+                Conheça a LEVIA
+              </h2>
+              <p className="text-sm sm:text-base text-stone-600 dark:text-stone-300 font-medium italic">
+                “Você fala. A LEVIA organiza.”
+              </p>
+              <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-sm mx-auto pt-2 leading-relaxed">
+                Sua assistente inteligente para tirar as pendências da cabeça. Conte tarefas, compromissos ou desabafe em linguagem natural — a LEVIA estrutura tudo e respeita o seu tempo.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="py-3 px-4 rounded-2xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 text-xs font-semibold transition cursor-pointer"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(5)}
+                className="flex-1 py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              >
                 <span>Começar no LEVE</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -272,8 +330,8 @@ export const OnboardingModal: React.FC = () => {
           </div>
         )}
 
-        {/* Step 4: Login ou Criar Conta + Personalização do Nome e Ícone */}
-        {step === 4 && (
+        {/* Step 5: Login ou Criar Conta */}
+        {step === 5 && (
           <div className="space-y-5 text-left animate-in fade-in slide-in-from-right-4 duration-200">
             <div className="text-center space-y-1">
               <h2 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100">
@@ -281,7 +339,7 @@ export const OnboardingModal: React.FC = () => {
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto">
                 {authMode === 'signup' 
-                  ? 'Personalize seu perfil e guarde tudo com segurança na nuvem.'
+                  ? 'Guarde suas anotações e rotina com segurança na nuvem.'
                   : 'Entre para sincronizar suas anotações e rotina.'}
               </p>
             </div>
@@ -321,13 +379,13 @@ export const OnboardingModal: React.FC = () => {
               </div>
             )}
 
-            {/* FORM: CRIAR CONTA */}
+            {/* FORM: CRIAR CONTA (Apenas nome, email, senha e confirmação de senha) */}
             {authMode === 'signup' && (
               <form onSubmit={handleSignUpSubmit} className="space-y-4">
                 {/* 1. Nome */}
                 <div className="space-y-1">
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Como prefere ser chamado(a)? <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    Nome <span className="text-emerald-700 dark:text-emerald-400">*</span>
                   </label>
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -336,68 +394,16 @@ export const OnboardingModal: React.FC = () => {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Ex: Nathália, Lu, Gui..."
+                      placeholder="Como gostaria de ser chamado(a)?"
                       className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                     />
                   </div>
-                  <p className="text-[10px] text-stone-400">
-                    Seu nome ficará sempre salvo até que você deseje alterar.
-                  </p>
                 </div>
 
-                {/* 2. Preferência de Tratamento (3 Opções Exatas) */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Preferência de tratamento
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {TREATMENT_OPTIONS.map((opt) => {
-                      const isSelected = treatmentPreference === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setTreatmentPreference(opt.id)}
-                          className={`py-2 px-2 rounded-xl border text-xs font-medium transition cursor-pointer text-center ${
-                            isSelected
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold ring-1 ring-emerald-600/30'
-                              : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
-                          }`}
-                        >
-                          <span className="block truncate">{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 3. Ícone de Perfil */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Escolha um ícone para seu perfil
-                  </label>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {avatarOptions.map((av) => (
-                      <button
-                        key={av}
-                        type="button"
-                        onClick={() => setAvatar(av)}
-                        className={`w-9 h-9 rounded-2xl text-lg flex items-center justify-center transition cursor-pointer ${
-                          avatar === av
-                            ? 'bg-emerald-100 dark:bg-emerald-950 border-2 border-emerald-600 scale-105 shadow-xs'
-                            : 'bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        {av}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 4. E-mail */}
+                {/* 2. E-mail */}
                 <div className="space-y-1">
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Seu e-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    E-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -427,10 +433,10 @@ export const OnboardingModal: React.FC = () => {
                   )}
                 </div>
 
-                {/* 5. Senha */}
+                {/* 3. Senha */}
                 <div className="space-y-1">
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Crie uma senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -449,6 +455,32 @@ export const OnboardingModal: React.FC = () => {
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Confirmação de Senha */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                    Confirmação de Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Digite a senha novamente"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -577,7 +609,7 @@ export const OnboardingModal: React.FC = () => {
 
         {/* Step indicator dots */}
         <div className="flex items-center justify-center gap-1.5 pt-2">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <span
               key={s}
               className={`h-1.5 rounded-full transition-all ${

@@ -234,6 +234,67 @@ export function saveUserIdentity(identity: Partial<PersistentUserIdentity>): voi
   }
 }
 
+export function sanitizeAppData(parsed: any): AppData {
+  if (!parsed || typeof parsed !== 'object') {
+    return { ...INITIAL_APP_DATA };
+  }
+
+  const savedIdentity = getSavedUserIdentity();
+  const presentationAlreadyDone = isPresentationAlreadyCompleted();
+  const hasCompletedOnboardingVal = Boolean(savedIdentity?.hasCompletedOnboarding || presentationAlreadyDone);
+
+  const rawUser = (parsed.user && typeof parsed.user === 'object') ? parsed.user : {};
+
+  const userObj: UserProfile = { 
+    ...INITIAL_APP_DATA.user, 
+    ...rawUser,
+    ...(savedIdentity?.name && !rawUser?.name ? { name: savedIdentity.name } : {}),
+    ...(savedIdentity?.avatar && (!rawUser?.avatar || rawUser.avatar === '🌿') ? { avatar: savedIdentity.avatar } : {}),
+    ...(savedIdentity?.treatmentPreference && (!rawUser?.treatmentPreference || rawUser.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {}),
+    hasCompletedOnboarding: Boolean(rawUser?.hasCompletedOnboarding || hasCompletedOnboardingVal)
+  };
+
+  return {
+    ...INITIAL_APP_DATA,
+    ...parsed,
+    user: userObj,
+    tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+    habits: Array.isArray(parsed.habits) ? parsed.habits : [],
+    hydration: (parsed.hydration && typeof parsed.hydration === 'object') ? parsed.hydration : {},
+    meals: (parsed.meals && typeof parsed.meals === 'object') ? parsed.meals : {},
+    groceries: Array.isArray(parsed.groceries) ? parsed.groceries : [],
+    movement: Array.isArray(parsed.movement) ? parsed.movement : [],
+    sleep: (parsed.sleep && typeof parsed.sleep === 'object') ? parsed.sleep : {},
+    selfCareList: Array.isArray(parsed.selfCareList) ? parsed.selfCareList : DEFAULT_SELF_CARE_ACTIONS,
+    selfCareCompleted: (parsed.selfCareCompleted && typeof parsed.selfCareCompleted === 'object') ? parsed.selfCareCompleted : {},
+    checkIns: (parsed.checkIns && typeof parsed.checkIns === 'object') ? parsed.checkIns : {},
+    journal: (parsed.journal && typeof parsed.journal === 'object') ? parsed.journal : {},
+    memories: Array.isArray(parsed.memories) ? parsed.memories : [],
+    prayers: Array.isArray(parsed.prayers) ? parsed.prayers : [],
+    devotionals: Array.isArray(parsed.devotionals) ? parsed.devotionals : [],
+    singleMeals: Array.isArray(parsed.singleMeals) ? parsed.singleMeals : [],
+    sleepList: Array.isArray(parsed.sleepList) ? parsed.sleepList : [],
+    fiveMinuteSessions: Array.isArray(parsed.fiveMinuteSessions) ? parsed.fiveMinuteSessions : [],
+    favoriteVerses: Array.isArray(parsed.favoriteVerses) ? parsed.favoriteVerses : [],
+    goals: Array.isArray(parsed.goals) ? parsed.goals : [],
+    bills: Array.isArray(parsed.bills) ? parsed.bills : [],
+    incomes: Array.isArray(parsed.incomes) ? parsed.incomes : [],
+    cycle: (parsed.cycle && typeof parsed.cycle === 'object') ? parsed.cycle : INITIAL_APP_DATA.cycle,
+    unlockedAchievements: (parsed.unlockedAchievements && typeof parsed.unlockedAchievements === 'object') ? parsed.unlockedAchievements : {},
+    myLife: parsed.myLife ? {
+      books: (Array.isArray(parsed.myLife.books) ? parsed.myLife.books : []).filter((i: any) => i && i.id !== 'book-1'),
+      movies: (Array.isArray(parsed.myLife.movies) ? parsed.myLife.movies : []).filter((i: any) => i && i.id !== 'movie-1'),
+      series: (Array.isArray(parsed.myLife.series) ? parsed.myLife.series : []).filter((i: any) => i && i.id !== 'series-1'),
+      hobbies: (Array.isArray(parsed.myLife.hobbies) ? parsed.myLife.hobbies : []).filter((i: any) => i && i.id !== 'hobby-1' && i.id !== 'hobby-2'),
+      places: (Array.isArray(parsed.myLife.places) ? parsed.myLife.places : []).filter((i: any) => i && i.id !== 'place-1'),
+      dreams: (Array.isArray(parsed.myLife.dreams) ? parsed.myLife.dreams : []).filter((i: any) => i && i.id !== 'dream-1')
+    } : INITIAL_APP_DATA.myLife,
+    notificationSettings: parsed.notificationSettings
+      ? { ...DEFAULT_NOTIFICATION_SETTINGS, ...parsed.notificationSettings }
+      : DEFAULT_NOTIFICATION_SETTINGS
+  };
+}
+
 export function loadAppData(): AppData {
   try {
     // Purge old versions to ensure users get a completely fresh, zeroed start
@@ -263,56 +324,8 @@ export function loadAppData(): AppData {
       saveAppData(initial);
       return initial;
     }
-    const parsed = JSON.parse(raw) as AppData;
-
-    const userObj = { 
-      ...INITIAL_APP_DATA.user, 
-      ...parsed.user,
-      ...(savedIdentity?.name && !parsed.user?.name ? { name: savedIdentity.name } : {}),
-      ...(savedIdentity?.avatar && (!parsed.user?.avatar || parsed.user.avatar === '🌿') ? { avatar: savedIdentity.avatar } : {}),
-      ...(savedIdentity?.treatmentPreference && (!parsed.user?.treatmentPreference || parsed.user.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {}),
-      hasCompletedOnboarding: Boolean(parsed.user?.hasCompletedOnboarding || hasCompletedOnboardingVal)
-    };
-
-    return {
-      ...INITIAL_APP_DATA,
-      ...parsed,
-      user: userObj,
-      tasks: parsed.tasks || [],
-      habits: parsed.habits || [],
-      hydration: parsed.hydration || {},
-      meals: parsed.meals || {},
-      groceries: parsed.groceries || [],
-      movement: parsed.movement || [],
-      sleep: parsed.sleep || {},
-      selfCareList: parsed.selfCareList || DEFAULT_SELF_CARE_ACTIONS,
-      selfCareCompleted: parsed.selfCareCompleted || {},
-      checkIns: parsed.checkIns || {},
-      journal: parsed.journal || {},
-      memories: parsed.memories || [],
-      prayers: parsed.prayers || [],
-      devotionals: parsed.devotionals || [],
-      singleMeals: parsed.singleMeals || [],
-      sleepList: parsed.sleepList || [],
-      fiveMinuteSessions: parsed.fiveMinuteSessions || [],
-      favoriteVerses: parsed.favoriteVerses || [],
-      goals: parsed.goals || [],
-      bills: parsed.bills || [],
-      incomes: parsed.incomes || [],
-      cycle: parsed.cycle || INITIAL_APP_DATA.cycle,
-      unlockedAchievements: parsed.unlockedAchievements || {},
-      myLife: parsed.myLife ? {
-        books: (Array.isArray(parsed.myLife.books) ? parsed.myLife.books : []).filter((i: any) => i && i.id !== 'book-1'),
-        movies: (Array.isArray(parsed.myLife.movies) ? parsed.myLife.movies : []).filter((i: any) => i && i.id !== 'movie-1'),
-        series: (Array.isArray(parsed.myLife.series) ? parsed.myLife.series : []).filter((i: any) => i && i.id !== 'series-1'),
-        hobbies: (Array.isArray(parsed.myLife.hobbies) ? parsed.myLife.hobbies : []).filter((i: any) => i && i.id !== 'hobby-1' && i.id !== 'hobby-2'),
-        places: (Array.isArray(parsed.myLife.places) ? parsed.myLife.places : []).filter((i: any) => i && i.id !== 'place-1'),
-        dreams: (Array.isArray(parsed.myLife.dreams) ? parsed.myLife.dreams : []).filter((i: any) => i && i.id !== 'dream-1')
-      } : INITIAL_APP_DATA.myLife,
-      notificationSettings: parsed.notificationSettings
-        ? { ...DEFAULT_NOTIFICATION_SETTINGS, ...parsed.notificationSettings }
-        : DEFAULT_NOTIFICATION_SETTINGS
-    };
+    const parsed = JSON.parse(raw);
+    return sanitizeAppData(parsed);
   } catch (err) {
     console.error('Failed to parse saved AppData, using fallback', err);
     return INITIAL_APP_DATA;

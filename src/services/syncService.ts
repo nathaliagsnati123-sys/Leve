@@ -7,7 +7,16 @@ import {
   SleepLog, JournalEntry, Memory, Prayer, FiveMinuteGodSession, Goal, Bill, 
   Income, EmotionalCheckIn, UserProfile, NotificationSettings 
 } from '../types';
-import { getRememberedEmail } from './storage';
+import { getRememberedEmail, sanitizeAppData } from './storage';
+
+export function isValidAppData(data: any): data is AppData {
+  return Boolean(
+    data &&
+    typeof data === 'object' &&
+    data.user &&
+    typeof data.user === 'object'
+  );
+}
 
 const DEVICE_ID_KEY = 'leve_device_id_v1';
 const LAST_SYNC_TS_KEY = 'leve_last_cloud_sync_ts';
@@ -127,7 +136,7 @@ export async function pullAppDataFromCloud(
       if (json.timestamp) setLastSyncTimestamp(json.timestamp);
       return {
         hasUpdates: true,
-        data: json.data as AppData,
+        data: sanitizeAppData(json.data),
         timestamp: json.timestamp,
         version: json.version
       };
@@ -301,15 +310,18 @@ export function isDefaultPlaceholderData(data: AppData | null | undefined): bool
  * NUNCA descarta tarefas, hábitos, anotações ou dados criados em qualquer dos dispositivos.
  */
 export function mergeAppData(local: AppData, cloud: AppData): AppData {
-  if (!cloud) return local;
-  if (!local) return cloud;
+  if (!isValidAppData(cloud)) return sanitizeAppData(local);
+  if (!isValidAppData(local)) return sanitizeAppData(cloud);
+
+  const cleanLocal = sanitizeAppData(local);
+  const cleanCloud = sanitizeAppData(cloud);
 
   // Se o local for apenas os dados de exemplo padrão, adota diretamente os dados da conta na nuvem
-  if (isDefaultPlaceholderData(local)) {
-    return cloud;
+  if (isDefaultPlaceholderData(cleanLocal)) {
+    return cleanCloud;
   }
-  if (isDefaultPlaceholderData(cloud)) {
-    return local;
+  if (isDefaultPlaceholderData(cleanCloud)) {
+    return cleanLocal;
   }
 
   // IDs de itens de exemplo iniciais que não devem ser ressuscitados
@@ -597,7 +609,7 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
     ...(cloud.favoriteVerses || [])
   ]));
 
-  return {
+  return sanitizeAppData({
     user: mergedUser,
     tasks: Array.from(taskMap.values()),
     habits: Array.from(habitMap.values()),
@@ -638,5 +650,5 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
         ...(cloud.notificationSettings || {})
       } as NotificationSettings
     } : {})
-  };
+  });
 }

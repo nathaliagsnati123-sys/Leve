@@ -59,6 +59,7 @@ serve(async (req: Request) => {
     const data = body.data || body;
     const buyer = data.buyer || data.user || data.student || data.subscriber || {};
     const buyerEmail = (buyer.email || data.email || data.buyer_email || "").toString().trim().toLowerCase();
+    const buyerName = (buyer.name || data.name || data.buyer_name || buyer.full_name || "").toString().trim();
 
     if (!buyerEmail) {
       return new Response(JSON.stringify({ error: "E-mail do comprador não encontrado", status: "ignored" }), {
@@ -211,37 +212,67 @@ serve(async (req: Request) => {
       });
     }
 
-    const { data: listData, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listUsersError) throw listUsersError;
-
-    const matchedUser = listData?.users?.find(
-      (user) => user.email?.toLowerCase() === buyerEmail
-    );
-
-    if (!matchedUser) {
-      return new Response(JSON.stringify({
-        status: "error",
-        message: "A conta LEVE com esse e-mail não foi encontrada.",
-        email: buyerEmail
-      }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+    let userId: string | null = null;
+    try {
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+      const matchedUser = listData?.users?.find(
+        (user) => user.email?.toLowerCase().trim() === buyerEmail
+      );
+      if (matchedUser) {
+        userId = matchedUser.id;
+      } else {
+        // Cria a conta do comprador com e-mail confirmado para que ele acesse instantaneamente
+        const { data: createdData } = await supabaseAdmin.auth.admin.createUser({
+          email: buyerEmail,
+          email_confirm: true,
+          user_metadata: {
+            name: buyerName || undefined,
+            full_name: buyerName || undefined,
+            buyer_name: buyerName || undefined,
+            email_verified: true
+          }
+        });
+        if (createdData?.user) {
+          userId = createdData.user.id;
+        }
+      }
+    } catch (userErr) {
+      console.warn("[hotmart-webhook] Erro ao buscar/criar usuário no Auth:", userErr);
     }
 
-    const userId = matchedUser.id;
+    // Buscar se já existe registro em user_entitlements por user_id ou por email
+    let existingRowId: string | null = null;
+    try {
+      if (userId) {
+        const { data: rowsByUser } = await supabaseAdmin
+          .from("user_entitlements")
+          .select("id")
+          .eq("user_id", userId)
+          .limit(1);
+        if (rowsByUser && rowsByUser.length > 0) {
+          existingRowId = rowsByUser[0].id;
+        }
+      }
 
-    const { data: existingRows, error: findError } = await supabaseAdmin
-      .from("user_entitlements")
-      .select("id")
-      .eq("user_id", userId)
-      .limit(1);
+      if (!existingRowId) {
+        const { data: rowsByEmail } = await supabaseAdmin
+          .from("user_entitlements")
+          .select("id")
+          .or(`buyer_email.eq.${buyerEmail},email.eq.${buyerEmail},email_usuario.eq.${buyerEmail}`)
+          .limit(1);
+        if (rowsByEmail && rowsByEmail.length > 0) {
+          existingRowId = rowsByEmail[0].id;
+        }
+      }
+    } catch (searchErr) {
+      console.warn("[hotmart-webhook] Aviso ao consultar user_entitlements:", searchErr);
+    }
 
-    if (findError) throw findError;
-
-    const existingRowId = existingRows?.[0]?.id || null;
-
-    const entitlementData = {
-      user_id: userId,
+    const entitlementData: Record<string, any> = {
+      ...(userId ? { user_id: userId } : {}),
+      buyer_name: buyerName || undefined,
+      buyer_email: buyerEmail,
+      email: buyerEmail,
       email_usuario: buyerEmail,
       ...entitlementUpdate,
       updated_at: new Date().toISOString()
@@ -253,7 +284,9 @@ serve(async (req: Request) => {
         .update(entitlementData)
         .eq("id", existingRowId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("[hotmart-webhook] Erro ao atualizar user_entitlements:", updateError);
+      }
     } else {
       const { error: insertError } = await supabaseAdmin
         .from("user_entitlements")
@@ -262,7 +295,30 @@ serve(async (req: Request) => {
           created_at: new Date().toISOString()
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("[hotmart-webhook] Erro ao inserir user_entitlements:", insertError);
+      }
+    }
+
+    // Atualiza metadados do usuário no Auth se o usuário existir
+    if (userId) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          app_metadata: {
+            plan: entitlementUpdate.plan_name,
+            "leve gratuito": entitlementUpdate["leve gratuito"],
+            leve_especial: entitlementUpdate.leve_especial,
+            leve_vip: entitlementUpdate.leve_vip,
+            lia_access: entitlementUpdate.lia_access
+          },
+          user_metadata: {
+            ...(buyerName ? { name: buyerName, full_name: buyerName } : {}),
+            email_verified: true
+          }
+        });
+      } catch (metaErr) {
+        console.warn("[hotmart-webhook] Erro ao sincronizar app_metadata:", metaErr);
+      }
     }
 
     return new Response(JSON.stringify({

@@ -9,7 +9,8 @@ import {
 } from '../types';
 import { 
   loadAppData, saveAppData, getTodayDateString, resetAllData, saveUserIdentity,
-  isPresentationAlreadyCompleted, markPresentationCompleted, getRememberedEmail
+  isPresentationAlreadyCompleted, markPresentationCompleted, getRememberedEmail,
+  sanitizeAppData
 } from '../services/storage';
 import { 
   mergeAppData, pollCloudForUpdates, getLastSyncTimestamp, setLastSyncTimestamp,
@@ -266,13 +267,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Check onboarding on mount - apresentação exibida estritamente apenas 1 vez
   useEffect(() => {
     const alreadyCompleted = isPresentationAlreadyCompleted();
-    if (data.user.hasCompletedOnboarding || alreadyCompleted) {
+    const hasCompleted = Boolean(data?.user?.hasCompletedOnboarding);
+    if (hasCompleted || alreadyCompleted) {
       setIsOnboardingOpen(false);
-      if (!data.user.hasCompletedOnboarding && alreadyCompleted) {
+      if (!hasCompleted && alreadyCompleted && data?.user) {
         setData((prev) => {
+          const userObj = prev?.user || { name: '', avatar: '🌿', accentColor: '#1F3A34', theme: 'light', hasCompletedOnboarding: false, treatmentPreference: 'neutro' };
           const updated = {
             ...prev,
-            user: { ...prev.user, hasCompletedOnboarding: true }
+            user: { ...userObj, hasCompletedOnboarding: true }
           };
           saveAppData(updated);
           return updated;
@@ -281,7 +284,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setIsOnboardingOpen(true);
     }
-  }, [data.user.hasCompletedOnboarding]);
+  }, [data?.user?.hasCompletedOnboarding]);
 
   // Synchronize Dark Mode with document.documentElement
   useEffect(() => {
@@ -361,7 +364,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let nextData: AppData;
         setData((prev) => {
           nextData = (!hasUnsavedEdits || isDefaultPlaceholderData(prev))
-            ? cloudData
+            ? sanitizeAppData(cloudData)
             : mergeAppData(prev, cloudData);
           saveAppData(nextData);
           return nextData;
@@ -404,7 +407,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (cloudData && !isCancelled) {
           isApplyingRemoteRef.current = true;
           setData((prev) => {
-            const next = isDefaultPlaceholderData(prev) ? cloudData : mergeAppData(prev, cloudData);
+            const next = isDefaultPlaceholderData(prev) ? sanitizeAppData(cloudData) : mergeAppData(prev, cloudData);
             saveAppData(next);
             return next;
           });
@@ -441,7 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const hasUnsavedEdits = lastLocalEditTimeRef.current > lastSyncedTimestampRef.current;
           let nextState: AppData;
           if (!hasUnsavedEdits || isDefaultPlaceholderData(prev)) {
-            nextState = remoteData;
+            nextState = sanitizeAppData(remoteData);
           } else {
             nextState = mergeAppData(prev, remoteData);
           }
@@ -537,7 +540,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setData((prev) => {
               const hasUnsavedEdits = lastLocalEditTimeRef.current > lastSyncedTimestampRef.current;
               const next = (!hasUnsavedEdits || isDefaultPlaceholderData(prev))
-                ? cloudData
+                ? sanitizeAppData(cloudData)
                 : mergeAppData(prev, cloudData);
               saveAppData(next);
               return next;

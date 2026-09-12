@@ -59,6 +59,19 @@ function saveStoredPurchase(email: string, data: any) {
 const USER_SYNC_DIR = path.join(process.cwd(), "data", "user_sync");
 const USER_MAP_FILE = path.join(process.cwd(), "data", "user_sync_map.json");
 
+function ensureUserSyncDir() {
+  try {
+    if (!fs.existsSync(USER_SYNC_DIR)) {
+      fs.mkdirSync(USER_SYNC_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("[sync store] Erro ao criar diretório USER_SYNC_DIR:", err);
+  }
+}
+
+// Inicializa diretório na subida do servidor
+ensureUserSyncDir();
+
 // Cache em memória para verificações instantâneas de versão e updatedAt (<1ms)
 const syncCache = new Map<string, { updatedAt: number; version: number; filePath: string }>();
 
@@ -109,9 +122,7 @@ function getSyncAccountKey(email?: string, userId?: string): string {
 }
 
 function getSyncFilePath(email?: string, userId?: string): string {
-  if (!fs.existsSync(USER_SYNC_DIR)) {
-    fs.mkdirSync(USER_SYNC_DIR, { recursive: true });
-  }
+  ensureUserSyncDir();
   const key = getSyncAccountKey(email, userId);
   return path.join(USER_SYNC_DIR, `${key}.json`);
 }
@@ -149,8 +160,9 @@ function readUserSyncPayload(email?: string, userId?: string): {
   userId?: string;
 } | null {
   try {
+    ensureUserSyncDir();
     const accountKey = getSyncAccountKey(email, userId);
-    const filePath = path.join(USER_SYNC_DIR, `${accountKey}.json`);
+    const filePath = getSyncFilePath(email, userId);
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, "utf-8");
       const parsed = JSON.parse(content || "{}");
@@ -174,9 +186,11 @@ function readUserSyncPayload(email?: string, userId?: string): {
 function writeUserSyncPayload(
   payload: { email?: string; userId?: string; data: any; clientTimestamp?: number; deviceId?: string }
 ): { success: boolean; updatedAt: number; version: number; accountKey: string } {
+  let tempFile: string | null = null;
   try {
+    ensureUserSyncDir();
     const accountKey = getSyncAccountKey(payload.email, payload.userId);
-    const filePath = path.join(USER_SYNC_DIR, `${accountKey}.json`);
+    const filePath = getSyncFilePath(payload.email, payload.userId);
     let currentVersion = 1;
     let existing: any = null;
 
@@ -201,9 +215,10 @@ function writeUserSyncPayload(
     };
 
     // Escrita atômica segura
-    const tempFile = `${filePath}.tmp.${Date.now()}`;
+    tempFile = `${filePath}.tmp.${Date.now()}`;
     fs.writeFileSync(tempFile, JSON.stringify(storedObject, null, 2), "utf-8");
     fs.renameSync(tempFile, filePath);
+    tempFile = null;
 
     // Atualiza cache em memória
     syncCache.set(accountKey, { updatedAt, version: currentVersion, filePath });
@@ -224,6 +239,11 @@ function writeUserSyncPayload(
 
     return { success: true, updatedAt, version: currentVersion, accountKey };
   } catch (err) {
+    if (tempFile) {
+      try {
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+      } catch {}
+    }
     console.error("[sync store] Erro ao gravar dados de sincronização:", err);
     return { success: false, updatedAt: 0, version: 0, accountKey: "" };
   }
@@ -859,7 +879,7 @@ async function startServer() {
         return res.status(400).json({ error: "E-mail ou ID de usuário é obrigatório para sincronização." });
       }
 
-      if (!data || typeof data !== "object") {
+      if (!data || typeof data !== "object" || !data.user || typeof data.user !== "object") {
         return res.status(400).json({ error: "Estrutura de dados inválida para sincronização." });
       }
 
@@ -1459,11 +1479,11 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
           const userId = authSyncResult?.userId || null;
           let existingId: string | null = null;
           try {
-            let query = supabaseAdmin.from("user_entitlements").select("id, user_id, email");
+            let query = supabaseAdmin.from("user_entitlements").select("id, user_id, email, buyer_email");
             if (userId) {
-              query = query.or(`user_id.eq.${userId},email.ilike.${buyerEmail}`);
+              query = query.or(`user_id.eq.${userId},email.ilike.${buyerEmail},buyer_email.ilike.${buyerEmail}`);
             } else {
-              query = query.ilike("email", buyerEmail);
+              query = query.or(`email.ilike.${buyerEmail},buyer_email.ilike.${buyerEmail}`);
             }
             const { data: rows } = await query;
             if (rows && rows.length > 0) existingId = rows[0].id;
@@ -1474,6 +1494,8 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
               .from("user_entitlements")
               .update({
                 ...(userId ? { user_id: userId } : {}),
+                buyer_name: buyerName || undefined,
+                buyer_email: buyerEmail,
                 email: buyerEmail,
                 ...entitlementUpdate,
                 updated_at: new Date().toISOString()
@@ -1484,6 +1506,8 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
               .from("user_entitlements")
               .insert({
                 user_id: userId,
+                buyer_name: buyerName || undefined,
+                buyer_email: buyerEmail,
                 email: buyerEmail,
                 ...entitlementUpdate,
                 created_at: new Date().toISOString(),

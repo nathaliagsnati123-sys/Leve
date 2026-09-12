@@ -752,6 +752,8 @@ export interface UserEntitlements {
   id?: string;
   user_id?: string;
   email?: string;
+  buyer_name?: string;
+  buyer_email?: string;
   plan_name?: string;
   leve_gratuito: boolean;
   'leve gratuito'?: boolean;

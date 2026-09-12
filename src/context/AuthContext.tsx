@@ -93,6 +93,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [anonKey, setAnonKey] = useState<string>(getSupabaseAnonKey());
 
   // User Entitlements & Profile State
+  const signupInProgressRef = useRef(false);
   const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
   const [isCheckingEntitlements, setIsCheckingEntitlements] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<any | null>(null);
@@ -418,7 +419,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     if (error) {
-      console.error('[AuthContext] Erro no cadastro:', error);
+      console.warn('[AuthContext] Falha direta em supabaseSignUp, avaliando fallback:', error);
+      const errMsg = (error.message || '').toLowerCase();
+      // Se for limite de envio de e-mails do Supabase (over_email_send_rate_limit) ou se o usuário já existir (ex: compra prévia na Hotmart):
+      const isRateOrExist = 
+        errMsg.includes('rate limit') || 
+        errMsg.includes('over email') || 
+        errMsg.includes('too many') || 
+        errMsg.includes('60 seconds') ||
+        errMsg.includes('already registered') || 
+        errMsg.includes('already been registered') || 
+        errMsg.includes('user already exists');
+
+      if (isRateOrExist) {
+        try {
+          const claimRes = await fetch('/api/auth/claim-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password, name: cleanName })
+          });
+          const claimData = await claimRes.json();
+          if (claimRes.ok && claimData.success) {
+            const logRes = await login(cleanEmail, password);
+            if (logRes.success) {
+              return {
+                success: true,
+                message: 'Conta criada e liberada com sucesso! Bem-vinda ao LEVE.'
+              };
+            }
+          }
+        } catch (claimErr) {
+          console.warn('[AuthContext] Falha no fallback claim-account:', claimErr);
+        }
+      }
+
       return {
         success: false,
         error: translateAuthError(error.message)
@@ -430,6 +464,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         success: false,
         error: 'Não foi possível criar sua conta. Tente novamente.'
       };
+    }
+
+    saveRememberedEmail(cleanEmail);
+    markPresentationCompleted();
+    if (cleanName) {
+      try { localStorage.setItem('leve_user_name', cleanName); } catch {}
+    }
+    if (avatar) {
+      try { localStorage.setItem('leve_user_avatar', avatar.trim()); } catch {}
     }
 
     setUser(data.user);
@@ -464,7 +507,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     signupInProgressRef.current = false;
     setIsCheckingEntitlements(false);
   }
-}, [loadEntitlements, loadProfile]);
+}, [loadEntitlements, loadProfile, login]);
+
+  const treatmentPreference: TreatmentPreference =
     localTreatmentPref ||
     (userProfile?.treatment_preference ? normalizeTreatmentPreference(userProfile.treatment_preference) : null) ||
     (user?.user_metadata?.treatment_preference ? normalizeTreatmentPreference(user.user_metadata.treatment_preference) : null) ||

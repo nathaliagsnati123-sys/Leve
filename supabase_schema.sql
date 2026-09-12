@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS public.user_entitlements (
 );
 
 -- Migrações seguras caso a tabela já exista:
+ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS buyer_name TEXT;
+ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS buyer_email TEXT;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS leve_gratuito BOOLEAN DEFAULT true NOT NULL;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS leve_especial BOOLEAN DEFAULT false NOT NULL;
 ALTER TABLE public.user_entitlements ADD COLUMN IF NOT EXISTS leve_vip BOOLEAN DEFAULT false NOT NULL;
@@ -174,6 +176,11 @@ FOR EACH ROW
 EXECUTE FUNCTION public.sync_user_entitlements_columns();
 
 ALTER TABLE public.user_entitlements ENABLE ROW LEVEL SECURITY;
+
+-- Permissões essenciais para service_role (webhooks/admin) e authenticated/anon (RLS se encarrega da filtragem)
+GRANT ALL ON TABLE public.user_entitlements TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_entitlements TO authenticated;
+GRANT SELECT ON TABLE public.user_entitlements TO anon;
 
 DROP POLICY IF EXISTS "Usuários autenticados podem ler suas próprias permissões" ON public.user_entitlements;
 CREATE POLICY "Usuários autenticados podem ler suas próprias permissões"
