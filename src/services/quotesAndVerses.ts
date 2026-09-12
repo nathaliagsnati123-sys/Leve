@@ -1,5 +1,6 @@
 // Citações, Versículos e Conquistas - LEVE
 import { ScriptureVerse, Achievement, SelfCareAction } from '../types';
+import { adaptTextToGender, normalizeTreatmentPreference } from '../utils/treatment';
 
 export const MOTIVATIONAL_QUOTES: string[] = [
   "Você não precisa fazer tudo hoje. Apenas comece por uma coisa.",
@@ -40,35 +41,59 @@ export const MOTIVATIONAL_QUOTES: string[] = [
 ];
 
 /**
+ * Frases motivacionais diretas, focadas em disciplina, execução e postura para homens
+ */
+export const MASCULINE_MOTIVATIONAL_QUOTES: string[] = [
+  "Disciplina é fazer o que precisa ser feito, mesmo quando a vontade falta.",
+  "Constância supera o talento e o entusiasmo inicial.",
+  "Foque apenas no que está sob o seu controle. Ignore o ruído ao redor.",
+  "Ação cura a incerteza e aniquila a procrastinação.",
+  "Clareza gera velocidade: escolha as prioridades e execute sem rodeios.",
+  "Um homem com propósito firme não se distrai com facilidades passageiras.",
+  "Grandes resultados são construídos em dias comuns com disciplina silenciosa.",
+  "O treino fortalece o corpo; a consistência diária forja o caráter.",
+  "Menos desculpas, mais execução. Comece pelo que é difícil.",
+  "O cansaço passa, mas o resultado do trabalho bem executado permanece.",
+  "Controle seus impulsos antes que eles tomem o controle de você.",
+  "Pequenas vitórias executadas todos os dias constroem um ímpeto inabalável.",
+  "Excelência não é um ato isolado, é um hábito construído na rotina.",
+  "Não espere as condições ideais. Assuma a responsabilidade e faça acontecer.",
+  "Elimine as distrações antes que elas roubem os seus objetivos.",
+  "Descanso estratégico faz parte da disciplina; negligência não.",
+  "Seja forte para carregar suas próprias responsabilidades com dignidade.",
+  "A consistência é a maior vantagem competitiva que você pode ter.",
+  "Faça o difícil hoje para colher uma estrutura sólida amanhã.",
+  "A autoconfiança real nasce dos compromissos que você cumpre consigo mesmo.",
+  "Mantenha o foco na rota. Um passo firme de cada vez.",
+  "A mente desiste antes do corpo. Respire fundo e sustente o ritmo."
+];
+
+/**
  * Retorna a frase motivacional específica do dia atual (consistente ao longo do dia)
  */
 export function getDailyMotivationalQuote(dateStr?: string, treatment?: string): string {
+  const pref = normalizeTreatmentPreference(treatment);
+  const pool = pref === 'masculino' ? MASCULINE_MOTIVATIONAL_QUOTES : MOTIVATIONAL_QUOTES;
+  
   const dateKey = dateStr || new Date().toISOString().split('T')[0];
   let hash = 0;
   for (let i = 0; i < dateKey.length; i++) {
-    hash = (hash * 31 + dateKey.charCodeAt(i)) % MOTIVATIONAL_QUOTES.length;
+    hash = (hash * 31 + dateKey.charCodeAt(i)) % pool.length;
   }
-  let quote = MOTIVATIONAL_QUOTES[Math.abs(hash) % MOTIVATIONAL_QUOTES.length];
-
-  if (treatment === 'male') {
-    quote = quote.replace(/mesma\b/g, 'mesmo').replace(/grata\b/g, 'grato');
-  } else if (treatment === 'unspecified') {
-    quote = quote.replace(/com você mesma\b/g, 'consigo').replace(/Seja grata\b/g, 'Pratique a gratidão');
-  }
-
-  return quote;
+  const quote = pool[Math.abs(hash) % pool.length];
+  return adaptTextToGender(quote, treatment);
 }
 
 /**
- * Retorna uma frase motivacional aleatória diferente a cada vez que a pessoa entra
+ * Retorna uma frase motivacional aleatória adaptada ao gênero
  */
-export function getRandomMotivationalQuote(excludeQuote?: string): string {
-  const pool = excludeQuote
-    ? MOTIVATIONAL_QUOTES.filter((q) => q !== excludeQuote)
-    : MOTIVATIONAL_QUOTES;
-  const list = pool.length > 0 ? pool : MOTIVATIONAL_QUOTES;
+export function getRandomMotivationalQuote(excludeQuote?: string, treatment?: string): string {
+  const pref = normalizeTreatmentPreference(treatment);
+  const baseList = pref === 'masculino' ? MASCULINE_MOTIVATIONAL_QUOTES : MOTIVATIONAL_QUOTES;
+  const pool = excludeQuote ? baseList.filter((q) => q !== excludeQuote) : baseList;
+  const list = pool.length > 0 ? pool : baseList;
   const randomIndex = Math.floor(Math.random() * list.length);
-  return list[randomIndex];
+  return adaptTextToGender(list[randomIndex], treatment);
 }
 
 export const REFLECTION_QUESTIONS: string[] = [
@@ -85,6 +110,24 @@ export const REFLECTION_QUESTIONS: string[] = [
   "Por qual detalhe sutil do seu dia você é grata hoje?",
   "O que traria mais leveza para a sua rotina amanhã?"
 ];
+
+export const MASCULINE_REFLECTION_QUESTIONS: string[] = [
+  "Qual foi a tarefa mais difícil que você executou com sucesso hoje?",
+  "Onde você sustentou a disciplina mesmo diante de distrações ou preguiça?",
+  "Qual foi a decisão mais acertada que você tomou hoje?",
+  "O que você precisa corrigir ou aprimorar para o dia de amanhã?",
+  "Como você cuidou da sua força física e energia hoje?",
+  "Qual é a sua prioridade inegociável número 1 para amanhã?",
+  "O que você precisa eliminar da sua rotina para ter mais clareza e foco?"
+];
+
+export function getReflectionQuestions(treatment?: string | null): string[] {
+  const pref = normalizeTreatmentPreference(treatment);
+  if (pref === 'masculino') {
+    return MASCULINE_REFLECTION_QUESTIONS;
+  }
+  return REFLECTION_QUESTIONS.map(q => adaptTextToGender(q, treatment));
+}
 
 export const SCRIPTURE_VERSES: ScriptureVerse[] = [
   {
@@ -140,12 +183,12 @@ export const SCRIPTURE_VERSES: ScriptureVerse[] = [
 
 export interface SelfCareSuggestionItem {
   text: string;
-  category: 'Corpo' | 'Mente' | 'Coração';
+  category: 'Corpo' | 'Mente' | 'Coração' | 'Foco';
 }
 
-export const SELF_CARE_SUGGESTIONS: SelfCareSuggestionItem[] = [
+export const FEMININE_SELF_CARE_SUGGESTIONS: SelfCareSuggestionItem[] = [
   { text: 'Tomar um banho quentinho com calma', category: 'Corpo' },
-  { text: 'Passar hidratante na pele com carinho', category: 'Corpo' },
+  { text: 'Passar hidratante na pele com carinho (skincare)', category: 'Corpo' },
   { text: 'Beber uma caneca de chá quentinho', category: 'Corpo' },
   { text: 'Fazer 5 minutos de alongamento suave', category: 'Corpo' },
   { text: 'Comer uma refeição sentada e sem pressa', category: 'Corpo' },
@@ -160,6 +203,51 @@ export const SELF_CARE_SUGGESTIONS: SelfCareSuggestionItem[] = [
   { text: 'Anotar 3 bênçãos do dia com o coração grato', category: 'Coração' },
   { text: 'Se perdoar por algo que não saiu perfeito hoje', category: 'Coração' }
 ];
+
+export const MASCULINE_SELF_CARE_SUGGESTIONS: SelfCareSuggestionItem[] = [
+  { text: 'Treino de força, flexões ou corrida', category: 'Corpo' },
+  { text: 'Alongamento de postura e lombar por 5 minutos', category: 'Corpo' },
+  { text: 'Ducha fria ou revigorante sem enrolação', category: 'Corpo' },
+  { text: 'Alinhar barba, corte de cabelo e postura', category: 'Corpo' },
+  { text: 'Refeição nutritiva com alto teor proteico', category: 'Corpo' },
+  { text: 'Caminhada de 15 minutos ao ar livre sem celular', category: 'Mente' },
+  { text: 'Zero redes sociais por 1 hora para limpar o foco', category: 'Mente' },
+  { text: 'Leitura de 10 páginas de livro de estratégia ou história', category: 'Mente' },
+  { text: '3 minutos de respiração controlada para clareza', category: 'Mente' },
+  { text: 'Organizar bancada de trabalho e ferramentas', category: 'Foco' },
+  { text: 'Reconhecer uma vitória silenciosa executada hoje', category: 'Foco' },
+  { text: 'Ligar ou conversar com a família ou um bom amigo', category: 'Foco' },
+  { text: 'Definir as 3 prioridades inegociáveis de amanhã', category: 'Foco' },
+  { text: 'Desconectar de telas 30 minutos antes de dormir', category: 'Mente' },
+  { text: 'Dormir no horário programado para recuperação muscular e mental', category: 'Corpo' }
+];
+
+export const NEUTRAL_SELF_CARE_SUGGESTIONS: SelfCareSuggestionItem[] = [
+  { text: 'Tomar um banho relaxante e com calma', category: 'Corpo' },
+  { text: 'Fazer 5 minutos de alongamento corporal', category: 'Corpo' },
+  { text: 'Beber uma caneca de chá ou café com calma', category: 'Corpo' },
+  { text: 'Fazer uma caminhada leve ao ar livre', category: 'Corpo' },
+  { text: 'Comer uma refeição nutritiva e sem pressa', category: 'Corpo' },
+  { text: 'Respirar fundo por 3 minutos em silêncio', category: 'Mente' },
+  { text: 'Ler 10 páginas de um livro', category: 'Mente' },
+  { text: 'Fazer uma pausa longe de todas as telas por 1 hora', category: 'Mente' },
+  { text: 'Ouvir uma música que traga serenidade', category: 'Mente' },
+  { text: 'Organizar o espaço ao redor para clarear a mente', category: 'Mente' },
+  { text: 'Reconhecer seu próprio esforço no dia de hoje', category: 'Coração' },
+  { text: 'Conversar com alguém importante para você', category: 'Coração' },
+  { text: 'Observar o céu ou a natureza pela janela', category: 'Coração' },
+  { text: 'Anotar 3 motivos de gratidão no seu dia', category: 'Coração' },
+  { text: 'Deixar de lado a autocobrança excessiva', category: 'Coração' }
+];
+
+export const SELF_CARE_SUGGESTIONS = FEMININE_SELF_CARE_SUGGESTIONS;
+
+export function getSelfCareSuggestions(treatmentPreference?: string | null): SelfCareSuggestionItem[] {
+  const pref = normalizeTreatmentPreference(treatmentPreference);
+  if (pref === 'masculino') return MASCULINE_SELF_CARE_SUGGESTIONS;
+  if (pref === 'nao_informar') return NEUTRAL_SELF_CARE_SUGGESTIONS;
+  return FEMININE_SELF_CARE_SUGGESTIONS;
+}
 
 export const DEFAULT_SELF_CARE_ACTIONS: SelfCareAction[] = [
   { id: 'sc-1', title: 'Tomei banho com calma', category: 'Corpo' },

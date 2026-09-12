@@ -3,8 +3,9 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
   BookOpen, Film, Tv, Palette, MapPin, Compass, Heart, 
-  Sparkles, Search, Plus, Sparkle, ChevronLeft, ChevronRight 
+  Sparkles, Search, Plus, Sparkle, ChevronLeft, ChevronRight, Star 
 } from 'lucide-react';
+import { normalizeTreatmentPreference } from '../../utils/treatment';
 import { MyLifeLockedScreen } from '../my-life/MyLifeLockedScreen';
 import { MyLifeItemModal, ModalCategory } from '../my-life/MyLifeItemModal';
 import { BooksSection } from '../my-life/BooksSection';
@@ -30,6 +31,7 @@ export const MyLifeView: React.FC = () => {
   } = useApp();
 
   const { hasLeveAccess, user } = useAuth();
+  const pref = normalizeTreatmentPreference(data.user?.treatmentPreference);
   const [demoBypass, setDemoBypass] = useState(false);
   const [activeTab, setActiveTab] = useState<MyLifeTab>('books');
   const [searchQuery, setSearchQuery] = useState('');
@@ -344,14 +346,22 @@ export const MyLifeView: React.FC = () => {
             onClick={() => { if (!hasDragged) setActiveTab('favorites'); }}
             className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
               activeTab === 'favorites'
-                ? 'bg-rose-600 text-white shadow-sm'
+                ? pref === 'masculino' ? 'bg-[#1F3A34] text-white shadow-sm' : 'bg-rose-600 text-white shadow-sm'
                 : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850'
             }`}
           >
-            <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-white' : 'text-rose-500 fill-rose-500'}`} />
+            {pref === 'masculino' ? (
+              <Star className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-white text-white' : 'text-amber-500 fill-amber-500'}`} />
+            ) : (
+              <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-white' : 'text-rose-500 fill-rose-500'}`} />
+            )}
             <span>Favoritos</span>
             <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'favorites' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200'
+              activeTab === 'favorites'
+                ? 'bg-white/20 text-white'
+                : pref === 'masculino'
+                ? 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
+                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200'
             }`}>
               {totalFavoritesCount}
             </span>

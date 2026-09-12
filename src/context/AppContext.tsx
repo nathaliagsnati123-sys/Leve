@@ -89,6 +89,8 @@ interface AppContextType {
   // Actions
   showToast: (message: string, type?: 'success' | 'info' | 'gentle') => void;
   updateUser: (profile: Partial<UserProfile>) => void;
+  toggleSectionVisibility: (sectionId: ActiveTab) => void;
+  resetHiddenSections: () => void;
   
   // Tasks
   addTask: (task: Omit<Task, 'id' | 'completed'>) => void;
@@ -673,6 +675,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showToast('Preferências atualizadas.');
   }, [updateData, showToast, user, saveProfile]);
+
+  const toggleSectionVisibility = useCallback((sectionId: ActiveTab) => {
+    if (sectionId === 'my-day' || sectionId === 'settings') return;
+
+    const current = data.user.hiddenSections || [];
+    const isCurrentlyHidden = current.includes(sectionId);
+    const updated = isCurrentlyHidden
+      ? current.filter((id) => id !== sectionId)
+      : [...current, sectionId];
+
+    updateUser({ hiddenSections: updated });
+
+    if (activeTab === sectionId && !isCurrentlyHidden) {
+      setActiveTab('my-day');
+    }
+  }, [data.user.hiddenSections, activeTab, updateUser, setActiveTab]);
+
+  const resetHiddenSections = useCallback(() => {
+    updateUser({ hiddenSections: [] });
+  }, [updateUser]);
+
+  useEffect(() => {
+    if (
+      activeTab !== 'my-day' &&
+      activeTab !== 'settings' &&
+      data.user.hiddenSections?.includes(activeTab)
+    ) {
+      setActiveTab('my-day');
+    }
+  }, [activeTab, data.user.hiddenSections, setActiveTab]);
 
   // NOTIFICAÇÕES & LEMBRETES
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionStatus>(() => {
@@ -1968,7 +2000,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         requestNotificationPermission,
         sendTestNotification,
         sendDailyMotivationalNotificationNow,
-        todayCompletionPercentage
+        todayCompletionPercentage,
+        toggleSectionVisibility,
+        resetHiddenSections
       }}
     >
       {children}

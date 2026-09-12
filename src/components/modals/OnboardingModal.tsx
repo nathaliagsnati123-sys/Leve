@@ -400,6 +400,40 @@ export const OnboardingModal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Preferência de Tratamento e Experiência do App */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                    Como prefere que o LEVE fale com você?
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TREATMENT_OPTIONS.map((opt) => {
+                      const isSel = treatmentPreference === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setTreatmentPreference(opt.id)}
+                          className={`py-2 px-2 rounded-xl text-center border transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                            isSel
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-900 dark:text-emerald-200 font-semibold ring-1 ring-emerald-600/30'
+                              : 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100'
+                          }`}
+                        >
+                          <span className="text-xs">{opt.label}</span>
+                          <span className="text-[10px] text-stone-400 dark:text-stone-400 font-normal">({opt.badge})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-stone-400 dark:text-stone-400">
+                    {treatmentPreference === 'masculino' 
+                      ? 'Adapta o app 100% para homens: rotina, vocabulário e foco prático.' 
+                      : treatmentPreference === 'feminino'
+                      ? 'Adapta o app para o público feminino com ciclo menstrual e autocuidado.'
+                      : 'Linguagem neutra e acolhedora para qualquer pessoa.'}
+                  </p>
+                </div>
+
                 {/* 2. E-mail */}
                 <div className="space-y-1">
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">

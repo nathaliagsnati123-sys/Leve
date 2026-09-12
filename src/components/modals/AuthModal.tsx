@@ -748,6 +748,33 @@ export const AuthModal: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Preferência de Tratamento e Experiência do App */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-medium text-stone-700 dark:text-stone-300">
+                      Como você prefere que o app fale com você?
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {TREATMENT_OPTIONS.map((opt) => {
+                        const isSel = treatmentPreference === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setTreatmentPreference(opt.id)}
+                            className={`py-1.5 px-2 rounded-xl text-center border transition cursor-pointer flex flex-col items-center justify-center ${
+                              isSel
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-900 dark:text-emerald-200 font-semibold ring-1 ring-emerald-600/30'
+                                : 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100'
+                            }`}
+                          >
+                            <span className="text-xs">{opt.label}</span>
+                            <span className="text-[10px] text-stone-400 font-normal">({opt.badge})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div>
                     <label htmlFor="signup-email" className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
                       Seu E-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>

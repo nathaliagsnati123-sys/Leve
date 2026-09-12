@@ -3,11 +3,12 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Settings, Sun, Moon, Monitor, User, LogOut, Check, Mail, HeartHandshake, Sparkles, RefreshCw,
-  Copy, CheckCircle2, ShieldCheck, Layers, Link as LinkIcon, AlertTriangle, Cloud
+  AlertTriangle, Cloud
 } from 'lucide-react';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 import { NotificationSettingsCard } from './NotificationSettingsCard';
+import { SectionVisibilityCard } from './SectionVisibilityCard';
 
 export const SettingsView: React.FC = () => {
   const { data, updateUser, showToast, startTour, forceSyncAll } = useApp();
@@ -36,57 +37,6 @@ export const SettingsView: React.FC = () => {
       data.user?.treatmentPreference || authTreatmentPref || 'nao_informar'
     );
   });
-
-  const [manualEmail, setManualEmail] = useState('');
-  const [manualPlan, setManualPlan] = useState<'especial' | 'vip'>('especial');
-  const [isGrantingManual, setIsGrantingManual] = useState(false);
-  const [copiedWebhook, setCopiedWebhook] = useState(false);
-  const [hotmartStatus, setHotmartStatus] = useState<any>(null);
-
-  useEffect(() => {
-    fetch('/api/admin/hotmart-status')
-      .then(r => r.json())
-      .then(setHotmartStatus)
-      .catch(() => {});
-  }, []);
-
-  const handleCopyWebhook = () => {
-    const url = hotmartStatus?.webhookUrl || 'https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app/api/hotmart-webhook';
-    navigator.clipboard.writeText(url);
-    setCopiedWebhook(true);
-    showToast('URL do Webhook copiada para a área de transferência! 📋');
-    setTimeout(() => setCopiedWebhook(false), 3000);
-  };
-
-  const handleManualGrant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualEmail) {
-      showToast('Por favor, informe o e-mail da cliente.');
-      return;
-    }
-    setIsGrantingManual(true);
-    try {
-      const res = await fetch('/api/admin/manual-grant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: manualEmail.trim().toLowerCase(), plan: manualPlan })
-      });
-      const resData = await res.json();
-      if (res.ok && resData.success) {
-        showToast(`Plano ${manualPlan === 'vip' ? 'VIP' : 'Especial'} liberado com sucesso para ${manualEmail}! ✨`);
-        setManualEmail('');
-        if (user?.email?.toLowerCase() === manualEmail.trim().toLowerCase()) {
-          await refreshEntitlements();
-        }
-      } else {
-        showToast(resData.error || 'Erro ao liberar plano');
-      }
-    } catch {
-      showToast('Erro de comunicação com o servidor');
-    } finally {
-      setIsGrantingManual(false);
-    }
-  };
 
   useEffect(() => {
     if (data.user?.treatmentPreference) {
@@ -390,7 +340,10 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Conta (Apenas o e-mail cadastrado e logout / login) */}
+      {/* 4. Personalizar & Ocultar Seções do Menu */}
+      <SectionVisibilityCard />
+
+      {/* 5. Conta (Apenas o e-mail cadastrado e logout / login) */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
         <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
           <Mail className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
@@ -544,81 +497,6 @@ export const SettingsView: React.FC = () => {
           </div>
         )}
       </div>
-       
-      {/* Central de Automação Hotmart & Desbloqueio Imediato */}
-      <div hidden className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span>Automação Hotmart & Liberação Imediata</span>
-          </h3>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Serviço Ativo e Conectado
-          </span>
-        </div>
-
-        <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-          Quando uma cliente faz uma compra na Hotmart, o webhook sincroniza instantaneamente as permissões, 
-          garantindo que o plano (Especial ou VIP) seja liberado na hora, sem depender de confirmação manual de e-mail.
-        </p>
-
-        {/* URL do Webhook da Hotmart */}
-        <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/70 border border-stone-200/80 dark:border-stone-700/80 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
-              <LinkIcon className="w-3.5 h-3.5" />
-              URL Oficial do Webhook (para cadastrar na Hotmart)
-            </span>
-            <button
-              type="button"
-              onClick={handleCopyWebhook}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
-            >
-              {copiedWebhook ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedWebhook ? 'Copiado!' : 'Copiar URL'}</span>
-            </button>
-          </div>
-          <div className="p-2.5 rounded-xl bg-white dark:bg-stone-900 font-mono text-[11px] text-stone-700 dark:text-stone-300 break-all select-all border border-stone-200 dark:border-stone-700">
-            {hotmartStatus?.webhookUrl || 'https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app/api/hotmart-webhook'}
-          </div>
-        </div>
-
-        {/* Ferramenta de Liberação Manual Imediata */}
-        <form onSubmit={handleManualGrant} className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
-            <ShieldCheck className="w-4 h-4 text-amber-600" />
-            <span>Liberar Plano Imediatamente para uma Cliente</span>
-          </div>
-          <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
-            Caso precise liberar uma cliente na hora (mesmo antes da Hotmart disparar o webhook):
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="email"
-              value={manualEmail}
-              onChange={(e) => setManualEmail(e.target.value)}
-              placeholder="e-mail da cliente"
-              className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
-            />
-            <select
-              value={manualPlan}
-              onChange={(e) => setManualPlan(e.target.value as any)}
-              className="px-3 py-2 rounded-xl text-xs bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800 text-stone-900 dark:text-stone-100 focus:outline-none cursor-pointer"
-            >
-              <option value="especial">Plano Especial (R$ 49,90)</option>
-              <option value="vip">Plano VIP (R$ 65,90 ou Upgrade)</option>
-            </select>
-            <button
-              type="submit"
-              disabled={isGrantingManual}
-              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs transition cursor-pointer disabled:opacity-60 shrink-0"
-            >
-              {isGrantingManual ? 'Liberando...' : 'Liberar Acesso Agora'}
-            </button>
-          </div>
-        </form>
-      </div> 
     </div>
   );
 };

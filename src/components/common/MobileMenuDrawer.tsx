@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { useApp, ActiveTab } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { isSectionHidden } from '../../utils/sections';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Lock, Film
+  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Lock, Film,
+  Zap, Shield
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -44,12 +46,15 @@ export const MobileMenuDrawer: React.FC = () => {
 
   if (!isMobileMenuOpen) return null;
 
+  const treatmentPreference = data.user?.treatmentPreference;
+  const isMale = treatmentPreference === 'masculino';
+
   const mainNav = [
     { id: 'my-day' as ActiveTab, label: 'Meu Dia', icon: Sun },
     { id: 'calendar' as ActiveTab, label: 'Calendário & Semana', icon: Calendar },
-    { id: 'habits' as ActiveTab, label: 'Meus Hábitos', icon: Sprout },
-    { id: 'journal' as ActiveTab, label: 'Meu Caderno & Gratidão', icon: BookOpen },
-    { id: 'spirituality' as ActiveTab, label: 'Fé & Momento com Deus', icon: HeartHandshake },
+    { id: 'habits' as ActiveTab, label: isMale ? 'Hábitos & Disciplina' : 'Meus Hábitos', icon: isMale ? Target : Sprout },
+    { id: 'journal' as ActiveTab, label: isMale ? 'Meu Caderno & Notas' : 'Meu Caderno & Gratidão', icon: BookOpen },
+    { id: 'spirituality' as ActiveTab, label: isMale ? 'Fé & Oração' : 'Fé & Momento com Deus', icon: isMale ? Shield : HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
     { 
       id: 'my-life' as ActiveTab, 
@@ -67,9 +72,9 @@ export const MobileMenuDrawer: React.FC = () => {
   const wellnessNav = [
     { id: 'hydration' as ActiveTab, label: 'Minha Água', icon: Droplets },
     { id: 'nutrition' as ActiveTab, label: 'Alimentação & Compras', icon: Utensils },
-    { id: 'movement' as ActiveTab, label: 'Meu Movimento', icon: Activity },
+    { id: 'movement' as ActiveTab, label: isMale ? 'Treino & Movimento' : 'Meu Movimento', icon: Activity },
     { id: 'sleep' as ActiveTab, label: 'Meu Sono', icon: Moon },
-    { id: 'self-care' as ActiveTab, label: 'Meu Autocuidado', icon: Heart },
+    { id: 'self-care' as ActiveTab, label: isMale ? 'Recarga & Foco' : 'Meu Autocuidado', icon: isMale ? Zap : Heart },
     { id: 'cycle' as ActiveTab, label: 'Ciclo & Menstruação', icon: Sparkles },
   ];
 
@@ -79,6 +84,11 @@ export const MobileMenuDrawer: React.FC = () => {
   ];
 
   const unlockedCount = Object.keys(data.unlockedAchievements).length;
+  const hiddenSections = data.user?.hiddenSections || [];
+
+  const visibleMainNav = mainNav.filter(item => !isSectionHidden(item.id, hiddenSections, treatmentPreference));
+  const visibleWellnessNav = wellnessNav.filter(item => !isSectionHidden(item.id, hiddenSections, treatmentPreference));
+  const visibleManagementNav = managementNav.filter(item => !isSectionHidden(item.id, hiddenSections, treatmentPreference));
 
   const handleSelectTab = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -140,110 +150,116 @@ export const MobileMenuDrawer: React.FC = () => {
         {/* Scrollable Navigation Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {/* Group 1: Principal */}
-          <div>
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-              Principal
-            </span>
-            <div className="mt-1.5 space-y-1">
-              {mainNav.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                const isLocked = !canAccessFeature(item.id);
-                const displayBadge = item.id === 'lia' && plan === 'special' ? 'UPGRADE' : item.badge;
-                return (
-                  <button
-                    key={item.id}
-                    id={`mobile-drawer-link-${item.id}`}
-                    onClick={() => handleSelectTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition text-left ${
-                      isActive
-                        ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
-                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
-                    <span className="truncate flex-1">{item.label}</span>
-                    {displayBadge && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-                        isActive 
-                          ? 'bg-amber-400/20 text-amber-200' 
-                          : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
-                      }`}>
-                        {displayBadge}
-                      </span>
-                    )}
-                    {isLocked && !displayBadge && (
-                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
+          {visibleMainNav.length > 0 && (
+            <div>
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                Principal
+              </span>
+              <div className="mt-1.5 space-y-1">
+                {visibleMainNav.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const isLocked = !canAccessFeature(item.id);
+                  const displayBadge = item.id === 'lia' && plan === 'special' ? 'UPGRADE' : item.badge;
+                  return (
+                    <button
+                      key={item.id}
+                      id={`mobile-drawer-link-${item.id}`}
+                      onClick={() => handleSelectTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition text-left cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
+                          : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                      <span className="truncate flex-1">{item.label}</span>
+                      {displayBadge && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                          isActive 
+                            ? 'bg-amber-400/20 text-amber-200' 
+                            : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
+                        }`}>
+                          {displayBadge}
+                        </span>
+                      )}
+                      {isLocked && !displayBadge && (
+                        <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Group 2: Corpo & Cuidado */}
-          <div>
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-              Corpo & Cuidado
-            </span>
-            <div className="mt-1.5 space-y-1">
-              {wellnessNav.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                const isLocked = !canAccessFeature(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    id={`mobile-drawer-link-${item.id}`}
-                    onClick={() => handleSelectTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition text-left ${
-                      isActive
-                        ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
-                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
-                    <span className="truncate flex-1">{item.label}</span>
-                    {isLocked && (
-                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
+          {visibleWellnessNav.length > 0 && (
+            <div>
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                Corpo & Cuidado
+              </span>
+              <div className="mt-1.5 space-y-1">
+                {visibleWellnessNav.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const isLocked = !canAccessFeature(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      id={`mobile-drawer-link-${item.id}`}
+                      onClick={() => handleSelectTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition text-left cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
+                          : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                      <span className="truncate flex-1">{item.label}</span>
+                      {isLocked && (
+                        <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Group 3: Controle & Avanço */}
-          <div>
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-              Controle & Avanço
-            </span>
-            <div className="mt-1.5 space-y-1">
-              {managementNav.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                const isLocked = !canAccessFeature(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    id={`mobile-drawer-link-${item.id}`}
-                    onClick={() => handleSelectTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition text-left ${
-                      isActive
-                        ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
-                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
-                    <span className="truncate flex-1">{item.label}</span>
-                    {isLocked && (
-                      <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
+          {visibleManagementNav.length > 0 && (
+            <div>
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                Controle & Avanço
+              </span>
+              <div className="mt-1.5 space-y-1">
+                {visibleManagementNav.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const isLocked = !canAccessFeature(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      id={`mobile-drawer-link-${item.id}`}
+                      onClick={() => handleSelectTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition text-left cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1F3A34] text-emerald-100 shadow-xs'
+                          : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800/50'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
+                      <span className="truncate flex-1">{item.label}</span>
+                      {isLocked && (
+                        <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
 

@@ -46,7 +46,8 @@ export const INITIAL_APP_DATA: AppData = {
     theme: 'light',
     hasCompletedOnboarding: false,
     treatmentPreference: 'neutro',
-    dailyIntention: 'Ter mais calma e paciência no meu caminhar 🕊️'
+    dailyIntention: 'Ter mais calma e paciência no meu caminhar 🕊️',
+    hiddenSections: []
   },
   tasks: [
     {
@@ -155,7 +156,12 @@ export const INITIAL_APP_DATA: AppData = {
     places: [],
     dreams: []
   },
-  notificationSettings: DEFAULT_NOTIFICATION_SETTINGS
+  notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
+  workoutRoutines: [],
+  studies: {
+    subjects: [],
+    summaries: []
+  }
 };
 
 export const USER_IDENTITY_KEY = 'leve_user_identity_v1';
@@ -251,7 +257,8 @@ export function sanitizeAppData(parsed: any): AppData {
     ...(savedIdentity?.name && !rawUser?.name ? { name: savedIdentity.name } : {}),
     ...(savedIdentity?.avatar && (!rawUser?.avatar || rawUser.avatar === '🌿') ? { avatar: savedIdentity.avatar } : {}),
     ...(savedIdentity?.treatmentPreference && (!rawUser?.treatmentPreference || rawUser.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {}),
-    hasCompletedOnboarding: Boolean(rawUser?.hasCompletedOnboarding || hasCompletedOnboardingVal)
+    hasCompletedOnboarding: Boolean(rawUser?.hasCompletedOnboarding || hasCompletedOnboardingVal),
+    hiddenSections: Array.isArray(rawUser?.hiddenSections) ? rawUser.hiddenSections : []
   };
 
   return {
@@ -291,7 +298,12 @@ export function sanitizeAppData(parsed: any): AppData {
     } : INITIAL_APP_DATA.myLife,
     notificationSettings: parsed.notificationSettings
       ? { ...DEFAULT_NOTIFICATION_SETTINGS, ...parsed.notificationSettings }
-      : DEFAULT_NOTIFICATION_SETTINGS
+      : DEFAULT_NOTIFICATION_SETTINGS,
+    workoutRoutines: Array.isArray(parsed.workoutRoutines) ? parsed.workoutRoutines : [],
+    studies: parsed.studies && typeof parsed.studies === 'object' ? {
+      subjects: Array.isArray(parsed.studies.subjects) ? parsed.studies.subjects : [],
+      summaries: Array.isArray(parsed.studies.summaries) ? parsed.studies.summaries : []
+    } : { subjects: [], summaries: [] }
   };
 }
 

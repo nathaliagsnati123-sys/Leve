@@ -594,7 +594,10 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
       ? cloudUser.treatmentPreference
       : (localUser.treatmentPreference || 'nao_informar'),
     dailyIntention: cloudUser.dailyIntention || localUser.dailyIntention,
-    lastClosedDay: cloudUser.lastClosedDay || localUser.lastClosedDay
+    lastClosedDay: cloudUser.lastClosedDay || localUser.lastClosedDay,
+    hiddenSections: Array.isArray(localUser.hiddenSections) && localUser.hiddenSections.length > 0
+      ? localUser.hiddenSections
+      : (Array.isArray(cloudUser.hiddenSections) ? cloudUser.hiddenSections : [])
   };
 
   // 19. Autocuidado
@@ -649,6 +652,17 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
         ...(local.notificationSettings || {}),
         ...(cloud.notificationSettings || {})
       } as NotificationSettings
-    } : {})
+    } : {}),
+    workoutRoutines: cloud.workoutRoutines && cloud.workoutRoutines.length > 0
+      ? cloud.workoutRoutines
+      : (local.workoutRoutines || []),
+    studies: {
+      subjects: cloud.studies?.subjects && cloud.studies.subjects.length > 0
+        ? cloud.studies.subjects
+        : (local.studies?.subjects || []),
+      summaries: cloud.studies?.summaries && cloud.studies.summaries.length > 0
+        ? cloud.studies.summaries
+        : (local.studies?.summaries || [])
+    }
   });
 }

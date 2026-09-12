@@ -5,17 +5,27 @@ import {
   Plus, Check, Star, Sparkles, Brain, Moon, Droplets, 
   Sprout, Heart, HeartHandshake, ChevronRight, Clock, 
   Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw, Lock,
-  Bell, BellRing
+  Bell, BellRing, Zap, Target, Shield, BookOpen
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { 
   MOTIVATIONAL_QUOTES, 
   SCRIPTURE_VERSES, 
-  SELF_CARE_SUGGESTIONS, 
+  getSelfCareSuggestions, 
   getRandomMotivationalQuote 
 } from '../../services/quotesAndVerses';
 import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 import { Priority, Task } from '../../types';
+import { isSectionHidden } from '../../utils/sections';
+import { 
+  normalizeTreatmentPreference, 
+  adaptTextToGender, 
+  getGreetingSubtitle, 
+  getSelfCareSectionTitle, 
+  getGratitudeWidgetTitle, 
+  getGratitudePlaceholder, 
+  getEndDayButtonLabel 
+} from '../../utils/treatment';
 
 export const MyDayView: React.FC = () => {
   const { 
@@ -71,10 +81,14 @@ export const MyDayView: React.FC = () => {
     greetingEmoji = '🌙';
   }
 
-  // Dynamic motivational quote - changes every time the user enters the application
+  const treatmentPreference = data.user?.treatmentPreference;
+  const pref = normalizeTreatmentPreference(treatmentPreference);
+  const hiddenSections = data.user?.hiddenSections || [];
+
+  // Dynamic motivational quote - changes every time the user enters the application and adapts to gender
   const [dailyQuote, setDailyQuote] = useState<string>(() => {
     const previous = typeof window !== 'undefined' ? sessionStorage.getItem('leve_last_motivational_quote') || '' : '';
-    const newQuote = getRandomMotivationalQuote(previous);
+    const newQuote = getRandomMotivationalQuote(previous, treatmentPreference);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('leve_last_motivational_quote', newQuote);
     }
@@ -82,7 +96,7 @@ export const MyDayView: React.FC = () => {
   });
 
   const shuffleMotivationalQuote = () => {
-    const next = getRandomMotivationalQuote(dailyQuote);
+    const next = getRandomMotivationalQuote(dailyQuote, treatmentPreference);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('leve_last_motivational_quote', next);
     }
@@ -90,8 +104,27 @@ export const MyDayView: React.FC = () => {
   };
 
   const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-  const dailyVerse = SCRIPTURE_VERSES[dayOfYear % SCRIPTURE_VERSES.length];
-  const dailySelfCare = SELF_CARE_SUGGESTIONS[dayOfYear % SELF_CARE_SUGGESTIONS.length];
+  const rawVerse = SCRIPTURE_VERSES[dayOfYear % SCRIPTURE_VERSES.length];
+  const dailyVerse = {
+    ...rawVerse,
+    verse: adaptTextToGender(rawVerse.verse, treatmentPreference)
+  };
+
+  const selfCareList = getSelfCareSuggestions(treatmentPreference);
+  const dailySelfCare = selfCareList[dayOfYear % selfCareList.length];
+
+  // Section visibility based on user preferences and gender profile
+  const showHabits = !isSectionHidden('habits', hiddenSections, treatmentPreference);
+  const showHydration = !isSectionHidden('hydration', hiddenSections, treatmentPreference);
+  const showSelfCare = !isSectionHidden('self-care', hiddenSections, treatmentPreference);
+  const showSpirituality = !isSectionHidden('spirituality', hiddenSections, treatmentPreference);
+  const showJournal = !isSectionHidden('journal', hiddenSections, treatmentPreference);
+
+  const greetingSubtitle = getGreetingSubtitle(treatmentPreference);
+  const selfCareTitle = getSelfCareSectionTitle(treatmentPreference);
+  const gratitudeTitle = getGratitudeWidgetTitle(treatmentPreference);
+  const gratitudePlaceholder = getGratitudePlaceholder(treatmentPreference);
+  const endDayButtonLabel = getEndDayButtonLabel(treatmentPreference);
 
   // Tasks for today
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
@@ -192,7 +225,7 @@ export const MyDayView: React.FC = () => {
       gratitude: newGrat
     });
     setQuickGratitude('');
-    showToast('Gratidão registrada no seu caderno! 🤍');
+    showToast(pref === 'masculino' ? 'Registro salvo no seu caderno.' : 'Gratidão registrada no seu caderno! 🤍');
   };
 
   return (
@@ -202,9 +235,9 @@ export const MyDayView: React.FC = () => {
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1 sm:space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-lg sm:text-xl">{greetingEmoji}</span>
+              {pref !== 'masculino' && <span className="text-lg sm:text-xl">{greetingEmoji}</span>}
               <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-emerald-50">
-                {data.user.name ? `${greeting}, ${data.user.name}!` : `${greeting}! 🌿`}
+                {data.user.name ? `${greeting}, ${data.user.name}!` : (pref === 'masculino' ? `${greeting}!` : `${greeting}! 🌿`)}
               </h1>
             </div>
             <div className="flex items-start gap-2 max-w-xl">
@@ -214,7 +247,7 @@ export const MyDayView: React.FC = () => {
               <button
                 type="button"
                 onClick={shuffleMotivationalQuote}
-                className="p-1 text-emerald-300/80 hover:text-white hover:bg-white/10 rounded-lg transition shrink-0 mt-0.5"
+                className="p-1 text-emerald-300/80 hover:text-white hover:bg-white/10 rounded-lg transition shrink-0 mt-0.5 cursor-pointer"
                 title="Trocar frase de motivação"
                 aria-label="Trocar frase de motivação"
               >
@@ -222,12 +255,12 @@ export const MyDayView: React.FC = () => {
               </button>
             </div>
             <div className="flex items-center gap-2 pt-0.5 text-[10px] text-emerald-300 font-semibold tracking-wide">
-              <span className="uppercase tracking-widest">— Lembrete de leveza</span>
+              <span className="uppercase tracking-widest">{greetingSubtitle}</span>
               {notificationSettings.enabled && notificationSettings.dailyMotivationEnabled && (
                 <button
                   type="button"
                   onClick={() => setActiveTab('settings')}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-200 transition font-normal"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-200 transition font-normal cursor-pointer"
                   title="Ajustar horário do lembrete diário motivador"
                 >
                   <Bell className="w-2.5 h-2.5 text-emerald-300" />
@@ -256,11 +289,17 @@ export const MyDayView: React.FC = () => {
             <span className="font-medium text-emerald-200 text-xs">Progresso do dia:</span>
             <span className="font-bold text-white text-xs sm:text-sm">{todayCompletionPercentage}%</span>
             <span className="text-emerald-300/80 text-[10px] sm:text-[11px]">
-              {todayCompletionPercentage === 100 
-                ? 'Dia completo com leveza! ✨' 
-                : todayCompletionPercentage > 50 
-                ? 'Mais da metade realizada no seu ritmo 🌱' 
-                : 'Dando um passo de cada vez 🌿'}
+              {pref === 'masculino' 
+                ? (todayCompletionPercentage === 100 
+                    ? '100% executado. Meta batida!' 
+                    : todayCompletionPercentage > 50 
+                    ? 'Mais de 50% concluído com foco.' 
+                    : 'Execução em andamento. Mantenha a disciplina.')
+                : (todayCompletionPercentage === 100 
+                    ? 'Dia completo com leveza! ✨' 
+                    : todayCompletionPercentage > 50 
+                    ? 'Mais da metade realizada no seu ritmo 🌱' 
+                    : 'Dando um passo de cada vez 🌿')}
             </span>
           </div>
           <div className="w-full sm:w-44 h-1.5 bg-emerald-950/80 rounded-full overflow-hidden shrink-0">
@@ -708,324 +747,369 @@ export const MyDayView: React.FC = () => {
       </section>
 
       {/* 4. Habits & Hydration Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Habits of Today */}
-        <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sprout className="w-3.5 h-3.5 text-emerald-600" />
-              <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                Hábitos de Hoje
-              </h2>
-            </div>
-            {hasLeveAccess ? (
-              <button
-                onClick={() => setActiveTab('habits')}
-                className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
-              >
-                <span>Ver todos</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                <Lock className="w-2.5 h-2.5" />
-                <span>LEVE Especial</span>
-              </span>
-            )}
-          </div>
-
-          {!hasLeveAccess ? (
-            <div className="py-4 px-3.5 rounded-xl bg-stone-50/80 dark:bg-stone-800/60 border border-stone-200/70 dark:border-stone-700 text-center space-y-3">
-              <div className="w-10 h-10 mx-auto rounded-xl bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 text-amber-800 dark:text-amber-300 flex items-center justify-center shadow-2xs">
-                <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
-                  Rastreador de Hábitos Exclusivo
-                </p>
-                <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto leading-relaxed">
-                  O acompanhamento diário de hábitos não está incluso na função gratuita. Desbloqueie o <strong>LEVE Especial</strong> para cultivar sua rotina com consistência e sem cobrança.
-                </p>
-              </div>
-
-              <div className="pt-1">
-                <a
-                  href={especialCheckoutUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162924] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Liberar Hábitos no LEVE Especial • R$ 49,90</span>
-                </a>
-              </div>
-
-              <div className="flex items-center justify-center gap-2 text-[11px] text-stone-400 dark:text-stone-300">
-                <button
-                  type="button"
-                  onClick={handleRefreshPlan}
-                  disabled={isRefreshingPlan || isCheckingEntitlements}
-                  className="hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 text-stone-500 dark:text-stone-300 font-medium"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isRefreshingPlan || isCheckingEntitlements ? 'animate-spin' : ''}`} />
-                  <span>{isRefreshingPlan ? 'Atualizando...' : 'Já é assinante? Atualizar plano'}</span>
-                </button>
-              </div>
-            </div>
-          ) : data.habits.length === 0 ? (
-            <div className="text-center py-4 px-3 rounded-xl bg-stone-50/50 dark:bg-stone-850/40 border border-dashed border-stone-200 dark:border-stone-700">
-              <p className="text-xs text-stone-500 dark:text-stone-400 mb-1.5">
-                Nenhum hábito cadastrado ainda.
-              </p>
-              <button
-                onClick={() => setActiveTab('habits')}
-                className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold hover:underline"
-              >
-                + Criar meu primeiro hábito
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {data.habits.slice(0, 4).map((habit) => {
-                const isDoneToday = !!habit.history[todayStr];
-                return (
-                  <div
-                    key={habit.id}
-                    className={`group p-2.5 rounded-xl border transition flex items-center justify-between gap-2.5 ${
-                      isDoneToday
-                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40 text-stone-900 dark:text-stone-100'
-                        : 'bg-stone-50/50 dark:bg-stone-800 border-stone-200/70 dark:border-stone-700 text-stone-800 dark:text-stone-100 hover:border-emerald-300'
-                    }`}
+      {(showHabits || showHydration) && (
+        <div className={`grid grid-cols-1 ${showHabits && showHydration ? 'lg:grid-cols-2' : ''} gap-4`}>
+          {/* Habits of Today */}
+          {showHabits && (
+            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {pref === 'masculino' ? (
+                    <Target className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Sprout className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                    {pref === 'masculino' ? 'Hábitos & Disciplina' : 'Hábitos de Hoje'}
+                  </h2>
+                </div>
+                {hasLeveAccess ? (
+                  <button
+                    onClick={() => setActiveTab('habits')}
+                    className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
                   >
-                    <div 
-                      className="flex items-center gap-2.5 flex-1 cursor-pointer select-none"
-                      onClick={() => toggleHabitCompletion(habit.id, todayStr)}
-                    >
-                      <span className="text-lg flex-shrink-0">{habit.icon}</span>
-                      <div className="truncate flex-1">
-                        <p className={`text-xs sm:text-sm font-semibold truncate ${isDoneToday ? 'line-through opacity-70' : ''}`}>
-                          {habit.name}
-                        </p>
-                        <p className="text-[10px] text-stone-500 dark:text-stone-400">{habit.category}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteHabit(habit.id);
-                          showToast(`Hábito "${habit.name}" excluído.`, 'info');
-                        }}
-                        className="p-1 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition touch-manipulation opacity-80 sm:opacity-0 sm:group-hover:opacity-100 min-w-[30px] min-h-[30px] flex items-center justify-center"
-                        title="Excluir hábito"
-                        aria-label={`Excluir hábito ${habit.name}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleHabitCompletion(habit.id, todayStr)}
-                        className="p-1 touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center"
-                        aria-label={isDoneToday ? "Desmarcar hábito" : "Marcar hábito como concluído"}
-                      >
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition ${
-                          isDoneToday
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'border-2 border-stone-300 dark:border-stone-600 hover:border-emerald-500'
-                        }`}>
-                          {isDoneToday && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Water / Hydration Section */}
-        <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Droplets className="w-3.5 h-3.5 text-cyan-600" />
-              <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                Minha Água
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('settings')}
-                className="text-[11px] text-cyan-800 dark:text-cyan-300 hover:text-cyan-950 flex items-center gap-1 bg-cyan-100/70 dark:bg-cyan-900/40 px-2 py-0.5 rounded-md font-medium transition"
-                title="Configurar lembretes de hidratação"
-              >
-                <Bell className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
-                <span>
-                  {notificationSettings.enabled && notificationSettings.hydrationEnabled 
-                    ? `Lembrete ${notificationSettings.hydrationIntervalMinutes}m` 
-                    : 'Lembrete'}
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveTab('hydration')}
-                className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline flex items-center gap-0.5"
-              >
-                <span>Detalhes</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/40">
-            <div>
-              <p className="text-xs text-cyan-800 dark:text-cyan-300 font-medium">Consumo de Hoje</p>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl font-bold text-cyan-950 dark:text-cyan-100 font-serif">
-                  {water.amountMl}
-                </span>
-                <span className="text-xs text-cyan-700 dark:text-cyan-400">
-                  / {water.targetMl} ml ({waterPercent}%)
-                </span>
+                    <span>Ver todos</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>LEVE Especial</span>
+                  </span>
+                )}
               </div>
-              <p className="text-[10px] sm:text-[11px] text-cyan-800/80 dark:text-cyan-300/80 mt-0.5">
-                {waterPercent >= 100 
-                  ? 'Meta atingida! Seu corpo agradece 💧' 
-                  : `Faltam ${Math.max(0, water.targetMl - water.amountMl)} ml para a meta.`}
-              </p>
-            </div>
 
-            <div className="flex flex-col gap-1 flex-shrink-0">
-              <button
-                id="my-day-add-water-250"
-                onClick={() => addWater(250)}
-                className="px-2.5 py-1 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 text-xs font-semibold transition shadow-xs"
-              >
-                + 250 ml (copo)
-              </button>
-              <button
-                id="my-day-add-water-500"
-                onClick={() => addWater(500)}
-                className="px-2.5 py-1 rounded-lg bg-cyan-700 text-white hover:bg-cyan-800 text-xs font-semibold transition shadow-xs"
-              >
-                + 500 ml (garrafa)
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
+              {!hasLeveAccess ? (
+                <div className="py-4 px-3.5 rounded-xl bg-stone-50/80 dark:bg-stone-800/60 border border-stone-200/70 dark:border-stone-700 text-center space-y-3">
+                  <div className="w-10 h-10 mx-auto rounded-xl bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 text-amber-800 dark:text-amber-300 flex items-center justify-center shadow-2xs">
+                    <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      Rastreador de Hábitos Exclusivo
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto leading-relaxed">
+                      O acompanhamento diário de hábitos não está incluso na função gratuita. Desbloqueie o <strong>LEVE Especial</strong> para cultivar sua rotina com consistência e sem cobrança.
+                    </p>
+                  </div>
+
+                  <div className="pt-1">
+                    <a
+                      href={especialCheckoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162924] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Liberar Hábitos no LEVE Especial • R$ 49,90</span>
+                    </a>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 text-[11px] text-stone-400 dark:text-stone-300">
+                    <button
+                      type="button"
+                      onClick={handleRefreshPlan}
+                      disabled={isRefreshingPlan || isCheckingEntitlements}
+                      className="hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 text-stone-500 dark:text-stone-300 font-medium"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isRefreshingPlan || isCheckingEntitlements ? 'animate-spin' : ''}`} />
+                      <span>{isRefreshingPlan ? 'Atualizando...' : 'Já é assinante? Atualizar plano'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : data.habits.length === 0 ? (
+                <div className="text-center py-4 px-3 rounded-xl bg-stone-50/50 dark:bg-stone-850/40 border border-dashed border-stone-200 dark:border-stone-700">
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mb-1.5">
+                    Nenhum hábito cadastrado ainda.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('habits')}
+                    className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold hover:underline"
+                  >
+                    + Criar meu primeiro hábito
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {data.habits.slice(0, 4).map((habit) => {
+                    const isDoneToday = !!habit.history[todayStr];
+                    return (
+                      <div
+                        key={habit.id}
+                        className={`group p-2.5 rounded-xl border transition flex items-center justify-between gap-2.5 ${
+                          isDoneToday
+                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40 text-stone-900 dark:text-stone-100'
+                            : 'bg-stone-50/50 dark:bg-stone-800 border-stone-200/70 dark:border-stone-700 text-stone-800 dark:text-stone-100 hover:border-emerald-300'
+                        }`}
+                      >
+                        <div 
+                          className="flex items-center gap-2.5 flex-1 cursor-pointer select-none"
+                          onClick={() => toggleHabitCompletion(habit.id, todayStr)}
+                        >
+                          <span className="text-lg flex-shrink-0">{habit.icon}</span>
+                          <div className="truncate flex-1">
+                            <p className={`text-xs sm:text-sm font-semibold truncate ${isDoneToday ? 'line-through opacity-70' : ''}`}>
+                              {habit.name}
+                            </p>
+                            <p className="text-[10px] text-stone-500 dark:text-stone-400">{habit.category}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteHabit(habit.id);
+                              showToast(`Hábito "${habit.name}" excluído.`, 'info');
+                            }}
+                            className="p-1 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition touch-manipulation opacity-80 sm:opacity-0 sm:group-hover:opacity-100 min-w-[30px] min-h-[30px] flex items-center justify-center"
+                            title="Excluir hábito"
+                            aria-label={`Excluir hábito ${habit.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleHabitCompletion(habit.id, todayStr)}
+                            className="p-1 touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center"
+                            aria-label={isDoneToday ? "Desmarcar hábito" : "Marcar hábito como concluído"}
+                          >
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition ${
+                              isDoneToday
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'border-2 border-stone-300 dark:border-stone-600 hover:border-emerald-500'
+                            }`}>
+                              {isDoneToday && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Water / Hydration Section */}
+          {showHydration && (
+            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Droplets className="w-3.5 h-3.5 text-cyan-600" />
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                    Minha Água
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('settings')}
+                    className="text-[11px] text-cyan-800 dark:text-cyan-300 hover:text-cyan-950 flex items-center gap-1 bg-cyan-100/70 dark:bg-cyan-900/40 px-2 py-0.5 rounded-md font-medium transition"
+                    title="Configurar lembretes de hidratação"
+                  >
+                    <Bell className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
+                    <span>
+                      {notificationSettings.enabled && notificationSettings.hydrationEnabled 
+                        ? `Lembrete ${notificationSettings.hydrationIntervalMinutes}m` 
+                        : 'Lembrete'}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('hydration')}
+                    className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline flex items-center gap-0.5"
+                  >
+                    <span>Detalhes</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/40">
+                <div>
+                  <p className="text-xs text-cyan-800 dark:text-cyan-300 font-medium">Consumo de Hoje</p>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-xl font-bold text-cyan-950 dark:text-cyan-100 font-serif">
+                      {water.amountMl}
+                    </span>
+                    <span className="text-xs text-cyan-700 dark:text-cyan-400">
+                      / {water.targetMl} ml ({waterPercent}%)
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-cyan-800/80 dark:text-cyan-300/80 mt-0.5">
+                    {waterPercent >= 100 
+                      ? (pref === 'masculino' ? 'Meta atingida. Hidratação completa.' : 'Meta atingida! Seu corpo agradece 💧')
+                      : `Faltam ${Math.max(0, water.targetMl - water.amountMl)} ml para a meta.`}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <button
+                    id="my-day-add-water-250"
+                    onClick={() => addWater(250)}
+                    className="px-2.5 py-1 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 text-xs font-semibold transition shadow-xs cursor-pointer"
+                  >
+                    + 250 ml (copo)
+                  </button>
+                  <button
+                    id="my-day-add-water-500"
+                    onClick={() => addWater(500)}
+                    className="px-2.5 py-1 rounded-lg bg-cyan-700 text-white hover:bg-cyan-800 text-xs font-semibold transition shadow-xs cursor-pointer"
+                  >
+                    + 500 ml (garrafa)
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
       {/* 5. Self-Care & Spirituality Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Daily Self-Care Suggestion */}
-        <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Heart className="w-3.5 h-3.5 text-rose-500" />
-              <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                Autocuidado de Hoje
-              </h2>
-            </div>
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-rose-600">
-              {dailySelfCare.category}
-            </span>
-          </div>
+      {(showSelfCare || showSpirituality) && (
+        <div className={`grid grid-cols-1 ${showSelfCare && showSpirituality ? 'lg:grid-cols-2' : ''} gap-4`}>
+          {/* Daily Self-Care Suggestion */}
+          {showSelfCare && (
+            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {pref === 'masculino' ? (
+                    <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Heart className="w-3.5 h-3.5 text-rose-500" />
+                  )}
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                    {selfCareTitle}
+                  </h2>
+                </div>
+                <span className={`text-[10px] uppercase tracking-wider font-semibold ${
+                  pref === 'masculino' ? 'text-stone-600 dark:text-stone-300 font-bold' : 'text-rose-600'
+                }`}>
+                  {dailySelfCare.category}
+                </span>
+              </div>
 
-          <div className="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between gap-2.5">
-            <div>
-              <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
-                {dailySelfCare.text}
-              </p>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                Pequeno gesto de carinho e presença para você.
-              </p>
-            </div>
+              <div className={`p-3 rounded-xl flex items-center justify-between gap-2.5 ${
+                pref === 'masculino'
+                  ? 'bg-stone-50/90 dark:bg-stone-800/80 border border-stone-200/90 dark:border-stone-700'
+                  : 'bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40'
+              }`}>
+                <div>
+                  <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
+                    {dailySelfCare.text}
+                  </p>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                    {pref === 'masculino' ? 'Pausa estratégica de recarga física e mental.' : 'Pequeno gesto de carinho e presença para você.'}
+                  </p>
+                </div>
 
-            <button
-              onClick={() => toggleSelfCareItem(dailySelfCare.text)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 flex-shrink-0 ${
-                isSelfCareDone
-                  ? 'bg-rose-600 text-white'
-                  : 'bg-rose-100 dark:bg-rose-900/50 text-rose-900 dark:text-rose-200 hover:bg-rose-200'
-              }`}
-            >
-              {isSelfCareDone ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Feito</span>
-                </>
-              ) : (
-                <span>Marcar</span>
-              )}
-            </button>
-          </div>
-        </section>
+                <button
+                  onClick={() => toggleSelfCareItem(dailySelfCare.text)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer ${
+                    pref === 'masculino'
+                      ? isSelfCareDone
+                        ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
+                        : 'bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-300 dark:hover:bg-stone-650'
+                      : isSelfCareDone
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-rose-100 dark:bg-rose-900/50 text-rose-900 dark:text-rose-200 hover:bg-rose-200'
+                  }`}
+                >
+                  {isSelfCareDone ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{pref === 'masculino' ? 'Concluído' : 'Feito'}</span>
+                    </>
+                  ) : (
+                    <span>{pref === 'masculino' ? 'Executar' : 'Marcar'}</span>
+                  )}
+                </button>
+              </div>
+            </section>
+          )}
 
-        {/* Daily Faith / Moment with God */}
-        <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <HeartHandshake className="w-3.5 h-3.5 text-emerald-700" />
-              <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                Momento com Deus
-              </h2>
-            </div>
-            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider">
-              {dailyVerse.reference}
-            </span>
-          </div>
+          {/* Daily Faith / Moment with God */}
+          {showSpirituality && (
+            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {pref === 'masculino' ? (
+                    <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <HeartHandshake className="w-3.5 h-3.5 text-emerald-700" />
+                  )}
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                    {pref === 'masculino' ? 'Fé & Propósito' : 'Momento com Deus'}
+                  </h2>
+                </div>
+                <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider">
+                  {dailyVerse.reference}
+                </span>
+              </div>
 
-          <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
-            <p className="font-serif italic text-xs sm:text-sm text-stone-800 dark:text-stone-200 leading-relaxed">
-              "{dailyVerse.verse}"
-            </p>
+              <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
+                <p className="font-serif italic text-xs sm:text-sm text-stone-800 dark:text-stone-200 leading-relaxed">
+                  "{dailyVerse.verse}"
+                </p>
 
-            <button
-              onClick={() => setIsFiveMinGodOpen(true)}
-              className="w-full py-1.5 px-3 rounded-lg bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition flex items-center justify-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Fazer os 5 Minutos com Deus</span>
-            </button>
-          </div>
-        </section>
-      </div>
+                <button
+                  onClick={() => setIsFiveMinGodOpen(true)}
+                  className="w-full py-1.5 px-3 rounded-lg bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {pref === 'masculino' ? (
+                    <>
+                      <Shield className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>5 Minutos com Deus • Oração & Foco</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Fazer os 5 Minutos com Deus</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
       {/* 6. Quick Gratitude Widget */}
-      <section className="bg-stone-100/70 dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 space-y-2">
-        <h3 className="font-serif text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-100">
-          Uma coisa boa que aconteceu hoje 🤍
-        </h3>
-        <form onSubmit={handleSaveQuickGratitude} className="flex gap-2">
-          <input
-            type="text"
-            value={quickGratitude}
-            onChange={(e) => setQuickGratitude(e.target.value)}
-            placeholder="Ex: Um abraço apertado, o sol na janela, o café quentinho..."
-            className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-          />
-          <button
-            type="submit"
-            disabled={!quickGratitude.trim()}
-            className="px-3.5 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold disabled:opacity-40 transition"
-          >
-            Guardar
-          </button>
-        </form>
-      </section>
+      {showJournal && (
+        <section className="bg-stone-100/70 dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 space-y-2">
+          <h3 className="font-serif text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-100">
+            {gratitudeTitle}
+          </h3>
+          <form onSubmit={handleSaveQuickGratitude} className="flex gap-2">
+            <input
+              type="text"
+              value={quickGratitude}
+              onChange={(e) => setQuickGratitude(e.target.value)}
+              placeholder={gratitudePlaceholder}
+              className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+            />
+            <button
+              type="submit"
+              disabled={!quickGratitude.trim()}
+              className="px-3.5 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
+            >
+              Guardar
+            </button>
+          </form>
+        </section>
+      )}
 
       {/* 7. Footer End Day Action */}
       <div className="pt-4 text-center">
         <button
           onClick={() => setIsDayClosingOpen(true)}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs sm:text-sm font-semibold hover:bg-stone-800 dark:hover:bg-stone-200 transition shadow-sm"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs sm:text-sm font-semibold hover:bg-stone-800 dark:hover:bg-stone-200 transition shadow-sm cursor-pointer"
         >
           <Moon className="w-4 h-4 text-indigo-400 dark:text-indigo-600" />
-          <span>Encerrar o dia com gratidão e descanso</span>
+          <span>{endDayButtonLabel}</span>
         </button>
       </div>
     </div>

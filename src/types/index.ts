@@ -137,6 +137,61 @@ export interface MovementActivity {
   durationMinutes: number;
   feeling?: MovementFeeling;
   notes?: string;
+  routineId?: string;
+  routineTitle?: string;
+}
+
+export interface WorkoutExercise {
+  id: string;
+  name: string; // Ex: "Espacate frontal", "Abertura de pernas borboleta", "Agachamento livre"
+  setsRepsOrDuration?: string; // Ex: "3x 45s", "4x 12 reps", "15 min"
+  notes?: string; // Instruções de postura, flexibilidade, dicas
+}
+
+export interface WorkoutRoutine {
+  id: string;
+  title: string; // Ex: "Ballet - Exercícios de Flexibilidade", "Musculação - Treino A"
+  category: string; // "Ballet", "Dança", "Musculação", "Alongamento & Flexibilidade", "Pilates / Yoga", "Corrida", "Funcional", "Outro"
+  targetDays?: string[]; // Ex: ["Seg", "Qua", "Sex"]
+  description?: string;
+  exercises: WorkoutExercise[];
+  createdAt: string;
+  lastPerformedDate?: string;
+}
+
+// --------------------------------------------------------
+// Estudos (Studies & Notebooks) Types
+// --------------------------------------------------------
+
+export interface StudySubject {
+  id: string;
+  name: string; // Ex: "Direito Constitucional", "Anatomia", "Matemática", "Inglês"
+  color: string; // Cor visual do caderno (emerald, blue, purple, amber, rose, slate)
+  description?: string;
+  icon?: string;
+  createdAt: string;
+}
+
+export type StudyReviewStatus = 'novo' | 'em_revisao' | 'revisado' | 'dominado';
+
+export interface StudySummary {
+  id: string;
+  subjectId: string; // ID da matéria/caderno
+  title: string; // Ex: "Direitos Fundamentais - Artigo 5º"
+  topic?: string; // Ex: "Capítulo 1 / Parte Geral"
+  tags?: string[];
+  content: string; // Texto formatado / tópicos do resumo
+  keyPoints?: string[]; // Pontos-chave ou perguntas rápidas
+  reviewStatus?: StudyReviewStatus;
+  lastReviewedAt?: string;
+  favorite?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudiesData {
+  subjects: StudySubject[];
+  summaries: StudySummary[];
 }
 
 export type SleepQuality = 
@@ -366,6 +421,7 @@ export interface UserProfile {
   dailyIntention?: string;
   lastClosedDay?: string;
   treatmentPreference?: TreatmentPreference;
+  hiddenSections?: string[];
 }
 
 export interface UserStats {
@@ -456,6 +512,8 @@ export interface AppData {
   unlockedAchievements: Record<string, string>; // achievementId -> unlockedAt ISO
   myLife?: MyLifeData;
   notificationSettings?: NotificationSettings;
+  workoutRoutines?: WorkoutRoutine[];
+  studies?: StudiesData;
 }
 
 // --------------------------------------------------------
