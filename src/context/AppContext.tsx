@@ -248,23 +248,20 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<AppData>(loadAppData);
-  const [activeTab, setActiveTabState] = useState<ActiveTab>(() => {
-    try {
-      const saved = localStorage.getItem('leve_active_tab');
-      if (saved) return saved as ActiveTab;
-    } catch {
-      // fallback
-    }
-    return 'my-day';
-  });
+  // O aplicativo sempre abre diretamente na aba principal "Meu Dia"
+  const [activeTab, setActiveTabState] = useState<ActiveTab>('my-day');
 
-  const setActiveTab = (tab: ActiveTab) => {
-    setActiveTabState(tab);
+  // Limpa qualquer resquício de 'leve_active_tab' persistido no dispositivo para garantir abertura sempre em Meu Dia
+  useEffect(() => {
     try {
-      localStorage.setItem('leve_active_tab', tab);
+      localStorage.removeItem('leve_active_tab');
     } catch {
       // ignore
     }
+  }, []);
+
+  const setActiveTab = (tab: ActiveTab) => {
+    setActiveTabState(tab);
   };
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   
