@@ -99,10 +99,8 @@ export const TaskModal: React.FC = () => {
 
   const handleDelete = () => {
     if (!editingTask) return;
-    if (window.confirm('Deseja realmente remover esta tarefa?')) {
-      deleteTask(editingTask.id);
-      handleClose();
-    }
+    deleteTask(editingTask.id);
+    handleClose();
   };
 
   const handleDuplicate = () => {

@@ -619,10 +619,8 @@ export const CycleView: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => {
-                      if (window.confirm('Excluir este registro de ciclo?')) deletePeriod(p.id);
-                    }}
-                    className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition"
+                    onClick={() => deletePeriod(p.id)}
+                    className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
                     title="Excluir"
                   >
                     <Trash2 className="w-4 h-4" />

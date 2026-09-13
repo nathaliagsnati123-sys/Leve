@@ -400,9 +400,7 @@ export const WorkoutView: React.FC = () => {
                     {/* Delete routine */}
                     <button
                       onClick={() => {
-                        if (window.confirm(`Deseja excluir a ficha "${routine.title}"?`)) {
-                          deleteWorkoutRoutine(routine.id);
-                        }
+                        deleteWorkoutRoutine(routine.id);
                       }}
                       title="Excluir ficha"
                       className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"

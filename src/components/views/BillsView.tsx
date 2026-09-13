@@ -439,10 +439,8 @@ export const BillsView: React.FC = () => {
                       </span>
 
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Excluir conta "${b.name}"?`)) deleteBill(b.id);
-                        }}
-                        className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800"
+                        onClick={() => deleteBill(b.id)}
+                        className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                         title="Excluir"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -522,10 +520,8 @@ export const BillsView: React.FC = () => {
                     </span>
 
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Excluir recebimento "${inc.description}"?`)) deleteIncome(inc.id);
-                      }}
-                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800"
+                      onClick={() => deleteIncome(inc.id)}
+                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                       title="Excluir"
                     >
                       <Trash2 className="w-4 h-4" />

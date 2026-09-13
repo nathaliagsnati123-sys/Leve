@@ -227,11 +227,9 @@ export const LiaView: React.FC = () => {
   };
 
   const handleResetChat = () => {
-    if (window.confirm('Deseja iniciar uma nova conversa com a LEVIA? O histórico anterior será limpo.')) {
-      setMessages(LEVIA_INITIAL_MESSAGES);
-      sessionStorage.removeItem('levia_chat_history');
-      showToast('Nova conversa iniciada com a LEVIA', 'info');
-    }
+    setMessages(LEVIA_INITIAL_MESSAGES);
+    sessionStorage.removeItem('levia_chat_history');
+    showToast('Nova conversa iniciada com a LEVIA', 'info');
   };
 
   const getActionIcon = (badge: string) => {

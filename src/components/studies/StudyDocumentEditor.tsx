@@ -648,9 +648,6 @@ export const StudyDocumentEditor: React.FC<StudyDocumentEditorProps> = ({
                     type="button"
                     onClick={() => {
                       setIsTemplatesMenuOpen(false);
-                      if (content.trim() && !window.confirm('Substituir ou anexar modelo ao documento atual? Clique OK para anexar ao final.')) {
-                        return;
-                      }
                       const next = content.trim() ? `${content}\n\n${tmpl.content}` : tmpl.content;
                       setContent(next);
                       triggerAutoSave(title, next, reviewStatus, favorite);

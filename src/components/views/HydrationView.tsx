@@ -159,10 +159,8 @@ export const HydrationView: React.FC = () => {
             + 500 ml (garrafinha)
           </button>
           <button
-            onClick={() => {
-              if (window.confirm('Deseja zerar a água registrada hoje?')) resetWater();
-            }}
-            className="px-3 py-2 rounded-2xl text-stone-400 hover:text-stone-600 text-xs flex items-center gap-1"
+            onClick={() => resetWater()}
+            className="px-3 py-2 rounded-2xl text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-xs flex items-center gap-1 transition cursor-pointer"
             title="Zerar dia"
           >
             <RotateCcw className="w-3.5 h-3.5" />

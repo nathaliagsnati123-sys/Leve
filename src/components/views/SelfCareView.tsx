@@ -260,9 +260,7 @@ export const SelfCareView: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Deseja remover "${item.title}"?`)) {
-                            deleteSelfCareAction(item.id);
-                          }
+                          deleteSelfCareAction(item.id);
                         }}
                         className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
                         title="Excluir"

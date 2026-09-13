@@ -188,10 +188,8 @@ export const SpiritualityView: React.FC = () => {
                   )}
 
                   <button
-                    onClick={() => {
-                      if (window.confirm('Excluir esta oração?')) deletePrayer(prayer.id);
-                    }}
-                    className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg"
+                    onClick={() => deletePrayer(prayer.id)}
+                    className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg transition cursor-pointer"
                     title="Excluir oração"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
