@@ -550,6 +550,17 @@ function writeUserSyncPayload(
       }
     }
 
+    if (finalData && Array.isArray(finalData.tasks)) {
+      const todayIso = new Date().toISOString().split('T')[0];
+      finalData.tasks = finalData.tasks.map((t: any) => ({
+        ...t,
+        id: t?.id || `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        title: t?.title || 'Nova Tarefa',
+        date: (t?.date && typeof t.date === 'string' && t.date.trim()) ? t.date.trim() : todayIso,
+        completed: Boolean(t?.completed)
+      }));
+    }
+
     const updatedAt = Date.now();
     const storedObject = {
       email: payload.email ? payload.email.trim().toLowerCase() : (existing?.email || ""),

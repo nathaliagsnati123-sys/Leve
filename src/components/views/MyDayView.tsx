@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -134,17 +134,21 @@ export const MyDayView: React.FC = () => {
   // Gratidão rápida
   const [quickGratitude, setQuickGratitude] = useState('');
 
-  // Tarefas de hoje
-  const todayTasks = data.tasks.filter((t) => t.date === todayStr);
+  // Tarefas de hoje (inclui tarefas do dia de hoje e tarefas sem data definida)
+  const todayTasks = useMemo(() => {
+    return data.tasks.filter((t) => !t.date || t.date === todayStr);
+  }, [data.tasks, todayStr]);
 
-  // Prioridades do dia (tarefas explicitamente marcadas com isPriority ou top 3)
-  const priorityTasks = todayTasks
-    .filter((t) => Boolean(t.isPriority) === true)
-    .sort((a, b) => {
-      if (a.completed !== b.completed) return a.completed ? 1 : -1;
-      return 0;
-    })
-    .slice(0, 3);
+  // Prioridades do dia (tarefas explicitamente marcadas com isPriority para hoje ou gerais)
+  const priorityTasks = useMemo(() => {
+    return data.tasks
+      .filter((t) => Boolean(t.isPriority) && (!t.date || t.date === todayStr))
+      .sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        return 0;
+      })
+      .slice(0, 3);
+  }, [data.tasks, todayStr]);
 
   const handleAddPriority = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

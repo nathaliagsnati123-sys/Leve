@@ -350,9 +350,6 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
   if (isDefaultPlaceholderData(cleanLocal)) {
     return cleanCloud;
   }
-  if (isDefaultPlaceholderData(cleanCloud)) {
-    return cleanLocal;
-  }
 
   // IDs de itens de exemplo iniciais que não devem ser ressuscitados
   const DEFAULT_PLACEHOLDER_IDS = new Set([

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, Star, CheckCircle2, Sprout, Droplets, BookOpen, 
   Plus, Check, Trash2, Edit3, Sparkles, Clock, Flame, 
@@ -41,11 +41,11 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
   const todayStr = getTodayDateString();
 
   // Tarefas de hoje
-  const todayTasks = data.tasks.filter((t) => t.date === todayStr);
+  const todayTasks = data.tasks.filter((t) => !t.date || t.date === todayStr);
   const priorityTasks = todayTasks.filter((t) => Boolean(t.isPriority) === true);
 
   // Filtro de tarefas
-  const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [taskFilter, setTaskFilter] = useState<'today' | 'pending' | 'all' | 'completed'>('today');
 
   // Adicionar prioridade inline
   const [isAddingPriority, setIsAddingPriority] = useState(false);
@@ -117,12 +117,13 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
     verse: adaptTextToGender(rawVerse.verse, treatmentPreference)
   };
 
-  // Filtragem de tarefas de hoje
-  const filteredTasks = todayTasks.filter((t) => {
-    if (taskFilter === 'pending') return !t.completed;
-    if (taskFilter === 'completed') return t.completed;
-    return true;
-  });
+  // Filtragem de tarefas de hoje e gerais
+  const filteredTasks = useMemo(() => {
+    if (taskFilter === 'today') return todayTasks;
+    if (taskFilter === 'pending') return data.tasks.filter((t) => !t.completed);
+    if (taskFilter === 'completed') return data.tasks.filter((t) => t.completed);
+    return data.tasks;
+  }, [taskFilter, todayTasks, data.tasks]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -374,14 +375,14 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center p-0.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs">
                   <button
-                    onClick={() => setTaskFilter('all')}
+                    onClick={() => setTaskFilter('today')}
                     className={`px-2.5 py-1 rounded-md font-medium transition ${
-                      taskFilter === 'all' 
+                      taskFilter === 'today' 
                         ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-2xs' 
                         : 'text-stone-500 dark:text-stone-400'
                     }`}
                   >
-                    Todas ({todayTasks.length})
+                    Hoje ({todayTasks.length})
                   </button>
                   <button
                     onClick={() => setTaskFilter('pending')}
@@ -391,7 +392,17 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
                         : 'text-stone-500 dark:text-stone-400'
                     }`}
                   >
-                    Pendentes ({todayTasks.filter(t => !t.completed).length})
+                    Pendentes ({data.tasks.filter(t => !t.completed).length})
+                  </button>
+                  <button
+                    onClick={() => setTaskFilter('all')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition ${
+                      taskFilter === 'all' 
+                        ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-2xs' 
+                        : 'text-stone-500 dark:text-stone-400'
+                    }`}
+                  >
+                    Todas ({data.tasks.length})
                   </button>
                   <button
                     onClick={() => setTaskFilter('completed')}
@@ -401,7 +412,7 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
                         : 'text-stone-500 dark:text-stone-400'
                     }`}
                   >
-                    Concluídas ({todayTasks.filter(t => t.completed).length})
+                    Concluídas ({data.tasks.filter(t => t.completed).length})
                   </button>
                 </div>
 

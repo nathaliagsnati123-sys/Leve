@@ -791,8 +791,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // TASKS
   const addTask = useCallback((taskInput: Omit<Task, 'id' | 'completed'>) => {
+    const todayStr = getTodayDateString();
     const newTask: Task = {
+      priority: 'medium',
+      repeat: 'none',
+      category: 'Geral',
       ...taskInput,
+      date: (taskInput.date && typeof taskInput.date === 'string' && taskInput.date.trim()) 
+        ? taskInput.date.trim() 
+        : todayStr,
       id: 'task-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
       completed: false
     };
@@ -804,9 +811,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateData, showToast]);
 
   const updateTask = useCallback((task: Task) => {
+    const sanitizedTask: Task = {
+      ...task,
+      date: (task.date && typeof task.date === 'string' && task.date.trim())
+        ? task.date.trim()
+        : getTodayDateString()
+    };
     updateData((prev) => ({
       ...prev,
-      tasks: prev.tasks.map((t) => (t.id === task.id ? task : t))
+      tasks: prev.tasks.map((t) => (t.id === sanitizedTask.id ? sanitizedTask : t))
     }));
     showToast('Tarefa atualizada.');
   }, [updateData, showToast]);

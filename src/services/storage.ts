@@ -2,7 +2,7 @@
 import { 
   AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, 
   SleepLog, JournalEntry, Memory, Prayer, FiveMinuteGodSession, Goal, Bill, 
-  UserProfile, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS 
+  UserProfile, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, Priority 
 } from '../types';
 import { DEFAULT_SELF_CARE_ACTIONS } from './quotesAndVerses';
 
@@ -265,7 +265,29 @@ export function sanitizeAppData(parsed: any): AppData {
     ...INITIAL_APP_DATA,
     ...parsed,
     user: userObj,
-    tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+    tasks: Array.isArray(parsed.tasks) ? parsed.tasks.map((t: any) => {
+      const todayStr = getTodayDateString();
+      const rawPriority = String(t?.priority || '').toLowerCase();
+      let priority: Priority = 'medium';
+      if (rawPriority === 'alta' || rawPriority === 'high') priority = 'high';
+      else if (rawPriority === 'baixa' || rawPriority === 'low') priority = 'low';
+      else if (rawPriority === 'média' || rawPriority === 'media' || rawPriority === 'medium') priority = 'medium';
+
+      return {
+        id: String(t?.id || ('task-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6))),
+        title: String(t?.title || 'Nova Tarefa'),
+        date: (t?.date && typeof t.date === 'string' && t.date.trim()) ? t.date.trim() : todayStr,
+        time: t?.time ? String(t.time) : undefined,
+        priority,
+        isPriority: Boolean(t?.isPriority),
+        category: t?.category ? String(t.category) : 'Geral',
+        repeat: (t?.repeat && ['none', 'daily', 'weekly', 'monthly'].includes(t.repeat)) ? t.repeat : 'none',
+        completed: Boolean(t?.completed),
+        completedAt: t?.completedAt ? String(t.completedAt) : undefined,
+        goalId: t?.goalId ? String(t.goalId) : undefined,
+        notes: t?.notes ? String(t.notes) : undefined
+      };
+    }) : [],
     habits: Array.isArray(parsed.habits) ? parsed.habits : [],
     hydration: (parsed.hydration && typeof parsed.hydration === 'object') ? parsed.hydration : {},
     meals: (parsed.meals && typeof parsed.meals === 'object') ? parsed.meals : {},

@@ -8,7 +8,7 @@
       "accentColor": "#1F3A34",
       "theme": "light",
       "hasCompletedOnboarding": true,
-      "treatmentPreference": "feminino",
+      "treatmentPreference": "masculino",
       "dailyIntention": "Ter mais calma e paciência no meu caminhar 🕊️",
       "hiddenSections": []
     },
@@ -16,15 +16,19 @@
       {
         "id": "task-1",
         "title": "Teste de Tarefa",
+        "date": "2026-09-13",
         "completed": false,
         "category": "Geral",
-        "priority": "alta",
+        "priority": "high",
         "createdAt": 1789301094915
       },
       {
         "id": "task-real-1",
         "title": "Tarefa Real Teste",
-        "completed": true
+        "date": "2026-09-13",
+        "completed": true,
+        "category": "Geral",
+        "priority": "medium"
       }
     ],
     "habits": [],
@@ -130,8 +134,8 @@
       "summaries": []
     }
   },
-  "updatedAt": 1789301800013,
-  "version": 36,
-  "clientTimestamp": 1789301802031,
-  "deviceId": "dev_dbuqylz_1789139343650"
+  "updatedAt": 1789305978718,
+  "version": 1048,
+  "clientTimestamp": 1789305980715,
+  "deviceId": "dev_9wuu3dv_1789134428451"
 }

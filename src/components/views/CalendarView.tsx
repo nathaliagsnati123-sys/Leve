@@ -299,7 +299,7 @@ export const CalendarView: React.FC = () => {
           <div className="space-y-2">
             {data.tasks
               .slice()
-              .sort((a, b) => a.date.localeCompare(b.date))
+              .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
               .map((t) => (
                 <div
                   key={t.id}
