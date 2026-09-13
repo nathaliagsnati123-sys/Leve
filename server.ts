@@ -54,6 +54,22 @@ function saveStoredPurchase(email: string, data: any) {
   }
 }
 
+export function getSupabaseServiceRoleKey(): string {
+  const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+  const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (kService.startsWith("sb_secret_")) return kService;
+  if (kAnon.startsWith("sb_secret_")) return kAnon;
+  return kService || kAnon;
+}
+
+export function getSupabasePublishableKey(): string {
+  const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+  const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (kAnon.startsWith("sb_publishable_")) return kAnon;
+  if (kService.startsWith("sb_publishable_")) return kService;
+  return kAnon || kService;
+}
+
 // ============================================================================
 // Multi-Device Central User Store (Compartilhamento e Acesso Multi-Aparelho)
 // ============================================================================
@@ -350,6 +366,113 @@ function mergeDataServer(existing: any, incoming: any): any {
   };
 }
 
+async function saveUserSyncToSupabase(
+  userId?: string,
+  email?: string,
+  data?: any,
+  updatedAt?: number,
+  version?: number
+): Promise<boolean> {
+  const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+  const serviceKey = getSupabaseServiceRoleKey();
+  if (!supabaseUrl || !serviceKey || !data) return false;
+
+  const origin = new URL(supabaseUrl).origin;
+  try {
+    let targetUserId = userId;
+
+    if (!targetUserId && email) {
+      const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const found = (listData?.users || []).find(
+          (u: any) => (u.email || "").toLowerCase() === email.toLowerCase()
+        );
+        if (found?.id) targetUserId = found.id;
+      }
+    }
+
+    if (!targetUserId) return false;
+
+    const patchRes = await fetch(`${origin}/auth/v1/admin/users/${targetUserId}`, {
+      method: "PUT",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_metadata: {
+          app_sync_data: data,
+          app_sync_updated_at: updatedAt || Date.now(),
+          app_sync_version: version || 1
+        }
+      })
+    });
+
+    return patchRes.ok;
+  } catch (err: any) {
+    console.warn("[saveUserSyncToSupabase] Falha ao persistir no Supabase:", err?.message || err);
+    return false;
+  }
+}
+
+async function fetchUserSyncFromSupabase(
+  email?: string,
+  userId?: string
+): Promise<{
+  data: any;
+  updatedAt: number;
+  version: number;
+  email?: string;
+  userId?: string;
+} | null> {
+  const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+  const serviceKey = getSupabaseServiceRoleKey();
+  if (!supabaseUrl || !serviceKey || (!email && !userId)) return null;
+
+  const origin = new URL(supabaseUrl).origin;
+  try {
+    let targetUser: any = null;
+
+    if (userId) {
+      const res = await fetch(`${origin}/auth/v1/admin/users/${userId}`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
+      if (res.ok) {
+        targetUser = await res.json();
+      }
+    }
+
+    if (!targetUser && email) {
+      const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        targetUser = (listData?.users || []).find(
+          (u: any) => (u.email || "").toLowerCase() === email.toLowerCase()
+        );
+      }
+    }
+
+    if (targetUser?.user_metadata?.app_sync_data) {
+      return {
+        data: targetUser.user_metadata.app_sync_data,
+        updatedAt: Number(targetUser.user_metadata.app_sync_updated_at || Date.now()),
+        version: Number(targetUser.user_metadata.app_sync_version || 1),
+        email: targetUser.email || email,
+        userId: targetUser.id || userId
+      };
+    }
+  } catch (err: any) {
+    console.warn("[fetchUserSyncFromSupabase] Falha ao buscar no Supabase:", err?.message || err);
+  }
+  return null;
+}
+
 function readUserSyncPayload(email?: string, userId?: string): {
   data: any;
   updatedAt: number;
@@ -401,7 +524,21 @@ function writeUserSyncPayload(
       } catch {}
     }
 
-    const finalData = (existing && existing.data) ? mergeDataServer(existing.data, payload.data) : payload.data;
+    // Prioriza os dados mais recentes enviados pelo dispositivo ativo.
+    // Preserva integridade de dados (tarefas concluídas ou desmarcadas, exclusões e adições).
+    let finalData = payload.data;
+    if (!finalData && existing?.data) {
+      finalData = existing.data;
+    } else if (finalData && existing?.data) {
+      if (!finalData.user?.name && existing.data.user?.name) {
+        finalData.user = {
+          ...existing.data.user,
+          ...finalData.user,
+          name: existing.data.user.name,
+          treatmentPreference: finalData.user?.treatmentPreference || existing.data.user.treatmentPreference
+        };
+      }
+    }
 
     const updatedAt = Date.now();
     const storedObject = {
@@ -428,6 +565,15 @@ function writeUserSyncPayload(
     if (payload.userId) {
       syncCache.set(payload.userId.trim().toLowerCase(), { updatedAt, version: currentVersion, filePath });
     }
+
+    // Persiste também em segundo plano no Supabase Auth (banco central em nuvem compartilhado)
+    saveUserSyncToSupabase(
+      payload.userId || existing?.userId,
+      payload.email || existing?.email,
+      finalData,
+      updatedAt,
+      currentVersion
+    ).catch(() => {});
 
     // Difunde imediatamente via SSE para todos os outros aparelhos conectados nesta mesma conta
     broadcastSyncUpdate(accountKey, {
@@ -589,20 +735,7 @@ async function startServer() {
   // Supabase public configuration endpoint (detects and fixes inverted keys safely)
   app.get("/api/auth/config", (_req, res) => {
     const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-    const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
-    const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-
-    // Determine the true publishable / anon key
-    let publishableKey = "";
-    if (kAnon.startsWith("sb_publishable_")) {
-      publishableKey = kAnon;
-    } else if (kService.startsWith("sb_publishable_")) {
-      publishableKey = kService;
-    } else if (kAnon) {
-      publishableKey = kAnon;
-    } else if (kService) {
-      publishableKey = kService;
-    }
+    const publishableKey = getSupabasePublishableKey();
 
     res.json({
       supabaseUrl,
@@ -619,7 +752,7 @@ async function startServer() {
       }
 
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      const serviceKey = getSupabaseServiceRoleKey();
 
       if (!serviceKey) {
         return res.status(500).json({ error: "Chave de serviço não configurada no servidor" });
@@ -692,7 +825,7 @@ async function startServer() {
       }
 
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      const serviceKey = getSupabaseServiceRoleKey();
 
       if (!serviceKey) {
         return res.status(500).json({ error: "Chave de serviço não configurada" });
@@ -756,7 +889,7 @@ async function startServer() {
       }
 
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      const serviceKey = getSupabaseServiceRoleKey();
       if (!serviceKey) {
         return res.status(500).json({ error: "Chave de serviço indisponível" });
       }
@@ -1148,9 +1281,13 @@ async function startServer() {
       const purchases = getStoredPurchases();
       const local = email ? purchases[email] : Object.values(purchases).find((p: any) => p.user_id === userId);
 
-      // 2. Checar Supabase Auth Admin user_metadata
+      // 2. Checar store central de usuários
+      const users = getStoredUsers();
+      const userEntry = email ? users[email] : Object.values(users).find((u: any) => u.id === userId);
+
+      // 3. Checar Supabase Auth Admin user_metadata
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+      const serviceKey = getSupabaseServiceRoleKey();
       let authUserMeta: any = null;
 
       if (supabaseUrl && serviceKey) {
@@ -1181,10 +1318,12 @@ async function startServer() {
         }
       }
 
-      // 3. Determinar o plano ativo
+      // 4. Determinar o plano ativo
       const isVip = 
         local?.leve_vip === true || 
         local?.plan_name === "vip" || 
+        userEntry?.leve_vip === true ||
+        userEntry?.plan === "vip" ||
         authUserMeta?.leve_vip === true || 
         authUserMeta?.plan === "vip" || 
         authUserMeta?.plan_name === "vip";
@@ -1193,6 +1332,8 @@ async function startServer() {
         !isVip && (
           local?.leve_especial === true || 
           local?.plan_name === "especial" || 
+          userEntry?.leve_especial === true ||
+          userEntry?.plan === "especial" ||
           authUserMeta?.leve_especial === true || 
           authUserMeta?.plan === "especial" || 
           authUserMeta?.plan_name === "especial"
@@ -1211,7 +1352,7 @@ async function startServer() {
         "leve vip": isVip,
         lia_access: isVip,
         hotmart_status: isVip || isSpecial ? "approved" : "gratuito",
-        source: isVip || isSpecial ? (local ? "purchase_store" : "supabase_auth") : "default"
+        source: isVip || isSpecial ? (local ? "purchase_store" : (userEntry ? "users_store" : "supabase_auth")) : "default"
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || "Erro interno" });
@@ -1301,30 +1442,8 @@ async function startServer() {
         return res.status(500).json({ error: "Falha ao gravar dados na nuvem." });
       }
 
-      // Backup assíncrono em segundo plano para Supabase se configurado
-      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-      if (supabaseUrl && serviceKey && userId) {
-        (async () => {
-          try {
-            const origin = new URL(supabaseUrl).origin;
-            await fetch(`${origin}/rest/v1/leve_user_data`, {
-              method: "POST",
-              headers: {
-                apikey: serviceKey,
-                Authorization: `Bearer ${serviceKey}`,
-                "Content-Type": "application/json",
-                "Prefer": "resolution=merge-duplicates"
-              },
-              body: JSON.stringify({
-                user_id: userId,
-                data: data,
-                updated_at: new Date().toISOString()
-              })
-            });
-          } catch {}
-        })();
-      }
+      // Persistência em nuvem segura via Supabase Auth Admin (não depende de tabelas REST customizadas)
+      saveUserSyncToSupabase(userId, email, data, result.updatedAt, result.version).catch(() => {});
 
       return res.json({
         success: true,
@@ -1352,40 +1471,18 @@ async function startServer() {
 
       let payload = readUserSyncPayload(email, userId);
 
-      // Se não encontrou no disco local, tenta buscar no Supabase como backup
+      // Se não encontrou no disco local (ex: novo container Cloud Run ou outro aparelho), busca no Supabase Auth
       if (!payload) {
-        const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-        const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-        if (supabaseUrl && serviceKey && userId) {
-          try {
-            const origin = new URL(supabaseUrl).origin;
-            const supaRes = await fetch(`${origin}/rest/v1/leve_user_data?user_id=eq.${userId}&select=*`, {
-              headers: {
-                apikey: serviceKey,
-                Authorization: `Bearer ${serviceKey}`
-              }
-            });
-            if (supaRes.ok) {
-              const rows = await supaRes.json();
-              if (Array.isArray(rows) && rows.length > 0 && rows[0]?.data) {
-                // Restaura para o disco local para acessos futuros instantâneos
-                writeUserSyncPayload({
-                  email,
-                  userId,
-                  data: rows[0].data,
-                  clientTimestamp: new Date(rows[0].updated_at || Date.now()).getTime(),
-                  deviceId: "supabase_restore"
-                });
-                payload = {
-                  data: rows[0].data,
-                  updatedAt: new Date(rows[0].updated_at || Date.now()).getTime(),
-                  version: 1,
-                  email,
-                  userId
-                };
-              }
-            }
-          } catch {}
+        const cloudData = await fetchUserSyncFromSupabase(email, userId);
+        if (cloudData && cloudData.data) {
+          writeUserSyncPayload({
+            email: cloudData.email || email,
+            userId: cloudData.userId || userId,
+            data: cloudData.data,
+            clientTimestamp: cloudData.updatedAt,
+            deviceId: "supabase_restore"
+          });
+          payload = cloudData;
         }
       }
 
@@ -1852,16 +1949,7 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
 
       // 2. Se chaves do Supabase estiverem configuradas, sincroniza no Auth e na tabela
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
-      const kService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-      let supabaseServiceKey = "";
-      if (kService.startsWith("sb_secret_")) {
-        supabaseServiceKey = kService;
-      } else if (kAnon.startsWith("sb_secret_")) {
-        supabaseServiceKey = kAnon;
-      } else {
-        supabaseServiceKey = kService || kAnon;
-      }
+      const supabaseServiceKey = getSupabaseServiceRoleKey();
 
       const buyerName = buyer.name || data.name || buyer.first_name || "";
       let authSyncResult: any = null;

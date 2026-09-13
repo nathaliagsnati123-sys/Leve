@@ -45,4 +45,6 @@ export interface LeviaChatMessage {
   proposedActions?: LeviaProposedAction[];
   actionsExecuted?: boolean;
   actionsRejected?: boolean;
+  isFriendlyAdvice?: boolean;
+  adviceTheme?: string;
 }

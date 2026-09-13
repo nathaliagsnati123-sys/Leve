@@ -381,37 +381,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!hasAccount) return false;
     isSyncingRef.current = true;
     try {
+      // 1. Sempre envia os dados deste dispositivo para a nuvem primeiro para garantir que nada se perca
+      await syncDataNow(data);
+
+      // 2. Em seguida, busca os dados da nuvem para reconciliar e atualizar
       const cloudData = await pullCloudData();
       if (cloudData) {
         isApplyingRemoteRef.current = true;
-        const hasUnsavedEdits = lastLocalEditTimeRef.current > lastSyncedTimestampRef.current;
-        let nextData: AppData;
-        setData((prev) => {
-          nextData = (!hasUnsavedEdits || isDefaultPlaceholderData(prev))
-            ? sanitizeAppData(cloudData)
-            : mergeAppData(prev, cloudData);
-          saveAppData(nextData);
-          return nextData;
-        });
+        const nextData = sanitizeAppData(cloudData);
+        setData(nextData);
+        saveAppData(nextData);
         const now = Date.now();
         lastSyncedTimestampRef.current = now;
         setLastSyncTimestamp(now);
-        broadcastLocalTabUpdate(nextData!, now);
-        if (hasUnsavedEdits) {
-          await syncDataNow(nextData!);
-        }
+        broadcastLocalTabUpdate(nextData, now);
         return true;
-      } else {
-        // Envia os dados locais se a nuvem ainda não tem nada
-        const success = await syncDataNow(data);
-        if (success) {
-          const now = Date.now();
-          lastSyncedTimestampRef.current = now;
-          setLastSyncTimestamp(now);
-          broadcastLocalTabUpdate(data, now);
-        }
-        return success;
       }
+      return true;
     } catch (err) {
       console.warn('[forceSyncAll] Erro:', err);
       return false;
@@ -433,10 +419,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (cloudData && !isCancelled) {
           isApplyingRemoteRef.current = true;
           setData((prev) => {
-            const hasCloudContent = (cloudData.tasks?.length || 0) > 0 ||
-              (cloudData.habits?.length || 0) > 0 ||
-              Object.keys(cloudData.journal || {}).length > 0;
-            const next = (!hasCloudContent || isDefaultPlaceholderData(prev))
+            const next = isDefaultPlaceholderData(prev)
               ? sanitizeAppData(cloudData)
               : mergeAppData(prev, cloudData);
             saveAppData(next);
@@ -449,7 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (!cloudData && !isCancelled) {
           // Nuvem ainda sem dados: apenas envia se tivermos dados reais locais
           const hasLocalContent = (data.tasks?.length || 0) > 0 || (data.habits?.length || 0) > 0;
-          if (hasLocalContent) {
+          if (hasLocalContent && !isDefaultPlaceholderData(data)) {
             await syncDataNow(data);
             const now = Date.now();
             lastSyncedTimestampRef.current = now;
@@ -571,7 +554,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (check.hasUpdates) {
           isSyncingRef.current = true;
-          const cloudData = await pullCloudData(lastSyncedTimestampRef.current);
+          const cloudData = await pullCloudData(0);
           if (cloudData) {
             isApplyingRemoteRef.current = true;
             setData((prev) => {

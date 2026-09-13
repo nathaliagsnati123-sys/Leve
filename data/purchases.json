@@ -1,1 +1,14 @@
-{}
+{
+  "nathaliagsnati123@gmail.com": {
+    "email": "nathaliagsnati123@gmail.com",
+    "user_id": "79e04a29-2e07-42f2-9953-b1bca7f423a0",
+    "buyer_name": "Nathe",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": false,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-13T11:40:00.000Z"
+  }
+}

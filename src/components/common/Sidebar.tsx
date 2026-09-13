@@ -9,6 +9,7 @@ import {
   Zap, Shield, GraduationCap, Dumbbell
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
+import { UserAvatar } from './UserAvatar';
 
 export const Sidebar: React.FC = () => {
   const { 
@@ -19,15 +20,15 @@ export const Sidebar: React.FC = () => {
     todayCompletionPercentage
   } = useApp();
 
-  const { user, setIsAuthModalOpen, syncStatus, plan, planLabel, canAccessFeature } = useAuth();
-  const treatmentPreference = data.user?.treatmentPreference;
+  const { user, setIsAuthModalOpen, syncStatus, plan, planLabel, canAccessFeature, treatmentPreference: authPref } = useAuth();
+  const treatmentPreference = authPref || data.user?.treatmentPreference;
   const isMale = treatmentPreference === 'masculino';
 
   const mainNav = [
     { id: 'my-day' as ActiveTab, label: 'Meu Dia', icon: Sun },
     { id: 'calendar' as ActiveTab, label: 'Calendário & Semana', icon: Calendar },
     { id: 'habits' as ActiveTab, label: isMale ? 'Hábitos & Disciplina' : 'Meus Hábitos', icon: isMale ? Target : Sprout },
-    { id: 'journal' as ActiveTab, label: isMale ? 'Meu Caderno & Notas' : 'Meu Caderno & Gratidão', icon: BookOpen },
+    { id: 'journal' as ActiveTab, label: isMale ? 'Diário de Gratidão' : 'Meu Caderno & Gratidão', icon: BookOpen },
     { id: 'studies' as ActiveTab, label: 'Caderno de Estudos', icon: GraduationCap },
     { id: 'spirituality' as ActiveTab, label: isMale ? 'Fé & Oração' : 'Fé & Momento com Deus', icon: isMale ? Shield : HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
@@ -257,13 +258,11 @@ export const Sidebar: React.FC = () => {
           title="Abrir Configurações do Perfil"
         >
           <div className="flex items-center gap-2 overflow-hidden">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${
-              activeTab === 'settings'
-                ? 'bg-emerald-800 text-emerald-100'
-                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200'
-            }`}>
-              {data.user.avatar || '🌿'}
-            </div>
+            <UserAvatar 
+              avatar={data.user.avatar} 
+              name={data.user.name} 
+              size="sm" 
+            />
             <div className="truncate">
               <p className={`text-xs font-semibold truncate ${
                 activeTab === 'settings' ? 'text-white' : 'text-stone-900 dark:text-stone-100'

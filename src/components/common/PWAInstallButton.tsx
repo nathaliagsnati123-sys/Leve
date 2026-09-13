@@ -1,28 +1,40 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
-import { Download, Smartphone, X } from 'lucide-react';
+import { Download, Smartphone, Laptop, Check, X } from 'lucide-react';
 
-export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+export const PWAInstallButton: React.FC<{ 
+  compact?: boolean;
+  showStatusWhenInstalled?: boolean;
+}> = ({ compact = false, showStatusWhenInstalled = true }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [showDesktopGuide, setShowDesktopGuide] = useState(false);
 
-  // If already installed as PWA standalone, do not display
+  // If already installed as PWA standalone
   if (isInstalled) {
+    if (showStatusWhenInstalled) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800">
+          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>App Instalado</span>
+        </span>
+      );
+    }
     return null;
   }
 
-  // Desktop / Android / Chrome flow
+  // Desktop / Android / Chrome flow with beforeinstallprompt
   if (isInstallable) {
     return (
       <button
         id="pwa-install-btn"
         onClick={install}
-        className={`flex items-center gap-1.5 font-medium rounded-full transition shadow-xs ${
+        className={`flex items-center gap-1.5 font-medium rounded-full transition shadow-xs cursor-pointer ${
           compact
             ? 'px-2.5 py-1.5 text-xs bg-[#24463E] text-emerald-100 hover:bg-[#1C3630]'
             : 'px-3.5 py-2 text-xs sm:text-sm bg-[#1F3A34] text-white hover:bg-[#162A25]'
         }`}
-        title="Instalar o LEVE no seu celular ou computador"
+        title="Instalar o LEVE no seu computador ou celular"
       >
         <Download className="w-3.5 h-3.5 text-emerald-300" />
         <span>Instalar LEVE</span>
@@ -37,7 +49,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
         <button
           id="pwa-ios-guide-btn"
           onClick={() => setShowIOSGuide(true)}
-          className={`flex items-center gap-1.5 font-medium rounded-full border border-stone-300 dark:border-stone-700 transition ${
+          className={`flex items-center gap-1.5 font-medium rounded-full border border-stone-300 dark:border-stone-700 transition cursor-pointer ${
             compact
               ? 'px-2.5 py-1 text-xs text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
               : 'px-3 py-1.5 text-xs text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
@@ -60,7 +72,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
                 </div>
                 <button 
                   onClick={() => setShowIOSGuide(false)}
-                  className="p-1 rounded-full text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
+                  className="p-1 rounded-full text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -81,7 +93,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
               </div>
               <button
                 onClick={() => setShowIOSGuide(false)}
-                className="mt-6 w-full rounded-xl bg-[#1F3A34] py-2.5 text-xs sm:text-sm font-medium text-white hover:bg-[#162A25] transition"
+                className="mt-6 w-full rounded-xl bg-[#1F3A34] py-2.5 text-xs sm:text-sm font-medium text-white hover:bg-[#162A25] transition cursor-pointer"
               >
                 Entendi
               </button>
@@ -92,5 +104,67 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
     );
   }
 
-  return null;
+  // Desktop / other browsers fallback button
+  return (
+    <>
+      <button
+        id="pwa-install-btn"
+        onClick={() => {
+          if (!install()) {
+            setShowDesktopGuide(true);
+          }
+        }}
+        className={`flex items-center gap-1.5 font-medium rounded-full transition shadow-xs cursor-pointer ${
+          compact
+            ? 'px-2.5 py-1.5 text-xs bg-[#24463E] text-emerald-100 hover:bg-[#1C3630]'
+            : 'px-3.5 py-2 text-xs sm:text-sm bg-[#1F3A34] text-white hover:bg-[#162A25]'
+        }`}
+        title="Como instalar o LEVE no Computador"
+      >
+        <Laptop className="w-3.5 h-3.5 text-emerald-300" />
+        <span>Instalar no Computador</span>
+      </button>
+
+      {showDesktopGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-stone-900 p-6 shadow-2xl border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
+                  <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
+                </div>
+                <h3 className="font-serif text-base font-semibold">Instalar no Computador</h3>
+              </div>
+              <button 
+                onClick={() => setShowDesktopGuide(false)}
+                className="p-1 rounded-full text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+              <p className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">1</span>
+                <span>Abra o LEVE no navegador <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong>.</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">2</span>
+                <span>Na barra de endereços (ao lado da estrela de favoritos), clique no ícone de <strong>instalar aplicativo</strong> (ícone de tela com setinha).</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">3</span>
+                <span>Ou clique no menu de 3 pontinhos ⋮ &gt; <strong>"Instalar LEVE"</strong>.</span>
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDesktopGuide(false)}
+              className="mt-6 w-full rounded-xl bg-[#1F3A34] py-2.5 text-xs sm:text-sm font-medium text-white hover:bg-[#162A25] transition cursor-pointer"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { X, Search, CheckSquare, Sprout, Target, BookOpen, HeartHandshake, Image, ShoppingBag, Receipt, ArrowRight, TrendingUp, Sparkles } from 'lucide-react';
 import { JournalEntry } from '../../types';
 
@@ -12,6 +13,8 @@ export const SearchModal: React.FC = () => {
     setEditingTask, 
     setIsTaskModalOpen 
   } = useApp();
+  const { treatmentPreference: authPref } = useAuth();
+  const isMale = (authPref || data.user?.treatmentPreference) === 'masculino';
 
   const [query, setQuery] = useState('');
 
@@ -88,7 +91,7 @@ export const SearchModal: React.FC = () => {
 
       if (texts.includes(q)) {
         matches.push({
-          type: 'Caderno',
+          type: isMale ? 'Diário' : 'Caderno',
           icon: BookOpen,
           title: `Registro de ${j.date}`,
           subtitle: j.specialMoment || (j.gratitude && j.gratitude[0]) || 'Anotações diárias',

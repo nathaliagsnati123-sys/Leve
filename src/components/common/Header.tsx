@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { PWAInstallButton } from './PWAInstallButton';
 import { formatDateToBrazilian, getTodayDateString } from '../../services/storage';
-import { Search, Award, Menu, User, Cloud } from 'lucide-react';
+import { Search, Award, Menu, User, Cloud, Camera } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
+import { AvatarPickerModal } from '../modals/AvatarPickerModal';
 
 export const Header: React.FC = () => {
   const { 
@@ -14,7 +15,8 @@ export const Header: React.FC = () => {
     todayCompletionPercentage
   } = useApp();
 
-  const { user, setIsAuthModalOpen, syncStatus } = useAuth();
+  const { user, setIsAuthModalOpen } = useAuth();
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
   const todayBrazilian = formatDateToBrazilian(getTodayDateString());
   const unlockedCount = Object.keys(data.unlockedAchievements).length;
@@ -57,24 +59,54 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Action controls on right */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Account Button */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Opção para colocar Avatar ou Foto do perfil */}
+          <button
+            id="header-avatar-btn"
+            type="button"
+            onClick={() => setIsAvatarPickerOpen(true)}
+            className="group relative flex items-center gap-1.5 p-1 pr-2.5 sm:pr-3 rounded-full text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100/90 dark:bg-stone-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-stone-200/80 dark:border-stone-700/80 transition cursor-pointer shadow-2xs"
+            title="Adicionar ou alterar sua foto / avatar"
+            aria-label="Adicionar ou alterar sua foto / avatar"
+          >
+            <div className="relative">
+              <UserAvatar 
+                avatar={data.user.avatar} 
+                name={data.user.name} 
+                size="sm" 
+              />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#1F3A34] text-white flex items-center justify-center ring-1 ring-white dark:ring-stone-900 group-hover:scale-115 transition-transform">
+                <Camera className="w-2 h-2 text-emerald-300" />
+              </div>
+            </div>
+            <div className="flex flex-col text-left leading-none max-w-[80px] sm:max-w-[105px]">
+              <span className="font-semibold text-xs text-stone-800 dark:text-stone-100 truncate">
+                {data.user.name || 'Meu Perfil'}
+              </span>
+              <span className="text-[9px] text-stone-400 dark:text-stone-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                Alterar foto
+              </span>
+            </div>
+          </button>
+
+          {/* Account & Sync Button */}
           <button
             id="header-auth-btn"
+            type="button"
             onClick={() => setIsAuthModalOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100 dark:bg-stone-800/70 hover:bg-stone-200/70 dark:hover:bg-stone-700/60 border border-stone-200/70 dark:border-stone-700/60 transition cursor-pointer"
-            title={user ? `Conectado como ${user.email}` : 'Acessar de qualquer dispositivo'}
+            title={user ? `Conectado como ${user.email} (Sincronizado)` : 'Acessar de outros dispositivos'}
           >
             {user ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-300/40"></span>
-                <span className="hidden sm:inline max-w-[90px] truncate">{data.user.name || 'Conta'}</span>
                 <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden md:inline text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">Nuvem</span>
               </>
             ) : (
               <>
                 <User className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400" />
-                <span className="hidden sm:inline">Entrar</span>
+                <span className="hidden md:inline">Entrar</span>
               </>
             )}
           </button>
@@ -104,9 +136,6 @@ export const Header: React.FC = () => {
             <Search className="w-4 h-4" />
           </button>
 
-          {/* PWA Install Button */}
-          <PWAInstallButton compact />
-
           {/* Daily completion mini pill on larger screens */}
           <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-600 dark:text-stone-300">
             <span>Dia:</span>
@@ -114,7 +143,14 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de seleção de foto ou avatar */}
+      <AvatarPickerModal
+        isOpen={isAvatarPickerOpen}
+        onClose={() => setIsAvatarPickerOpen(false)}
+      />
     </header>
   );
 };
+
 

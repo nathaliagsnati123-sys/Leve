@@ -240,11 +240,34 @@ export function subscribeToCloudSyncEvents(
     }
   }
 
+  // Reconexão imediata ao voltar ao app / desbloquear a tela do celular
+  const handleVisibilityOrFocus = () => {
+    if (document.visibilityState === 'visible' && !isClosed) {
+      if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+        if (eventSource) eventSource.close();
+        eventSource = null;
+        clearTimeout(reconnectTimer);
+        connect();
+      }
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    window.addEventListener('online', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+  }
+
   connect();
 
   return () => {
     isClosed = true;
     clearTimeout(reconnectTimer);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('online', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    }
     if (eventSource) {
       eventSource.close();
       eventSource = null;
@@ -295,14 +318,18 @@ export function subscribeToLocalTabUpdates(
  */
 export function isDefaultPlaceholderData(data: AppData | null | undefined): boolean {
   if (!data) return true;
-  const taskIds = (data.tasks || []).map(t => t.id);
+  const taskIds = (data.tasks || []).map(t => t?.id).filter(Boolean);
   const isDefaultTasks = taskIds.length === 0 ||
     (taskIds.length <= 2 && taskIds.every(id => id === 't-prioridade-1' || id === 't-tarefa-1'));
-  const habitIds = (data.habits || []).map(h => h.id);
-  const isDefaultHabits = habitIds.length === 0 || (habitIds.length === 1 && habitIds[0] === 'h-1');
+  const habitIds = (data.habits || []).map(h => h?.id).filter(Boolean);
+  const isDefaultHabits = habitIds.length === 0 || (habitIds.length <= 1 && (!habitIds[0] || habitIds[0] === 'h-1'));
   const hasNoJournal = Object.keys(data.journal || {}).length === 0;
-  const hasNoUserName = !data.user?.name;
-  return isDefaultTasks && isDefaultHabits && hasNoJournal && hasNoUserName;
+  const hasNoCustomData = (!data.prayers || data.prayers.length <= 1) &&
+    (!data.devotionals || data.devotionals.length === 0) &&
+    (!data.goals || data.goals.length === 0) &&
+    (!data.bills || data.bills.length === 0);
+
+  return isDefaultTasks && isDefaultHabits && hasNoJournal && hasNoCustomData;
 }
 
 /**
@@ -345,18 +372,17 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
       taskMap.set(t.id, t);
     }
   });
-  // Mescla com os da nuvem
+  // Mescla com os da nuvem (priorizando status da nuvem para tarefas existentes)
   (cloud.tasks || []).forEach(ct => {
     if (!ct?.id) return;
     const existing = taskMap.get(ct.id);
     if (!existing) {
       taskMap.set(ct.id, ct);
     } else {
-      // Se a tarefa foi completada em qualquer um dos dispositivos, mantém completada
       taskMap.set(ct.id, {
         ...existing,
         ...ct,
-        completed: existing.completed || ct.completed
+        completed: ct.completed !== undefined ? ct.completed : existing.completed
       });
     }
   });

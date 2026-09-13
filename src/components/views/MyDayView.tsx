@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Plus, Check, Star, Sparkles, Brain, Moon, Droplets, 
-  Sprout, Heart, HeartHandshake, ChevronRight, Clock, 
-  Filter, CheckCircle2, ArrowRight, Trash2, X, RefreshCw, Lock,
-  Bell, BellRing, Zap, Target, Shield, BookOpen
+  Sprout, Heart, ChevronRight, CheckCircle2, Trash2, X, RefreshCw,
+  Bell, BookOpen, Feather
 } from 'lucide-react';
+import { MyDayDetailsModal, MyDayModalType } from '../modals/MyDayDetailsModal';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { 
-  MOTIVATIONAL_QUOTES, 
   SCRIPTURE_VERSES, 
   getSelfCareSuggestions, 
   getRandomMotivationalQuote 
@@ -32,7 +31,6 @@ export const MyDayView: React.FC = () => {
     data, 
     addTask,
     deleteTask,
-    deleteHabit,
     toggleTaskCompleted, 
     openNewTaskModal, 
     openEditTaskModal,
@@ -47,9 +45,7 @@ export const MyDayView: React.FC = () => {
     setActiveTab,
     showToast,
     updateTask,
-    notificationSettings,
-    notificationPermission,
-    requestNotificationPermission
+    notificationSettings
   } = useApp();
 
   const { user, hasLeveAccess, refreshEntitlements, isCheckingEntitlements } = useAuth();
@@ -65,9 +61,7 @@ export const MyDayView: React.FC = () => {
   };
 
   const especialCheckoutUrl = buildHotmartUrl(HOTMART_CHECKOUT.ESPECIAL, user?.email);
-
   const todayStr = getTodayDateString();
-  const todayBrazilian = formatDateToBrazilian(todayStr);
 
   // Dynamic greeting based on time of day
   const currentHour = new Date().getHours();
@@ -85,7 +79,13 @@ export const MyDayView: React.FC = () => {
   const pref = normalizeTreatmentPreference(treatmentPreference);
   const hiddenSections = data.user?.hiddenSections || [];
 
-  // Dynamic motivational quote - changes every time the user enters the application and adapts to gender
+  // Extrai o primeiro nome para uma saudação personalizada e afetiva como no mockup ("Bom dia, Nathe!")
+  const rawName = data.user?.name?.trim();
+  const firstName = rawName 
+    ? rawName.split(' ')[0] 
+    : (pref === 'masculino' ? 'Amigo' : 'Nathe');
+
+  // Dynamic motivational quote
   const [dailyQuote, setDailyQuote] = useState<string>(() => {
     const previous = typeof window !== 'undefined' ? sessionStorage.getItem('leve_last_motivational_quote') || '' : '';
     const newQuote = getRandomMotivationalQuote(previous, treatmentPreference);
@@ -113,42 +113,34 @@ export const MyDayView: React.FC = () => {
   const selfCareList = getSelfCareSuggestions(treatmentPreference);
   const dailySelfCare = selfCareList[dayOfYear % selfCareList.length];
 
-  // Section visibility based on user preferences and gender profile
-  const showHabits = !isSectionHidden('habits', hiddenSections, treatmentPreference);
-  const showHydration = !isSectionHidden('hydration', hiddenSections, treatmentPreference);
-  const showSelfCare = !isSectionHidden('self-care', hiddenSections, treatmentPreference);
-  const showSpirituality = !isSectionHidden('spirituality', hiddenSections, treatmentPreference);
-  const showJournal = !isSectionHidden('journal', hiddenSections, treatmentPreference);
+  // Visibilidade das seções pagas (somente para quem tem LEVE Especial ou VIP)
+  const showHabits = hasLeveAccess && !isSectionHidden('habits', hiddenSections, treatmentPreference);
+  const showHydration = hasLeveAccess && !isSectionHidden('hydration', hiddenSections, treatmentPreference);
+  const showSelfCare = hasLeveAccess && !isSectionHidden('self-care', hiddenSections, treatmentPreference);
+  const showSpirituality = hasLeveAccess && !isSectionHidden('spirituality', hiddenSections, treatmentPreference);
+  const showJournal = hasLeveAccess && !isSectionHidden('journal', hiddenSections, treatmentPreference);
 
-  const greetingSubtitle = getGreetingSubtitle(treatmentPreference);
-  const selfCareTitle = getSelfCareSectionTitle(treatmentPreference);
-  const gratitudeTitle = getGratitudeWidgetTitle(treatmentPreference);
   const gratitudePlaceholder = getGratitudePlaceholder(treatmentPreference);
   const endDayButtonLabel = getEndDayButtonLabel(treatmentPreference);
 
-  // Tasks for today
-  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
-  const [quickGratitude, setQuickGratitude] = useState('');
-
-  // Priorities of the day state
+  // Formulário rápido de prioridade
   const [isAddingPriority, setIsAddingPriority] = useState(false);
   const [newPriorityTitle, setNewPriorityTitle] = useState('');
-  const [newPriorityCategory, setNewPriorityCategory] = useState<string>('Trabalho');
-  const [newPriorityTime, setNewPriorityTime] = useState('');
+  const [newPriorityLevel, setNewPriorityLevel] = useState<Priority>('high');
 
+  // Modal com todos os itens cadastrados ao clicar na setinha
+  const [detailsModalType, setDetailsModalType] = useState<MyDayModalType | null>(null);
+
+  // Gratidão rápida
+  const [quickGratitude, setQuickGratitude] = useState('');
+
+  // Tarefas de hoje
   const todayTasks = data.tasks.filter((t) => t.date === todayStr);
 
-  const filteredTasks = todayTasks.filter((t) => {
-    if (filter === 'pending') return !t.completed;
-    if (filter === 'completed') return t.completed;
-    return true;
-  });
-
-  // Priorities of the day: SOMENTE tarefas explicitamente marcadas com isPriority: true
+  // Prioridades do dia (tarefas explicitamente marcadas com isPriority ou top 3)
   const priorityTasks = todayTasks
     .filter((t) => Boolean(t.isPriority) === true)
     .sort((a, b) => {
-      // Pending first
       if (a.completed !== b.completed) return a.completed ? 1 : -1;
       return 0;
     })
@@ -161,55 +153,25 @@ export const MyDayView: React.FC = () => {
     addTask({
       title: newPriorityTitle.trim(),
       date: todayStr,
-      priority: 'medium',
-      isPriority: true, // Marcada explicitamente como prioridade
-      category: newPriorityCategory || 'Trabalho',
-      repeat: 'none',
-      time: newPriorityTime.trim() || undefined
+      priority: newPriorityLevel,
+      isPriority: true,
+      category: 'Geral',
+      repeat: 'none'
     });
 
     setNewPriorityTitle('');
-    setNewPriorityTime('');
     setIsAddingPriority(false);
     showToast('Prioridade adicionada ao seu dia! ⭐', 'success');
   };
 
-  // Desmarcar de Prioridades: continua existindo em Tarefas, mas sai de Prioridades
-  const handleRemovePriority = (task: Task) => {
-    updateTask({
-      ...task,
-      isPriority: false
-    });
-    showToast(`"${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" removida de Prioridades (mantida em Tarefas).`, 'info');
-  };
-
-  // Alterna o status de prioridade da tarefa
-  const handleTogglePriority = (task: Task) => {
-    const willBePriority = !task.isPriority;
-    updateTask({
-      ...task,
-      isPriority: willBePriority
-    });
-    if (willBePriority) {
-      showToast(`"${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" marcada como Prioridade do dia! ⭐`, 'success');
-    } else {
-      showToast(`"${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" desmarcada de Prioridades (mantida em Tarefas).`, 'info');
-    }
-  };
-
-  const handleDeletePriority = (taskId: string, taskTitle: string) => {
-    deleteTask(taskId);
-    showToast(`Tarefa "${taskTitle.length > 20 ? taskTitle.slice(0, 20) + '...' : taskTitle}" apagada.`, 'info');
-  };
-
-  // Water data
+  // Água
   const water = data.hydration[todayStr] || { date: todayStr, amountMl: 0, targetMl: 2000, logs: [] };
   const waterPercent = Math.min(100, Math.round((water.amountMl / water.targetMl) * 100));
 
-  // Self care completed
+  // Autocuidado
   const isSelfCareDone = (data.selfCareCompleted[todayStr] || []).includes(dailySelfCare.text);
 
-  // Quick gratitude submit
+  // Gratidão rápida
   const handleSaveQuickGratitude = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickGratitude.trim()) return;
@@ -228,873 +190,602 @@ export const MyDayView: React.FC = () => {
     showToast(pref === 'masculino' ? 'Registro salvo no seu caderno.' : 'Gratidão registrada no seu caderno! 🤍');
   };
 
+  // Cálculo SVG do anel de progresso circular compacto
+  const circleRadius = 18;
+  const circumference = 2 * Math.PI * circleRadius;
+  const strokeDashoffset = circumference - (todayCompletionPercentage / 100) * circumference;
+
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-5xl mx-auto pb-10">
-      {/* 1. Welcome & Greeting Banner */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1F3A34] via-[#24463E] to-[#162924] text-white p-4 sm:p-5 shadow-xs">
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1 sm:space-y-1.5">
-            <div className="flex items-center gap-2">
-              {pref !== 'masculino' && <span className="text-lg sm:text-xl">{greetingEmoji}</span>}
-              <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-emerald-50">
-                {data.user.name ? `${greeting}, ${data.user.name}!` : (pref === 'masculino' ? `${greeting}!` : `${greeting}! 🌿`)}
+    <div className="space-y-3.5 max-w-4xl mx-auto pb-12">
+      {/* 1. Welcome & Greeting Banner (Versão mais compacta, elegante e harmoniosa) */}
+      <section className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#0c201a] via-[#112e25] to-[#091713] text-white p-3 sm:px-4.5 sm:py-3 border border-emerald-900/50 shadow-xs">
+        {/* Folhagem botânica suave decorativa ao fundo */}
+        <svg 
+          className="absolute -right-4 -top-4 w-32 h-32 opacity-15 pointer-events-none text-emerald-400" 
+          viewBox="0 0 100 100" 
+          fill="currentColor"
+        >
+          <path d="M50 0 C70 30 90 40 100 60 C80 65 65 60 50 100 C45 70 35 50 0 50 C25 45 40 30 50 0 Z" />
+        </svg>
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
+          <div className="space-y-1 max-w-lg">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base sm:text-lg">{greetingEmoji}</span>
+              <h1 className="font-serif text-base sm:text-lg font-bold tracking-tight text-white">
+                {greeting}, <span className="text-[#4ADE80] font-semibold">{firstName}</span>!
               </h1>
             </div>
-            <div className="flex items-start gap-2 max-w-xl">
-              <p className="font-serif italic text-emerald-100/90 text-xs sm:text-sm leading-relaxed">
-                "{dailyQuote}"
+
+            <div className="flex items-center gap-1.5">
+              <p className="font-serif italic text-emerald-100/90 text-xs leading-snug">
+                "{dailyQuote}" 🍃
               </p>
               <button
                 type="button"
                 onClick={shuffleMotivationalQuote}
-                className="p-1 text-emerald-300/80 hover:text-white hover:bg-white/10 rounded-lg transition shrink-0 mt-0.5 cursor-pointer"
+                className="p-0.5 text-emerald-300/70 hover:text-white hover:bg-white/10 rounded transition shrink-0 cursor-pointer"
                 title="Trocar frase de motivação"
                 aria-label="Trocar frase de motivação"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className="w-2.5 h-2.5" />
               </button>
             </div>
-            <div className="flex items-center gap-2 pt-0.5 text-[10px] text-emerald-300 font-semibold tracking-wide">
-              <span className="uppercase tracking-widest">{greetingSubtitle}</span>
-              {notificationSettings.enabled && notificationSettings.dailyMotivationEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('settings')}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-200 transition font-normal cursor-pointer"
-                  title="Ajustar horário do lembrete diário motivador"
-                >
-                  <Bell className="w-2.5 h-2.5 text-emerald-300" />
-                  <span>Notificação diária às {notificationSettings.dailyMotivationTime || '09:00'}</span>
-                </button>
-              )}
+
+            <div className="pt-0.5">
+              <button
+                id="my-day-brain-dump-btn"
+                onClick={() => setIsBrainDumpOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-100 border border-emerald-600/40 text-[11px] font-semibold transition cursor-pointer shadow-2xs group"
+                title="Tirar da cabeça e descarregar pensamentos"
+              >
+                <Brain className="w-3 h-3 text-emerald-400 group-hover:scale-110 transition-transform" />
+                <span>Tirar da cabeça</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center gap-2">
-            <button
-              id="my-day-brain-dump-btn"
-              onClick={() => setIsBrainDumpOpen(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 text-xs font-semibold transition group shadow-xs cursor-pointer"
-              title="Tirar da cabeça e descarregar pensamentos"
-            >
-              <Brain className="w-3.5 h-3.5 text-emerald-300 group-hover:scale-110 transition-transform" />
-              <span>Tirar da cabeça</span>
-            </button>
-          </div>
-        </div>
+          {/* Anel de Progresso Circular compacto à direita */}
+          <div className="flex items-center gap-2.5 shrink-0 bg-emerald-950/40 border border-emerald-800/40 px-3 py-1.5 rounded-xl backdrop-blur-xs self-start sm:self-center">
+            <div className="relative w-11 h-11 flex items-center justify-center shrink-0">
+              <svg className="w-11 h-11 transform -rotate-90">
+                <circle
+                  cx="22"
+                  cy="22"
+                  r={circleRadius}
+                  className="stroke-emerald-950/90"
+                  strokeWidth="3.5"
+                  fill="transparent"
+                />
+                <circle
+                  cx="22"
+                  cy="22"
+                  r={circleRadius}
+                  className="stroke-emerald-400 transition-all duration-700 ease-out"
+                  strokeWidth="3.5"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  fill="transparent"
+                />
+              </svg>
+              <span className="absolute text-[11px] font-bold text-white">
+                {todayCompletionPercentage}%
+              </span>
+            </div>
 
-        {/* Progress Bar of the Day */}
-        <div className="mt-3.5 pt-3 border-t border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-emerald-200 text-xs">Progresso do dia:</span>
-            <span className="font-bold text-white text-xs sm:text-sm">{todayCompletionPercentage}%</span>
-            <span className="text-emerald-300/80 text-[10px] sm:text-[11px]">
-              {pref === 'masculino' 
-                ? (todayCompletionPercentage === 100 
-                    ? '100% executado. Meta batida!' 
-                    : todayCompletionPercentage > 50 
-                    ? 'Mais de 50% concluído com foco.' 
-                    : 'Execução em andamento. Mantenha a disciplina.')
-                : (todayCompletionPercentage === 100 
-                    ? 'Dia completo com leveza! ✨' 
-                    : todayCompletionPercentage > 50 
-                    ? 'Mais da metade realizada no seu ritmo 🌱' 
-                    : 'Dando um passo de cada vez 🌿')}
-            </span>
-          </div>
-          <div className="w-full sm:w-44 h-1.5 bg-emerald-950/80 rounded-full overflow-hidden shrink-0">
-            <div 
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-200 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(Math.max(todayCompletionPercentage, 0), 100)}%` }}
-            />
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-bold text-white tracking-tight">Progresso do dia</p>
+              <p className="text-[10px] text-emerald-200/80 leading-tight">
+                {todayCompletionPercentage === 100 
+                  ? 'Dia completo com leveza! ✨' 
+                  : todayCompletionPercentage > 50 
+                  ? 'Mais da metade realizada 🌱' 
+                  : 'Dando um passo de cada vez 🌿'}
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Main Priorities for Today */}
-      <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-            <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-              Prioridades do Dia
-            </h2>
-            {priorityTasks.length > 0 && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-semibold">
-                {priorityTasks.filter((t) => t.completed).length}/{priorityTasks.length}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              id="add-priority-btn"
-              onClick={() => setIsAddingPriority(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 text-xs font-semibold transition"
-              title="Adicionar uma prioridade para hoje"
-            >
-              <Plus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Adicionar prioridade</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Inline form to add new priority */}
-        {isAddingPriority && (
-          <form
-            onSubmit={handleAddPriority}
-            className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-3 animate-in fade-in duration-200"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                Nova Prioridade de Hoje
-              </span>
+      {/* 2. Grid Bento Sincronizada (2 Colunas Limpas e Balanceadas) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
+        
+        {/* CARD 1: Prioridades do Dia */}
+        <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs flex flex-col justify-between space-y-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+              <div className="flex items-center gap-1.5">
+                <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                <h2 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                  Prioridades do Dia
+                </h2>
+              </div>
               <button
-                type="button"
-                onClick={() => {
-                  setIsAddingPriority(false);
-                  setNewPriorityTitle('');
-                }}
-                className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg transition"
+                onClick={() => setIsAddingPriority(!isAddingPriority)}
+                className="w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800/90 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 flex items-center justify-center transition cursor-pointer"
+                title="Adicionar prioridade"
               >
-                <X className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
               </button>
             </div>
 
-            <input
-              type="text"
-              autoFocus
-              value={newPriorityTitle}
-              onChange={(e) => setNewPriorityTitle(e.target.value)}
-              placeholder="O que é essencial realizar hoje? (Ex: Entregar relatório, ligar para médico...)"
-              className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
-            />
+            {/* Formulário rápido inline para nova prioridade */}
+            {isAddingPriority && (
+              <form onSubmit={handleAddPriority} className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2">
+                <input
+                  type="text"
+                  value={newPriorityTitle}
+                  onChange={(e) => setNewPriorityTitle(e.target.value)}
+                  placeholder="Nome do foco prioritário..."
+                  autoFocus
+                  className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700 text-stone-900 dark:text-stone-100 focus:outline-none"
+                />
+                <div className="flex items-center justify-between gap-1 text-[10px]">
+                  <div className="flex items-center gap-1">
+                    {(['high', 'medium', 'low'] as Priority[]).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setNewPriorityLevel(p)}
+                        className={`px-2 py-0.5 rounded font-bold uppercase transition ${
+                          newPriorityLevel === p
+                            ? p === 'high' 
+                              ? 'bg-rose-500 text-white' 
+                              : p === 'medium' 
+                              ? 'bg-amber-500 text-white' 
+                              : 'bg-stone-600 text-white'
+                            : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+                        }`}
+                      >
+                        {p === 'high' ? 'Alta' : p === 'medium' ? 'Média' : 'Baixa'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingPriority(false)}
+                      className="px-2 py-1 text-stone-500 hover:text-stone-700 text-xs"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!newPriorityTitle.trim()}
+                      className="px-2.5 py-1 rounded bg-[#1F3A34] text-white text-xs font-semibold disabled:opacity-50"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
 
-            <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Category selector */}
-                <select
-                  value={newPriorityCategory}
-                  onChange={(e) => setNewPriorityCategory(e.target.value)}
-                  className="px-2.5 py-1 text-xs rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200"
+            {/* Lista de Prioridades */}
+            <div className="space-y-2">
+              {priorityTasks.length > 0 ? (
+                priorityTasks.map((t) => (
+                  <div 
+                    key={t.id} 
+                    className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-stone-50/70 dark:bg-stone-850/50 hover:bg-stone-100 dark:hover:bg-stone-800/70 transition border border-stone-100 dark:border-stone-800/60"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleTaskCompleted(t.id)}
+                        className={`w-5 h-5 rounded-full border-2 transition flex items-center justify-center shrink-0 cursor-pointer ${
+                          t.completed
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'border-stone-400 dark:border-stone-500 hover:border-emerald-500 text-transparent'
+                        }`}
+                      >
+                        {t.completed && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+
+                      <span 
+                        onClick={() => openEditTaskModal(t)}
+                        className={`text-xs sm:text-sm font-medium truncate cursor-pointer ${
+                          t.completed 
+                            ? 'line-through text-stone-400 dark:text-stone-500' 
+                            : 'text-stone-800 dark:text-stone-200'
+                        }`}
+                      >
+                        {t.title}
+                      </span>
+                    </div>
+
+                    {/* Tag de Prioridade Elegante */}
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
+                      t.priority === 'high'
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                        : t.priority === 'medium'
+                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                        : 'bg-stone-500/15 text-stone-600 dark:text-stone-300 border border-stone-500/30'
+                    }`}>
+                      {t.priority === 'high' ? 'ALTA' : t.priority === 'medium' ? 'MÉDIA' : 'BAIXA'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center">
+                  <p className="text-xs text-stone-400 dark:text-stone-500 mb-2">
+                    Nenhum foco prioritário definido ainda.
+                  </p>
+                  <button
+                    onClick={() => setIsAddingPriority(true)}
+                    className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Definir uma prioridade</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDetailsModalType('priorities')}
+            className="pt-2 text-xs text-stone-400 hover:text-emerald-600 dark:text-stone-400 dark:hover:text-emerald-400 flex items-center justify-between w-full border-t border-stone-100 dark:border-stone-800/80 transition cursor-pointer group"
+          >
+            <span className="group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              Ver todas ({priorityTasks.length})
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </section>
+
+        {/* CARD 2: Tarefas de Hoje (N) */}
+        <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs flex flex-col justify-between space-y-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h2 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                  Tarefas de Hoje ({todayTasks.length})
+                </h2>
+              </div>
+              <button
+                onClick={openNewTaskModal}
+                className="w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800/90 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 flex items-center justify-center transition cursor-pointer"
+                title="Adicionar tarefa"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {todayTasks.length > 0 ? (
+                todayTasks.slice(0, 3).map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-stone-50/70 dark:bg-stone-850/50 hover:bg-stone-100 dark:hover:bg-stone-800/70 transition border border-stone-100 dark:border-stone-800/60"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleTaskCompleted(t.id)}
+                        className={`w-5 h-5 rounded-md border-2 transition flex items-center justify-center shrink-0 cursor-pointer ${
+                          t.completed
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'border-stone-400 dark:border-stone-500 hover:border-emerald-500 text-transparent'
+                        }`}
+                      >
+                        {t.completed && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+
+                      <div 
+                        onClick={() => openEditTaskModal(t)}
+                        className="cursor-pointer min-w-0"
+                      >
+                        <p className={`text-xs sm:text-sm font-medium truncate ${
+                          t.completed 
+                            ? 'line-through text-stone-400 dark:text-stone-500' 
+                            : 'text-stone-800 dark:text-stone-200'
+                        }`}>
+                          {t.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {t.category && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-400">
+                              {t.category}
+                            </span>
+                          )}
+                          {t.priority === 'high' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                              ALTA
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center">
+                  <p className="text-xs text-stone-400 dark:text-stone-500 mb-2">
+                    Nenhuma tarefa agendada para hoje.
+                  </p>
+                  <button
+                    onClick={openNewTaskModal}
+                    className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Adicionar tarefa</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDetailsModalType('tasks')}
+            className="pt-2 text-xs text-stone-400 hover:text-emerald-600 dark:text-stone-400 dark:hover:text-emerald-400 flex items-center justify-between w-full border-t border-stone-100 dark:border-stone-800/80 transition cursor-pointer group"
+          >
+            <span className="group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              Ver todas as tarefas ({todayTasks.length})
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </section>
+
+        {/* CARD 3: Hábitos de Hoje (Apenas na versão paga) */}
+        {showHabits && (
+          <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+                <div className="flex items-center gap-1.5">
+                  <Sprout className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h2 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                    Hábitos de Hoje
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailsModalType('habits')}
+                  className="text-xs text-stone-400 hover:text-emerald-600 dark:text-stone-400 dark:hover:text-emerald-400 flex items-center gap-0.5 transition cursor-pointer group"
                 >
-                  <option value="Trabalho">Trabalho</option>
-                  <option value="Pessoal">Pessoal</option>
-                  <option value="Casa">Casa</option>
-                  <option value="Saúde">Saúde</option>
-                  <option value="Espiritual">Espiritual</option>
-                  <option value="Outros">Outros</option>
-                </select>
+                  <span className="group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    Ver todos ({data.habits.length})
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
 
-                {/* Optional time input */}
-                <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs text-stone-600 dark:text-stone-300">
-                  <Clock className="w-3 h-3 text-stone-400" />
-                  <input
-                    type="time"
-                    value={newPriorityTime}
-                    onChange={(e) => setNewPriorityTime(e.target.value)}
-                    className="bg-transparent border-none p-0 text-xs focus:ring-0 text-stone-700 dark:text-stone-200"
-                    placeholder="Horário"
+              <div className="space-y-2">
+                {data.habits.length > 0 ? (
+                  data.habits.slice(0, 3).map((h) => {
+                    const isDone = Array.isArray(h.history)
+                      ? h.history.includes(todayStr)
+                      : Boolean(h.history?.[todayStr]);
+                    const habitName = h.name || (h as any).title || 'Hábito';
+                    return (
+                      <div
+                        key={h.id}
+                        onClick={() => toggleHabitCompletion(h.id, todayStr)}
+                        className="flex items-center gap-2.5 p-2 rounded-xl bg-stone-50/70 dark:bg-stone-850/50 hover:bg-stone-100 dark:hover:bg-stone-800/70 transition border border-stone-100 dark:border-stone-800/60 cursor-pointer"
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 transition flex items-center justify-center shrink-0 ${
+                            isDone
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'border-stone-400 dark:border-stone-500 text-transparent'
+                          }`}
+                        >
+                          {isDone && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span className={`text-xs sm:text-sm font-medium truncate ${
+                          isDone 
+                            ? 'line-through text-stone-400 dark:text-stone-500' 
+                            : 'text-stone-800 dark:text-stone-200'
+                        }`}>
+                          {habitName}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-stone-400 dark:text-stone-500 py-3 text-center">
+                    Nenhum hábito cadastrado ainda.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('habits')}
+              className="pt-2 text-xs text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 w-full border-t border-stone-100 dark:border-stone-800/80 transition cursor-pointer font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Adicionar hábito</span>
+            </button>
+          </section>
+        )}
+
+        {/* CARD 4: Minha Água (Apenas na versão paga) */}
+        {showHydration && (
+          <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+                <div className="flex items-center gap-1.5">
+                  <Droplets className="w-4 h-4 text-cyan-500" />
+                  <h2 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                    Minha Água
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailsModalType('hydration')}
+                  className="text-xs text-stone-400 hover:text-cyan-600 dark:text-stone-400 dark:hover:text-cyan-400 flex items-center gap-0.5 transition cursor-pointer group"
+                >
+                  <span className="group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                    Detalhes
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+
+              <div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl sm:text-2xl font-bold font-serif text-cyan-600 dark:text-cyan-400">
+                    {water.amountMl}
+                  </span>
+                  <span className="text-xs text-stone-500 dark:text-stone-400">
+                    / {water.targetMl} ml
+                  </span>
+                </div>
+
+                {/* Barra de progresso de hidratação */}
+                <div className="w-full h-2 bg-cyan-950/30 dark:bg-cyan-950/50 rounded-full overflow-hidden mt-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500"
+                    style={{ width: `${waterPercent}%` }}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Botões de Ação Rápida */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  id="my-day-add-water-250"
+                  onClick={() => addWater(250)}
+                  className="flex-1 py-1.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition cursor-pointer text-center"
+                >
+                  + 250 ml
+                </button>
+                <button
+                  id="my-day-add-water-500"
+                  onClick={() => addWater(500)}
+                  className="flex-1 py-1.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition cursor-pointer text-center"
+                >
+                  + 500 ml
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('settings')}
+              className="pt-2 text-xs text-stone-400 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 flex items-center gap-1 w-full border-t border-stone-100 dark:border-stone-800/80 transition cursor-pointer"
+            >
+              <Bell className="w-3 h-3 text-cyan-500" />
+              <span>Lembrete</span>
+              <ChevronRight className="w-3 h-3 ml-auto" />
+            </button>
+          </section>
+        )}
+
+        {/* CARD 5: Autocuidado de Hoje (Apenas na versão paga) */}
+        {showSelfCare && (
+          <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+                <Heart className="w-4 h-4 text-rose-500 fill-rose-500/20" />
+                <h2 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                  Autocuidado de Hoje
+                </h2>
+              </div>
+
+              {/* Card Interno Suave */}
+              <div className="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <div className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
+                    isSelfCareDone ? 'bg-rose-500 border-rose-500 text-white' : 'border-stone-400 dark:border-stone-600'
+                  }`}>
+                    {isSelfCareDone && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                  <div>
+                    <p className={`text-xs sm:text-sm font-semibold ${isSelfCareDone ? 'line-through text-stone-400 dark:text-stone-500' : 'text-stone-900 dark:text-stone-100'}`}>
+                      {dailySelfCare.text}
+                    </p>
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5 leading-relaxed">
+                      Pequeno gesto de carinho e presença para você.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex justify-end">
+                  <button
+                    onClick={() => toggleSelfCareItem(dailySelfCare.text)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-2xs ${
+                      isSelfCareDone 
+                        ? 'bg-rose-600 text-white' 
+                        : 'bg-white hover:bg-stone-100 text-stone-900 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-100 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    {isSelfCareDone ? 'Concluído ✓' : 'Marcar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* CARD 6: Momento com Deus (Apenas na versão paga) */}
+        {showSpirituality && (
+          <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+                <div className="flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h2 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                    Momento com Deus
+                  </h2>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsAddingPriority(false);
-                    setNewPriorityTitle('');
-                  }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition"
+                  onClick={() => setDetailsModalType('spirituality')}
+                  className="p-1 text-stone-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition cursor-pointer"
+                  title="Ver palavra completa e meditação"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newPriorityTitle.trim()}
-                  className="px-4 py-1.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] disabled:opacity-50 text-xs font-semibold transition shadow-xs"
-                >
-                  Adicionar
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          </form>
-        )}
 
-        {/* Priority tasks grid */}
-        {priorityTasks.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {priorityTasks.map((t, idx) => (
-              <div
-                key={t.id}
-                className={`group relative p-2.5 sm:p-3 rounded-xl border transition flex flex-col justify-between gap-1.5 ${
-                  t.completed 
-                    ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 dark:bg-emerald-950/20' 
-                    : 'border-stone-200/70 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800 hover:border-amber-400 dark:hover:border-amber-500'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    Foco {idx + 1}
-                  </span>
-
-                  {/* Actions: unmark priority, delete, and toggle complete */}
-                  <div className="flex items-center gap-1">
-                    {/* Unmark from priorities (keeps in tasks) */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemovePriority(t);
-                      }}
-                      className="p-1.5 rounded-lg text-amber-500 hover:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 transition touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
-                      title="Remover de Prioridades (mantém em Tarefas)"
-                      aria-label={`Remover prioridade ${t.title}`}
-                    >
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                    </button>
-
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePriority(t.id, t.title);
-                      }}
-                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
-                      title="Apagar tarefa"
-                      aria-label={`Apagar tarefa ${t.title}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    {/* Complete button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleTaskCompleted(t.id);
-                      }}
-                      className="p-1 touch-manipulation flex items-center justify-center min-w-[34px] min-h-[34px]"
-                      title={t.completed ? 'Marcar como pendente' : 'Concluir prioridade'}
-                      aria-label={t.completed ? 'Marcar como pendente' : 'Concluir prioridade'}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full border-2 transition flex items-center justify-center flex-shrink-0 ${
-                          t.completed
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                            : 'border-stone-300 dark:border-stone-600 hover:border-emerald-500 text-transparent'
-                        }`}
-                      >
-                        {t.completed && <Check className="w-3 h-3 stroke-[3]" />}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div 
-                  onClick={() => openEditTaskModal(t)}
-                  className="cursor-pointer space-y-0.5"
-                >
-                  <p className={`text-xs sm:text-sm font-semibold transition line-clamp-2 ${
-                    t.completed 
-                      ? 'line-through text-stone-400 dark:text-stone-500' 
-                      : 'text-stone-900 dark:text-stone-100 group-hover:text-amber-700 dark:group-hover:text-amber-400'
-                  }`}>
-                    {t.title}
-                  </p>
-                  <span className="text-[10px] text-stone-500 dark:text-stone-300 block">
-                    {t.category} {t.time ? `• ${t.time}` : ''}
-                  </span>
-                </div>
-              </div>
-            ))}
-
-            {/* Empty slots for up to 3 focuses */}
-            {priorityTasks.length < 3 && (
-              <button
-                type="button"
-                onClick={() => setIsAddingPriority(true)}
-                className="p-2.5 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-600/60 bg-transparent hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition flex flex-row sm:flex-col items-center justify-center text-center gap-1 text-stone-500 dark:text-stone-300 hover:text-amber-700 dark:hover:text-amber-400 min-h-[52px]"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">
-                  + Adicionar foco {priorityTasks.length + 1}
-                </span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/60 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            <p className="text-xs text-stone-600 dark:text-stone-300">
-              Você ainda não definiu as prioridades de hoje. Foque no que traz mais leveza e resultado!
-            </p>
-            <button
-              onClick={() => setIsAddingPriority(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition shadow-xs flex-shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar 1ª prioridade</span>
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* 3. Main Tasks Block */}
-      <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div>
-            <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-              Tarefas de Hoje ({todayTasks.filter((t) => t.completed).length}/{todayTasks.length})
-            </h2>
-            <p className="text-[11px] text-stone-500 dark:text-stone-300">
-              Tudo o que você planejou para o seu dia
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Filter pills */}
-            <div className="flex items-center p-0.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs text-stone-600 dark:text-stone-300">
-              <button
-                onClick={() => setFilter('all')}
-                className={`px-2 py-1 rounded-md font-medium transition ${
-                  filter === 'all' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : ''
-                }`}
-              >
-                Todas
-              </button>
-              <button
-                onClick={() => setFilter('pending')}
-                className={`px-2 py-1 rounded-md font-medium transition ${
-                  filter === 'pending' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : ''
-                }`}
-              >
-                Pendentes
-              </button>
-              <button
-                onClick={() => setFilter('completed')}
-                className={`px-2 py-1 rounded-md font-medium transition ${
-                  filter === 'completed' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : ''
-                }`}
-              >
-                Concluídas
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition shrink-0"
-              title="Ajustar lembretes e notificações"
-              aria-label="Ajustar lembretes e notificações"
-            >
-              <Bell className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              id="my-day-add-task-btn"
-              onClick={openNewTaskModal}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nova tarefa</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tasks list */}
-        {filteredTasks.length > 0 ? (
-          <div className="space-y-2">
-            {filteredTasks.map((task) => {
-              const priorityColors: Record<Priority, string> = {
-                high: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300',
-                medium: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
-                low: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-              };
-              const priorityLabels: Record<Priority, string> = {
-                high: 'Alta',
-                medium: 'Média',
-                low: 'Baixa'
-              };
-
-              return (
-                <div
-                  key={task.id}
-                  className={`group p-2.5 sm:p-3 rounded-xl border transition flex items-center justify-between gap-2.5 ${
-                    task.completed
-                      ? 'bg-stone-50/70 dark:bg-stone-800/40 border-stone-200/50 dark:border-stone-800 text-stone-400 dark:text-stone-400'
-                      : 'bg-white dark:bg-stone-800 border-stone-200/80 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:border-emerald-300 dark:hover:border-emerald-700'
-                  }`}
-                >
-                  <div 
-                    className="flex items-center gap-3 truncate flex-1 cursor-pointer select-none"
-                    onClick={() => toggleTaskCompleted(task.id)}
-                  >
-                    {/* Checkbox with generous touch target for mobile */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleTaskCompleted(task.id);
-                      }}
-                      className="p-2 -m-2 touch-manipulation flex items-center justify-center min-w-[44px] min-h-[44px] flex-shrink-0"
-                      aria-label={task.completed ? "Desmarcar tarefa como concluída" : "Marcar tarefa como concluída"}
-                    >
-                      <div
-                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition flex-shrink-0 ${
-                          task.completed
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'border-2 border-stone-300 dark:border-stone-600 hover:border-emerald-500 bg-stone-50/40 dark:bg-stone-700/40'
-                        }`}
-                      >
-                        {task.completed && <Check className="w-4 h-4 stroke-[3]" />}
-                      </div>
-                    </button>
-
-                    <div className="truncate flex-1">
-                      <p className={`text-xs sm:text-sm font-medium truncate ${task.completed ? 'line-through opacity-70' : ''}`}>
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 font-medium">
-                          {task.category}
-                        </span>
-                        {task.time && (
-                          <span className="flex items-center gap-1 text-[10px] text-stone-500 dark:text-stone-300 font-medium">
-                            <Clock className="w-3 h-3 text-stone-400 dark:text-stone-400" />
-                            {task.time}
-                          </span>
-                        )}
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${priorityColors[task.priority]}`}>
-                          {priorityLabels[task.priority]}
-                        </span>
-                        {task.isPriority && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
-                            Prioridade
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {/* Botão de alternar prioridade explicitamente */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTogglePriority(task);
-                      }}
-                      className={`p-1.5 rounded-lg transition touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center ${
-                        task.isPriority
-                          ? 'text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/40'
-                          : 'text-stone-300 dark:text-stone-600 hover:text-amber-500 hover:bg-stone-100 dark:hover:bg-stone-700'
-                      }`}
-                      title={task.isPriority ? 'Prioridade do dia ativa (clique para desmarcar)' : 'Marcar explicitamente como Prioridade do Dia'}
-                      aria-label={task.isPriority ? 'Desmarcar prioridade' : 'Marcar como prioridade'}
-                    >
-                      <Star className={`w-4 h-4 ${task.isPriority ? 'fill-amber-400 text-amber-500' : ''}`} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => openEditTaskModal(task)}
-                      className="opacity-80 sm:opacity-0 sm:group-hover:opacity-100 text-xs text-stone-500 dark:text-stone-300 hover:text-stone-800 dark:hover:text-white px-2 py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700 transition touch-manipulation"
-                      title="Editar tarefa"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteTask(task.id);
-                        showToast(`Tarefa "${task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}" excluída.`, 'info');
-                      }}
-                      className="p-1.5 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
-                      title="Excluir tarefa"
-                      aria-label={`Excluir tarefa ${task.title}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="py-8 text-center text-stone-400 space-y-2">
-            <p className="text-xs sm:text-sm">
-              {filter === 'all' 
-                ? 'Nenhuma tarefa cadastrada para hoje. Que tal planejar com calma?'
-                : filter === 'pending'
-                ? 'Todas as tarefas de hoje foram concluídas! Parabéns! ✨'
-                : 'Nenhuma tarefa concluída ainda hoje.'}
-            </p>
-            {filter === 'all' && (
-              <button
-                onClick={openNewTaskModal}
-                className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold hover:underline"
-              >
-                + Adicionar primeira tarefa
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* 4. Habits & Hydration Grid */}
-      {(showHabits || showHydration) && (
-        <div className={`grid grid-cols-1 ${showHabits && showHydration ? 'lg:grid-cols-2' : ''} gap-4`}>
-          {/* Habits of Today */}
-          {showHabits && (
-            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {pref === 'masculino' ? (
-                    <Target className="w-3.5 h-3.5 text-emerald-600" />
-                  ) : (
-                    <Sprout className="w-3.5 h-3.5 text-emerald-600" />
-                  )}
-                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                    {pref === 'masculino' ? 'Hábitos & Disciplina' : 'Hábitos de Hoje'}
-                  </h2>
-                </div>
-                {hasLeveAccess ? (
-                  <button
-                    onClick={() => setActiveTab('habits')}
-                    className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
-                  >
-                    <span>Ver todos</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    <Lock className="w-2.5 h-2.5" />
-                    <span>LEVE Especial</span>
-                  </span>
-                )}
-              </div>
-
-              {!hasLeveAccess ? (
-                <div className="py-4 px-3.5 rounded-xl bg-stone-50/80 dark:bg-stone-800/60 border border-stone-200/70 dark:border-stone-700 text-center space-y-3">
-                  <div className="w-10 h-10 mx-auto rounded-xl bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 text-amber-800 dark:text-amber-300 flex items-center justify-center shadow-2xs">
-                    <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  </div>
-
-                  <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
-                      Rastreador de Hábitos Exclusivo
-                    </p>
-                    <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto leading-relaxed">
-                      O acompanhamento diário de hábitos não está incluso na função gratuita. Desbloqueie o <strong>LEVE Especial</strong> para cultivar sua rotina com consistência e sem cobrança.
-                    </p>
-                  </div>
-
-                  <div className="pt-1">
-                    <a
-                      href={especialCheckoutUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162924] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Liberar Hábitos no LEVE Especial • R$ 49,90</span>
-                    </a>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2 text-[11px] text-stone-400 dark:text-stone-300">
-                    <button
-                      type="button"
-                      onClick={handleRefreshPlan}
-                      disabled={isRefreshingPlan || isCheckingEntitlements}
-                      className="hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 text-stone-500 dark:text-stone-300 font-medium"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${isRefreshingPlan || isCheckingEntitlements ? 'animate-spin' : ''}`} />
-                      <span>{isRefreshingPlan ? 'Atualizando...' : 'Já é assinante? Atualizar plano'}</span>
-                    </button>
-                  </div>
-                </div>
-              ) : data.habits.length === 0 ? (
-                <div className="text-center py-4 px-3 rounded-xl bg-stone-50/50 dark:bg-stone-850/40 border border-dashed border-stone-200 dark:border-stone-700">
-                  <p className="text-xs text-stone-500 dark:text-stone-400 mb-1.5">
-                    Nenhum hábito cadastrado ainda.
-                  </p>
-                  <button
-                    onClick={() => setActiveTab('habits')}
-                    className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold hover:underline"
-                  >
-                    + Criar meu primeiro hábito
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {data.habits.slice(0, 4).map((habit) => {
-                    const isDoneToday = !!habit.history[todayStr];
-                    return (
-                      <div
-                        key={habit.id}
-                        className={`group p-2.5 rounded-xl border transition flex items-center justify-between gap-2.5 ${
-                          isDoneToday
-                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40 text-stone-900 dark:text-stone-100'
-                            : 'bg-stone-50/50 dark:bg-stone-800 border-stone-200/70 dark:border-stone-700 text-stone-800 dark:text-stone-100 hover:border-emerald-300'
-                        }`}
-                      >
-                        <div 
-                          className="flex items-center gap-2.5 flex-1 cursor-pointer select-none"
-                          onClick={() => toggleHabitCompletion(habit.id, todayStr)}
-                        >
-                          <span className="text-lg flex-shrink-0">{habit.icon}</span>
-                          <div className="truncate flex-1">
-                            <p className={`text-xs sm:text-sm font-semibold truncate ${isDoneToday ? 'line-through opacity-70' : ''}`}>
-                              {habit.name}
-                            </p>
-                            <p className="text-[10px] text-stone-500 dark:text-stone-400">{habit.category}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteHabit(habit.id);
-                              showToast(`Hábito "${habit.name}" excluído.`, 'info');
-                            }}
-                            className="p-1 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition touch-manipulation opacity-80 sm:opacity-0 sm:group-hover:opacity-100 min-w-[30px] min-h-[30px] flex items-center justify-center"
-                            title="Excluir hábito"
-                            aria-label={`Excluir hábito ${habit.name}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleHabitCompletion(habit.id, todayStr)}
-                            className="p-1 touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center"
-                            aria-label={isDoneToday ? "Desmarcar hábito" : "Marcar hábito como concluído"}
-                          >
-                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition ${
-                              isDoneToday
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'border-2 border-stone-300 dark:border-stone-600 hover:border-emerald-500'
-                            }`}>
-                              {isDoneToday && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Water / Hydration Section */}
-          {showHydration && (
-            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Droplets className="w-3.5 h-3.5 text-cyan-600" />
-                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                    Minha Água
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('settings')}
-                    className="text-[11px] text-cyan-800 dark:text-cyan-300 hover:text-cyan-950 flex items-center gap-1 bg-cyan-100/70 dark:bg-cyan-900/40 px-2 py-0.5 rounded-md font-medium transition"
-                    title="Configurar lembretes de hidratação"
-                  >
-                    <Bell className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
-                    <span>
-                      {notificationSettings.enabled && notificationSettings.hydrationEnabled 
-                        ? `Lembrete ${notificationSettings.hydrationIntervalMinutes}m` 
-                        : 'Lembrete'}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('hydration')}
-                    className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline flex items-center gap-0.5"
-                  >
-                    <span>Detalhes</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/40">
-                <div>
-                  <p className="text-xs text-cyan-800 dark:text-cyan-300 font-medium">Consumo de Hoje</p>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="text-xl font-bold text-cyan-950 dark:text-cyan-100 font-serif">
-                      {water.amountMl}
-                    </span>
-                    <span className="text-xs text-cyan-700 dark:text-cyan-400">
-                      / {water.targetMl} ml ({waterPercent}%)
-                    </span>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] text-cyan-800/80 dark:text-cyan-300/80 mt-0.5">
-                    {waterPercent >= 100 
-                      ? (pref === 'masculino' ? 'Meta atingida. Hidratação completa.' : 'Meta atingida! Seu corpo agradece 💧')
-                      : `Faltam ${Math.max(0, water.targetMl - water.amountMl)} ml para a meta.`}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-1 flex-shrink-0">
-                  <button
-                    id="my-day-add-water-250"
-                    onClick={() => addWater(250)}
-                    className="px-2.5 py-1 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 text-xs font-semibold transition shadow-xs cursor-pointer"
-                  >
-                    + 250 ml (copo)
-                  </button>
-                  <button
-                    id="my-day-add-water-500"
-                    onClick={() => addWater(500)}
-                    className="px-2.5 py-1 rounded-lg bg-cyan-700 text-white hover:bg-cyan-800 text-xs font-semibold transition shadow-xs cursor-pointer"
-                  >
-                    + 500 ml (garrafa)
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-      )}
-
-      {/* 5. Self-Care & Spirituality Row */}
-      {(showSelfCare || showSpirituality) && (
-        <div className={`grid grid-cols-1 ${showSelfCare && showSpirituality ? 'lg:grid-cols-2' : ''} gap-4`}>
-          {/* Daily Self-Care Suggestion */}
-          {showSelfCare && (
-            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {pref === 'masculino' ? (
-                    <Zap className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : (
-                    <Heart className="w-3.5 h-3.5 text-rose-500" />
-                  )}
-                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                    {selfCareTitle}
-                  </h2>
-                </div>
-                <span className={`text-[10px] uppercase tracking-wider font-semibold ${
-                  pref === 'masculino' ? 'text-stone-600 dark:text-stone-300 font-bold' : 'text-rose-600'
-                }`}>
-                  {dailySelfCare.category}
-                </span>
-              </div>
-
-              <div className={`p-3 rounded-xl flex items-center justify-between gap-2.5 ${
-                pref === 'masculino'
-                  ? 'bg-stone-50/90 dark:bg-stone-800/80 border border-stone-200/90 dark:border-stone-700'
-                  : 'bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40'
-              }`}>
-                <div>
-                  <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
-                    {dailySelfCare.text}
-                  </p>
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                    {pref === 'masculino' ? 'Pausa estratégica de recarga física e mental.' : 'Pequeno gesto de carinho e presença para você.'}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => toggleSelfCareItem(dailySelfCare.text)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer ${
-                    pref === 'masculino'
-                      ? isSelfCareDone
-                        ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                        : 'bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-300 dark:hover:bg-stone-650'
-                      : isSelfCareDone
-                        ? 'bg-rose-600 text-white'
-                        : 'bg-rose-100 dark:bg-rose-900/50 text-rose-900 dark:text-rose-200 hover:bg-rose-200'
-                  }`}
-                >
-                  {isSelfCareDone ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>{pref === 'masculino' ? 'Concluído' : 'Feito'}</span>
-                    </>
-                  ) : (
-                    <span>{pref === 'masculino' ? 'Executar' : 'Marcar'}</span>
-                  )}
-                </button>
-              </div>
-            </section>
-          )}
-
-          {/* Daily Faith / Moment with God */}
-          {showSpirituality && (
-            <section className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {pref === 'masculino' ? (
-                    <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  ) : (
-                    <HeartHandshake className="w-3.5 h-3.5 text-emerald-700" />
-                  )}
-                  <h2 className="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
-                    {pref === 'masculino' ? 'Fé & Propósito' : 'Momento com Deus'}
-                  </h2>
-                </div>
-                <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider">
-                  {dailyVerse.reference}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
-                <p className="font-serif italic text-xs sm:text-sm text-stone-800 dark:text-stone-200 leading-relaxed">
+              <div className="space-y-1.5">
+                <p className="font-serif italic text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed line-clamp-3">
                   "{dailyVerse.verse}"
                 </p>
-
-                <button
-                  onClick={() => setIsFiveMinGodOpen(true)}
-                  className="w-full py-1.5 px-3 rounded-lg bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {pref === 'masculino' ? (
-                    <>
-                      <Shield className="w-3.5 h-3.5 text-emerald-300" />
-                      <span>5 Minutos com Deus • Oração & Foco</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-                      <span>Fazer os 5 Minutos com Deus</span>
-                    </>
-                  )}
-                </button>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                  {dailyVerse.reference}
+                </p>
               </div>
-            </section>
-          )}
-        </div>
-      )}
+            </div>
 
-      {/* 6. Quick Gratitude Widget */}
+            <button
+              onClick={() => setIsFiveMinGodOpen(true)}
+              className="w-full py-2 px-3 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-200 text-xs font-semibold border border-emerald-700/40 flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Fazer os 5 Minutos com Deus</span>
+            </button>
+          </section>
+        )}
+
+      </div>
+
+      {/* CARD 7: Uma coisa boa que aconteceu hoje (Apenas na versão paga) */}
       {showJournal && (
-        <section className="bg-stone-100/70 dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 dark:border-stone-800 space-y-2">
-          <h3 className="font-serif text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-100">
-            {gratitudeTitle}
-          </h3>
+        <section className="bg-white dark:bg-[#121A17] rounded-2xl p-4 border border-stone-200/80 dark:border-white/5 shadow-xs space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Feather className="w-4 h-4 text-emerald-500" />
+            <h3 className="font-serif text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100">
+              Uma coisa boa que aconteceu hoje 🤍
+            </h3>
+          </div>
           <form onSubmit={handleSaveQuickGratitude} className="flex gap-2">
             <input
               type="text"
               value={quickGratitude}
               onChange={(e) => setQuickGratitude(e.target.value)}
-              placeholder={gratitudePlaceholder}
-              className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+              placeholder="Ex: Um abraço apertado, o sol na janela, uma conquista..."
+              className="flex-1 px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600/50"
             />
             <button
               type="submit"
               disabled={!quickGratitude.trim()}
-              className="px-3.5 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs font-semibold disabled:opacity-40 transition cursor-pointer shrink-0"
             >
               Guardar
             </button>
@@ -1102,16 +793,59 @@ export const MyDayView: React.FC = () => {
         </section>
       )}
 
-      {/* 7. Footer End Day Action */}
-      <div className="pt-4 text-center">
+      {/* Convite Discreto para o LEVE Especial (Aparece apenas na versão gratuita) */}
+      {!hasLeveAccess && (
+        <section className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 dark:from-amber-950/20 dark:via-emerald-950/20 dark:to-teal-950/20 border border-amber-200/70 dark:border-amber-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1 max-w-xl">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Desbloqueie a rotina completa com o LEVE Especial</span>
+            </div>
+            <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+              Cultive hábitos diários, acompanhe hidratação, pratique autocuidado, momentos com Deus e reflexões diretamente no seu Meu Dia.
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5 flex-shrink-0 flex-wrap">
+            <a
+              href={especialCheckoutUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Conhecer o LEVE Especial</span>
+            </a>
+            <button
+              type="button"
+              onClick={handleRefreshPlan}
+              disabled={isRefreshingPlan || isCheckingEntitlements}
+              className="px-3 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 text-xs font-medium transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              title="Já comprou? Atualize seu acesso"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRefreshingPlan || isCheckingEntitlements ? 'animate-spin' : ''}`} />
+              <span>Já é assinante?</span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Botão de Fechamento de Dia Estilo Pílula Sofisticada (Como no mockup) */}
+      <div className="pt-2 text-center">
         <button
           onClick={() => setIsDayClosingOpen(true)}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs sm:text-sm font-semibold hover:bg-stone-800 dark:hover:bg-stone-200 transition shadow-sm cursor-pointer"
+          className="w-full sm:w-auto px-7 py-3 rounded-full bg-stone-100 hover:bg-white text-stone-900 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 font-semibold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 mx-auto cursor-pointer"
         >
-          <Moon className="w-4 h-4 text-indigo-400 dark:text-indigo-600" />
-          <span>{endDayButtonLabel}</span>
+          <Moon className="w-4 h-4 text-indigo-600" />
+          <span>Encerrar o dia com gratidão e descanso</span>
+          <ChevronRight className="w-4 h-4 text-stone-500 ml-1" />
         </button>
       </div>
+
+      {/* Caixinha Modal que abre ao clicar na setinha mostrando tudo que foi cadastrado */}
+      <MyDayDetailsModal
+        type={detailsModalType}
+        onClose={() => setDetailsModalType(null)}
+      />
     </div>
   );
 };

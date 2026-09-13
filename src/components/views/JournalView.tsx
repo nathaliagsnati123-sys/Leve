@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   BookOpen, Heart, Sparkles, Image, Plus, Calendar, 
-  Trash2, Smile, Feather, Check, Camera 
+  Trash2, Smile, Feather, Check, Camera,
+  CheckCircle2, TrendingUp, Bookmark, Shield, FileText
 } from 'lucide-react';
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { JournalEntry, Memory } from '../../types';
 
 export const JournalView: React.FC = () => {
   const { data, saveJournalEntry, addMemory, deleteMemory, showToast } = useApp();
+  const { treatmentPreference: authPref } = useAuth();
+  const pref = authPref || data.user?.treatmentPreference;
+  const isMale = pref === 'masculino';
   const todayStr = getTodayDateString();
 
   const [activeTab, setActiveTab] = useState<'daily' | 'history' | 'memories'>('daily');
@@ -55,7 +60,7 @@ export const JournalView: React.FC = () => {
       mindDump,
       dayInOneWord
     });
-    showToast('Caderno salvo com sucesso! 🤍');
+    showToast(isMale ? 'Diário de gratidão salvo com sucesso!' : 'Caderno salvo com sucesso! 🤍');
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,15 +98,21 @@ export const JournalView: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300">
+          <div className={`p-3 rounded-2xl ${
+            isMale 
+              ? 'bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700' 
+              : 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300'
+          }`}>
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
-              Meu Caderno & Gratidão
+              {isMale ? 'Diário de Gratidão' : 'Meu Caderno & Gratidão'}
             </h1>
             <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
-              Um refúgio para guardar sentimentos bons, momentos especiais e clareza mental.
+              {isMale 
+                ? 'Registro de gratidão diária, foco mental, conquistas e reflexão pessoal.' 
+                : 'Um refúgio para guardar sentimentos bons, momentos especiais e clareza mental.'}
             </p>
           </div>
         </div>
@@ -110,27 +121,39 @@ export const JournalView: React.FC = () => {
         <div className="flex items-center p-1 rounded-2xl bg-stone-100 dark:bg-stone-800 text-xs">
           <button
             onClick={() => setActiveTab('daily')}
-            className={`px-3 py-1.5 rounded-xl font-medium transition ${
-              activeTab === 'daily' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'
+            className={`px-3 py-1.5 rounded-xl font-medium transition cursor-pointer ${
+              activeTab === 'daily' 
+                ? isMale 
+                  ? 'bg-[#1F3A34] text-white shadow-xs' 
+                  : 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' 
+                : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
             }`}
           >
-            Diário de Hoje
+            {isMale ? 'Registro de Hoje' : 'Diário de Hoje'}
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-3 py-1.5 rounded-xl font-medium transition ${
-              activeTab === 'history' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'
+            className={`px-3 py-1.5 rounded-xl font-medium transition cursor-pointer ${
+              activeTab === 'history' 
+                ? isMale 
+                  ? 'bg-[#1F3A34] text-white shadow-xs' 
+                  : 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' 
+                : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
             }`}
           >
             Histórico ({allJournalDates.length})
           </button>
           <button
             onClick={() => setActiveTab('memories')}
-            className={`px-3 py-1.5 rounded-xl font-medium transition ${
-              activeTab === 'memories' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : 'text-stone-500'
+            className={`px-3 py-1.5 rounded-xl font-medium transition cursor-pointer ${
+              activeTab === 'memories' 
+                ? isMale 
+                  ? 'bg-[#1F3A34] text-white shadow-xs' 
+                  : 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' 
+                : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
             }`}
           >
-            Memórias Felizes ({(data.memories || []).length})
+            {isMale ? `Memórias & Conquistas (${(data.memories || []).length})` : `Memórias Felizes (${(data.memories || []).length})`}
           </button>
         </div>
       </div>
@@ -139,31 +162,49 @@ export const JournalView: React.FC = () => {
       {activeTab === 'daily' && (
         <div className="space-y-6">
           {/* Day in One Word banner */}
-          <div className="bg-gradient-to-r from-amber-50/70 to-orange-50/60 dark:from-amber-950/30 dark:to-orange-950/20 p-5 rounded-3xl border border-amber-200/60 dark:border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className={`p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            isMale 
+              ? 'bg-stone-50/90 dark:bg-stone-800/80 border-stone-200 dark:border-stone-700' 
+              : 'bg-gradient-to-r from-amber-50/70 to-orange-50/60 dark:from-amber-950/30 dark:to-orange-950/20 border-amber-200/60 dark:border-amber-900/40'
+          }`}>
             <div>
-              <span className="text-xs uppercase tracking-wider font-bold text-amber-800 dark:text-amber-300">
-                Meu dia em uma palavra
+              <span className={`text-xs uppercase tracking-wider font-bold ${
+                isMale ? 'text-stone-800 dark:text-stone-200' : 'text-amber-800 dark:text-amber-300'
+              }`}>
+                {isMale ? 'Palavra do dia' : 'Meu dia em uma palavra'}
               </span>
               <p className="text-xs text-stone-500 dark:text-stone-400">
-                Se você tivesse que resumir a energia de hoje em uma só palavra?
+                {isMale 
+                  ? 'Qual palavra melhor sintetiza sua postura ou foco de hoje?' 
+                  : 'Se você tivesse que resumir a energia de hoje em uma só palavra?'}
               </p>
             </div>
             <input
               type="text"
               value={dayInOneWord}
               onChange={(e) => setDayInOneWord(e.target.value)}
-              placeholder="Ex: Paz, Recomeço, Gratidão..."
-              className="px-4 py-2 rounded-xl bg-white dark:bg-stone-800 border border-amber-300 dark:border-amber-700 text-stone-900 dark:text-stone-100 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/50 sm:w-60 text-center"
+              placeholder={isMale ? 'Ex: Foco, Progresso, Gratidão...' : 'Ex: Paz, Recomeço, Gratidão...'}
+              className={`px-4 py-2 rounded-xl bg-white dark:bg-stone-800 border ${
+                isMale 
+                  ? 'border-stone-300 dark:border-stone-600 focus:ring-stone-400' 
+                  : 'border-amber-300 dark:border-amber-700 focus:ring-amber-500/50'
+              } text-stone-900 dark:text-stone-100 text-sm font-semibold focus:outline-none focus:ring-2 sm:w-60 text-center`}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* 3 Coisas pelas quais tenho gratidão */}
-            <div className="bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
+            <div className={`bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border ${
+              isMale ? 'border-stone-200 dark:border-stone-800' : 'border-stone-200/80 dark:border-stone-800'
+            } shadow-xs space-y-3`}>
               <div className="flex items-center gap-2">
-                <Heart className="w-4 h-4 text-rose-500 fill-rose-400" />
+                {isMale ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                ) : (
+                  <Heart className="w-4 h-4 text-rose-500 fill-rose-400" />
+                )}
                 <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-                  3 coisas pelas quais tenho gratidão 🤍
+                  {isMale ? '3 motivos pelos quais sou grato' : '3 coisas pelas quais tenho gratidão 🤍'}
                 </h3>
               </div>
               <div className="space-y-2">
@@ -171,32 +212,44 @@ export const JournalView: React.FC = () => {
                   type="text"
                   value={gratitude1}
                   onChange={(e) => setGratitude1(e.target.value)}
-                  placeholder="1. Gratidão por..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                  placeholder={isMale ? '1. Sou grato por...' : '1. Gratidão por...'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 ${
+                    isMale ? 'focus:ring-emerald-700/40 focus:border-emerald-700' : 'focus:ring-emerald-600/50'
+                  }`}
                 />
                 <input
                   type="text"
                   value={gratitude2}
                   onChange={(e) => setGratitude2(e.target.value)}
-                  placeholder="2. Gratidão por..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                  placeholder={isMale ? '2. Sou grato por...' : '2. Gratidão por...'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 ${
+                    isMale ? 'focus:ring-emerald-700/40 focus:border-emerald-700' : 'focus:ring-emerald-600/50'
+                  }`}
                 />
                 <input
                   type="text"
                   value={gratitude3}
                   onChange={(e) => setGratitude3(e.target.value)}
-                  placeholder="3. Gratidão por..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                  placeholder={isMale ? '3. Sou grato por...' : '3. Gratidão por...'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 ${
+                    isMale ? 'focus:ring-emerald-700/40 focus:border-emerald-700' : 'focus:ring-emerald-600/50'
+                  }`}
                 />
               </div>
             </div>
 
             {/* 3 Coisas boas que aconteceram hoje */}
-            <div className="bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
+            <div className={`bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border ${
+              isMale ? 'border-stone-200 dark:border-stone-800' : 'border-stone-200/80 dark:border-stone-800'
+            } shadow-xs space-y-3`}>
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
+                {isMale ? (
+                  <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                )}
                 <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-                  3 coisas boas de hoje ✨
+                  {isMale ? '3 fatos positivos ou vitórias de hoje' : '3 coisas boas de hoje ✨'}
                 </h3>
               </div>
               <div className="space-y-2">
@@ -204,22 +257,28 @@ export const JournalView: React.FC = () => {
                   type="text"
                   value={good1}
                   onChange={(e) => setGood1(e.target.value)}
-                  placeholder="1. Uma vitória ou sorriso..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                  placeholder={isMale ? '1. Uma vitória ou meta cumprida...' : '1. Uma vitória ou sorriso...'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 ${
+                    isMale ? 'focus:ring-emerald-700/40 focus:border-emerald-700' : 'focus:ring-emerald-600/50'
+                  }`}
                 />
                 <input
                   type="text"
                   value={good2}
                   onChange={(e) => setGood2(e.target.value)}
-                  placeholder="2. Algo que me alegrou..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                  placeholder={isMale ? '2. Algo positivo que produzi ou vivenciei...' : '2. Algo que me alegrou...'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 ${
+                    isMale ? 'focus:ring-emerald-700/40 focus:border-emerald-700' : 'focus:ring-emerald-600/50'
+                  }`}
                 />
                 <input
                   type="text"
                   value={good3}
                   onChange={(e) => setGood3(e.target.value)}
-                  placeholder="3. Uma conversa gostosa..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                  placeholder={isMale ? '3. Uma conversa produtiva ou momento de tranquilidade...' : '3. Uma conversa gostosa...'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 ${
+                    isMale ? 'focus:ring-emerald-700/40 focus:border-emerald-700' : 'focus:ring-emerald-600/50'
+                  }`}
                 />
               </div>
             </div>
@@ -228,28 +287,38 @@ export const JournalView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* O momento mais especial */}
             <div className="bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-                O momento mais especial do dia 🌟
-              </h3>
+              <div className="flex items-center gap-2">
+                {isMale ? (
+                  <Bookmark className="w-4 h-4 text-stone-700 dark:text-stone-300" />
+                ) : null}
+                <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
+                  {isMale ? 'Momento mais marcante do dia' : 'O momento mais especial do dia 🌟'}
+                </h3>
+              </div>
               <textarea
                 rows={3}
                 value={specialMoment}
                 onChange={(e) => setSpecialMoment(e.target.value)}
-                placeholder="Aquele instante que merecia ser congelado no tempo..."
+                placeholder={isMale ? 'O melhor momento ou aprendizado principal do dia de hoje...' : 'Aquele instante que merecia ser congelado no tempo...'}
                 className="w-full p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50 resize-none"
               />
             </div>
 
             {/* O que fiz por mim hoje */}
             <div className="bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-                O que fiz por mim hoje 🌿
-              </h3>
+              <div className="flex items-center gap-2">
+                {isMale ? (
+                  <Shield className="w-4 h-4 text-stone-700 dark:text-stone-300" />
+                ) : null}
+                <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
+                  {isMale ? 'O que fiz por mim hoje' : 'O que fiz por mim hoje 🌿'}
+                </h3>
+              </div>
               <textarea
                 rows={3}
                 value={doneForMe}
                 onChange={(e) => setDoneForMe(e.target.value)}
-                placeholder="Parei 10 minutos, comi com calma, cuidei da minha pele, descansei..."
+                placeholder={isMale ? 'Treinei firme, descansei a mente, mantive a disciplina, me alimentei com qualidade...' : 'Parei 10 minutos, comi com calma, cuidei da minha pele, descansei...'}
                 className="w-full p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50 resize-none"
               />
             </div>
@@ -258,16 +327,21 @@ export const JournalView: React.FC = () => {
           {/* Desabafo livre */}
           <div className="bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-                Desabafo livre / Tirar da mente 📝
-              </h3>
+              <div className="flex items-center gap-2">
+                {isMale ? (
+                  <FileText className="w-4 h-4 text-stone-700 dark:text-stone-300" />
+                ) : null}
+                <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
+                  {isMale ? 'Reflexão livre / Registro mental' : 'Desabafo livre / Tirar da mente 📝'}
+                </h3>
+              </div>
               <span className="text-xs text-stone-400">Totalmente privado no seu aparelho</span>
             </div>
             <textarea
               rows={5}
               value={mindDump}
               onChange={(e) => setMindDump(e.target.value)}
-              placeholder="Escreva como você está se sentindo de verdade. Sem filtros, sem julgamentos..."
+              placeholder={isMale ? 'Escreva com total sinceridade. Pensamentos soltos, ideias, reflexões do dia e planos...' : 'Escreva como você está se sentindo de verdade. Sem filtros, sem julgamentos...'}
               className="w-full p-4 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/50 leading-relaxed resize-none"
             />
           </div>
@@ -276,10 +350,10 @@ export const JournalView: React.FC = () => {
           <div className="flex justify-end">
             <button
               onClick={handleSaveDaily}
-              className="px-6 py-3 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs sm:text-sm font-semibold transition shadow-xs flex items-center gap-2"
+              className="px-6 py-3 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs sm:text-sm font-semibold transition shadow-xs flex items-center gap-2 cursor-pointer"
             >
               <Check className="w-4 h-4" />
-              <span>Salvar Caderno de Hoje</span>
+              <span>{isMale ? 'Salvar Diário de Hoje' : 'Salvar Caderno de Hoje'}</span>
             </button>
           </div>
         </div>
@@ -290,7 +364,7 @@ export const JournalView: React.FC = () => {
         <div className="space-y-4">
           <div className="bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
             <h3 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
-              Páginas passadas do seu caderno
+              {isMale ? 'Registros anteriores do diário' : 'Páginas passadas do seu caderno'}
             </h3>
 
             {allJournalDates.length > 0 ? (
@@ -307,7 +381,11 @@ export const JournalView: React.FC = () => {
                           {formatDateToBrazilian(dateKey)}
                         </span>
                         {j.dayInOneWord && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            isMale 
+                              ? 'bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200' 
+                              : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                          }`}>
                             "{j.dayInOneWord}"
                           </span>
                         )}
@@ -315,7 +393,9 @@ export const JournalView: React.FC = () => {
 
                       {j.gratitude.some(Boolean) && (
                         <div className="text-xs text-stone-600 dark:text-stone-300 space-y-0.5">
-                          <p className="font-semibold text-stone-800 dark:text-stone-200">Gratidão:</p>
+                          <p className="font-semibold text-stone-800 dark:text-stone-200">
+                            {isMale ? 'Motivos de gratidão:' : 'Gratidão:'}
+                          </p>
                           {j.gratitude.filter(Boolean).map((g, idx) => (
                             <p key={idx} className="pl-2 italic">• {g}</p>
                           ))}
@@ -324,14 +404,18 @@ export const JournalView: React.FC = () => {
 
                       {j.specialMoment && (
                         <div className="text-xs text-stone-600 dark:text-stone-300 pt-1">
-                          <p className="font-semibold text-stone-800 dark:text-stone-200">Momento especial:</p>
+                          <p className="font-semibold text-stone-800 dark:text-stone-200">
+                            {isMale ? 'Momento marcante:' : 'Momento especial:'}
+                          </p>
                           <p className="pl-2 italic">{j.specialMoment}</p>
                         </div>
                       )}
 
                       {j.mindDump && (
                         <div className="text-xs text-stone-600 dark:text-stone-300 pt-1">
-                          <p className="font-semibold text-stone-800 dark:text-stone-200">Anotações:</p>
+                          <p className="font-semibold text-stone-800 dark:text-stone-200">
+                            {isMale ? 'Reflexões e notas:' : 'Anotações:'}
+                          </p>
                           <p className="pl-2 whitespace-pre-wrap">{j.mindDump}</p>
                         </div>
                       )}
@@ -341,7 +425,9 @@ export const JournalView: React.FC = () => {
               </div>
             ) : (
               <p className="text-xs text-stone-400 italic py-8 text-center">
-                Você ainda não salvou nenhuma página do caderno. Comece registrando seu dia de hoje!
+                {isMale 
+                  ? 'Você ainda não salvou nenhum registro no diário. Comece registrando o seu dia de hoje!' 
+                  : 'Você ainda não salvou nenhuma página do caderno. Comece registrando seu dia de hoje!'}
               </p>
             )}
           </div>
@@ -354,18 +440,20 @@ export const JournalView: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
-                Álbum de Memórias Felizes 🌸
+                {isMale ? 'Registro de Memórias & Conquistas' : 'Álbum de Memórias Felizes 🌸'}
               </h3>
               <p className="text-xs text-stone-400">
-                Guarde lembranças boas para revisitar quando precisar de um abraço na alma.
+                {isMale 
+                  ? 'Guarde registros de momentos importantes, fotos e conquistas para acompanhar sua trajetória.' 
+                  : 'Guarde lembranças boas para revisitar quando precisar de um abraço na alma.'}
               </p>
             </div>
             <button
               onClick={() => setIsMemoryModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Nova memória</span>
+              <span>{isMale ? 'Novo registro' : 'Nova memória'}</span>
             </button>
           </div>
 
@@ -402,8 +490,8 @@ export const JournalView: React.FC = () => {
                       onClick={() => {
                         deleteMemory(mem.id);
                       }}
-                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-                      title="Excluir memória"
+                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 cursor-pointer"
+                      title={isMale ? 'Excluir registro' : 'Excluir memória'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -415,7 +503,9 @@ export const JournalView: React.FC = () => {
 
           {(!data.memories || data.memories.length === 0) && (
             <p className="text-xs text-stone-400 italic py-8 text-center">
-              Nenhuma memória salva ainda. Guarde fotos e momentos felizes para revisitar sempre! 🌸
+              {isMale 
+                ? 'Nenhum registro salvo ainda. Guarde fotos e momentos de conquista para acompanhar sua evolução.' 
+                : 'Nenhuma memória salva ainda. Guarde fotos e momentos felizes para revisitar sempre! 🌸'}
             </p>
           )}
 
@@ -423,18 +513,20 @@ export const JournalView: React.FC = () => {
           {isMemoryModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
               <div className="w-full max-w-md rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-4 my-8 text-stone-900 dark:text-stone-100">
-                <h3 className="font-serif text-lg font-bold">Guardar Nova Memória</h3>
+                <h3 className="font-serif text-lg font-bold">
+                  {isMale ? 'Registrar Nova Memória / Conquista' : 'Guardar Nova Memória'}
+                </h3>
                 <form onSubmit={handleAddMemory} className="space-y-3 text-xs sm:text-sm">
                   <div className="space-y-1">
                     <label className="font-medium text-stone-700 dark:text-stone-300">
-                      Título do momento
+                      {isMale ? 'Título da memória / conquista' : 'Título do momento'}
                     </label>
                     <input
                       type="text"
                       required
                       value={memoryTitle}
                       onChange={(e) => setMemoryTitle(e.target.value)}
-                      placeholder="Ex: Tarde de café com a vó, Pôr do sol no parque..."
+                      placeholder={isMale ? 'Ex: Conquista profissional, viagem marcante, encontro com amigos...' : 'Ex: Tarde de café com a vó, Pôr do sol no parque...'}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
                     />
                   </div>
@@ -452,13 +544,13 @@ export const JournalView: React.FC = () => {
 
                   <div className="space-y-1">
                     <label className="font-medium text-stone-700 dark:text-stone-300">
-                      O que aconteceu?
+                      {isMale ? 'Detalhes ou reflexão' : 'O que aconteceu?'}
                     </label>
                     <textarea
                       rows={3}
                       value={memoryText}
                       onChange={(e) => setMemoryText(e.target.value)}
-                      placeholder="Descreva as risadas, os detalhes, os sentimentos..."
+                      placeholder={isMale ? 'Descreva os detalhes, o contexto, conquistas e significado...' : 'Descreva as risadas, os detalhes, os sentimentos...'}
                       className="w-full p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-600/50 resize-none"
                     />
                   </div>
@@ -480,15 +572,15 @@ export const JournalView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsMemoryModalOpen(false)}
-                      className="px-4 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
+                      className="px-4 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold"
+                      className="px-5 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold cursor-pointer"
                     >
-                      Guardar Memória
+                      {isMale ? 'Salvar Registro' : 'Guardar Memória'}
                     </button>
                   </div>
                 </form>

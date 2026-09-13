@@ -244,8 +244,8 @@ export function getAvailableSections(treatmentPreference?: string | null): AppSe
       if (isMale && sec.id === 'journal') {
         return {
           ...sec,
-          label: 'Meu Caderno & Notas',
-          description: 'Anotações diárias, vitórias, conquistas e reflexões práticas.'
+          label: 'Diário de Gratidão',
+          description: 'Registro diário de gratidão, reflexão pessoal, conquistas e clareza mental.'
         };
       }
       return sec;

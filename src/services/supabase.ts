@@ -757,23 +757,17 @@ export async function syncUserDataToSupabase(
     console.warn('[syncUserData] Falha ao enviar para cloud sync store:', cloudErr);
   }
 
-  // 2. Tenta também sincronizar no Supabase se houver conexão e tabela
+  // 2. Persiste diretamente no Supabase Auth metadata do usuário autenticado
   const client = getSupabase();
   if (client && userId) {
     try {
-      const payload = {
-        user_id: userId,
-        data: data,
-        updated_at: new Date().toISOString()
-      };
-
-      const { error } = await client
-        .from('leve_user_data')
-        .upsert(payload, { onConflict: 'user_id' });
-
-      if (!error) {
-        cloudSuccess = true;
-      }
+      await client.auth.updateUser({
+        data: {
+          app_sync_data: data,
+          app_sync_updated_at: Date.now()
+        }
+      });
+      cloudSuccess = true;
     } catch {}
   }
 
@@ -802,18 +796,14 @@ export async function fetchUserDataFromSupabase(
     console.warn('[fetchUserData] Falha ao puxar da nuvem:', err);
   }
 
-  // 2. Fallback para tabela Supabase se existir
+  // 2. Fallback para Supabase Auth metadata se disponível
   const client = getSupabase();
-  if (client && userId) {
+  if (client) {
     try {
-      const { data, error } = await client
-        .from('leve_user_data')
-        .select('data')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (data && data.data) {
-        return { data: data.data as AppData };
+      const { data: userData } = await client.auth.getUser();
+      const meta = userData?.user?.user_metadata;
+      if (meta && meta.app_sync_data) {
+        return { data: meta.app_sync_data as AppData };
       }
     } catch {}
   }
