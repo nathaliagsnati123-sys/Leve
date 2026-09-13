@@ -114,7 +114,7 @@ export const StudiesView: React.FC = () => {
     setIsSubjectModalOpen(true);
   };
 
-  const handleSaveSubject = (form: { name: string; color: string; icon: string; description?: string }) => {
+  const handleSaveSubject = (form: { name: string; color: string; icon: string; description?: string; coverUrl?: string }) => {
     if (editingSubject) {
       const updated: StudySubject = {
         ...editingSubject,
@@ -122,6 +122,8 @@ export const StudiesView: React.FC = () => {
         color: form.color,
         icon: form.icon,
         description: form.description,
+        coverUrl: form.coverUrl,
+        imageUrl: form.coverUrl,
         updatedAt: new Date().toISOString(),
       };
       updateStudySubject(updated);
@@ -134,11 +136,28 @@ export const StudiesView: React.FC = () => {
         color: form.color,
         icon: form.icon,
         description: form.description,
+        coverUrl: form.coverUrl,
+        imageUrl: form.coverUrl,
       };
       addStudySubject(newSubject);
       showToast(`Matéria "${form.name}" criada com sucesso!`);
     }
     setIsSubjectModalOpen(false);
+  };
+
+  const handleUpdateSubjectCover = (subjectId: string, newCoverUrl?: string) => {
+    const target = subjects.find(s => s.id === subjectId);
+    if (!target) return;
+    const updated: StudySubject = {
+      ...target,
+      coverUrl: newCoverUrl,
+      imageUrl: newCoverUrl,
+      updatedAt: new Date().toISOString(),
+    };
+    updateStudySubject(updated);
+    const nextSubjects = subjects.map(s => s.id === updated.id ? updated : s);
+    triggerCloudSync(nextSubjects, summaries);
+    showToast(newCoverUrl ? 'Foto de capa atualizada! 📸✨' : 'Foto de capa removida.');
   };
 
   const handleConfirmDeleteSubject = () => {
@@ -248,6 +267,7 @@ export const StudiesView: React.FC = () => {
         onDeleteDocument={handleDeleteDocument}
         onToggleFavorite={toggleSummaryFavorite}
         onBackToOverview={handleBackToOverview}
+        onUpdateCover={(coverUrl) => handleUpdateSubjectCover(currentSubject.id, coverUrl)}
         isMale={isMale}
       />
     );
@@ -327,7 +347,7 @@ export const StudiesView: React.FC = () => {
               <h3 className="text-xs font-semibold text-stone-600 dark:text-stone-300">
                 Matérias ({searchResults.subjects.length})
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {searchResults.subjects.map(subj => {
                   const count = summaries.filter(s => s.subjectId === subj.id).length;
                   return (
@@ -338,6 +358,7 @@ export const StudiesView: React.FC = () => {
                       onOpen={() => handleOpenSubject(subj.id)}
                       onEdit={() => handleOpenEditSubject(subj)}
                       onDelete={() => setSubjectToDelete(subj)}
+                      onUpdateCover={(coverUrl) => handleUpdateSubjectCover(subj.id, coverUrl)}
                     />
                   );
                 })}
@@ -476,7 +497,7 @@ export const StudiesView: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {subjects.map((subj) => {
                 const count = summaries.filter(s => s.subjectId === subj.id).length;
                 return (
@@ -487,6 +508,7 @@ export const StudiesView: React.FC = () => {
                     onOpen={() => handleOpenSubject(subj.id)}
                     onEdit={() => handleOpenEditSubject(subj)}
                     onDelete={() => setSubjectToDelete(subj)}
+                    onUpdateCover={(coverUrl) => handleUpdateSubjectCover(subj.id, coverUrl)}
                   />
                 );
               })}

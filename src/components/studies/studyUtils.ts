@@ -216,3 +216,51 @@ export function extractTextPreview(content?: string, maxLength = 120): string {
   if (clean.length <= maxLength) return clean;
   return clean.slice(0, maxLength).trim() + '...';
 }
+
+/**
+ * Utilitário de compressão de foto de capa para manter o app leve, rápido e sem sobrecarregar armazenamento,
+ * preservando perfeitamente a proporção original da imagem (Instagram 4:5, Stories 9:16, Quadrado 1:1 ou Paisagem 16:9).
+ */
+export const compressImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          // Limite de 1440px no maior lado para garantir alta nitidez em qualquer proporção (Stories, Feed ou Banner)
+          const MAX_SIDE = 1440;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_SIDE || height > MAX_SIDE) {
+            if (width > height) {
+              height = Math.round((height * MAX_SIDE) / width);
+              width = MAX_SIDE;
+            } else {
+              width = Math.round((width * MAX_SIDE) / height);
+              height = MAX_SIDE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas context not available');
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(compressedDataUrl);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+    reader.readAsDataURL(file);
+  });
+};
+

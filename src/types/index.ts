@@ -178,6 +178,8 @@ export interface StudySubject {
   color: string; // Cor visual do caderno (emerald, blue, purple, amber, rose, slate, teal, indigo)
   description?: string;
   icon?: string; // Ícone ou emoji (📚, ⚖️, 📊, 🧮, 📝, 💼, 🎯, etc.)
+  coverUrl?: string; // Foto de capa do caderno / matéria
+  imageUrl?: string; // Foto de capa alternativa
   createdAt: string;
   updatedAt?: string;
 }
