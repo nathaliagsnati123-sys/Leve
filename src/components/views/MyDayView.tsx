@@ -6,7 +6,8 @@ import {
   Sprout, Heart, ChevronRight, CheckCircle2, Trash2, X, RefreshCw,
   Bell, BookOpen, Feather
 } from 'lucide-react';
-import { MyDayDetailsModal, MyDayModalType } from '../modals/MyDayDetailsModal';
+import type { MyDayModalType } from '../modals/MyDayDetailsModal';
+const MyDayDetailsModal = React.lazy(() => import('../modals/MyDayDetailsModal').then(m => ({ default: m.MyDayDetailsModal })));
 import { getTodayDateString, formatDateToBrazilian } from '../../services/storage';
 import { 
   SCRIPTURE_VERSES, 
@@ -846,10 +847,14 @@ export const MyDayView: React.FC = () => {
       </div>
 
       {/* Caixinha Modal que abre ao clicar na setinha mostrando tudo que foi cadastrado */}
-      <MyDayDetailsModal
-        type={detailsModalType}
-        onClose={() => setDetailsModalType(null)}
-      />
+      {detailsModalType && (
+        <React.Suspense fallback={null}>
+          <MyDayDetailsModal
+            type={detailsModalType}
+            onClose={() => setDetailsModalType(null)}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

@@ -121,49 +121,37 @@ serve(async (req: Request) => {
       data.plan_name
     ].filter(Boolean).join(" ").toLowerCase();
 
-    const priceValue = Number(
-      purchase.price?.value ?? data.price?.value ?? purchase.price ?? 0
-    );
-
-    const isUpgradeOffer =
-      rawOfferCode === "0vzkb290" ||
-      searchString.includes("0vzkb290") ||
-      (searchString.includes("upgrade") && (searchString.includes("levia") || searchString.includes("vip"))) ||
-      (searchString.includes("upgrade") && priceValue >= 10 && priceValue <= 25);
-
-    const isDirectVipOffer =
-      rawOfferCode === "foybxnsq" ||
-      searchString.includes("foybxnsq") ||
-      (!isUpgradeOffer && (
-        searchString.includes("vip") ||
-        searchString.includes("completo") ||
-        priceValue >= 59
-      ));
-
-    const isVipPurchase = isUpgradeOffer || isDirectVipOffer;
+    // Mapeamento exato dos códigos de oferta do LEVE:
+    // - Upgrade Especial -> VIP: 0vzkb290
+    // - VIP direto: foybxnsq
+    // - Especial: nve7cj26
+    const isUpgradeOffer = rawOfferCode === "0vzkb290" || searchString.includes("0vzkb290");
+    const isDirectVipOffer = rawOfferCode === "foybxnsq" || searchString.includes("foybxnsq");
+    const isVipPurchase = isUpgradeOffer || isDirectVipOffer || searchString.includes("vip");
 
     const isSpecialPurchase =
       !isVipPurchase && (
         rawOfferCode === "nve7cj26" ||
         searchString.includes("nve7cj26") ||
-        searchString.includes("especial") ||
-        searchString.includes("special") ||
-        (priceValue >= 35 && priceValue < 59)
+        searchString.includes("especial")
       );
 
-    let entitlementUpdate: {
-      plan_name: string;
+    interface EntitlementValues {
       "leve gratuito": boolean;
       leve_especial: boolean;
       leve_vip: boolean;
       lia_access: boolean;
       hotmart_status: string;
       hotmart_transaction_id: string;
-    };
+    }
+
+    let entitlementValues: EntitlementValues;
+    let planName: "gratuito" | "especial" | "vip";
 
     if (isRevocationEvent && !isApprovalEvent) {
-      entitlementUpdate = {
-        plan_name: "gratuito",
+      // Compra cancelada/reembolsada
+      planName = "gratuito";
+      entitlementValues = {
         "leve gratuito": true,
         leve_especial: false,
         leve_vip: false,
@@ -173,8 +161,9 @@ serve(async (req: Request) => {
       };
     } else if (isApprovalEvent) {
       if (isVipPurchase) {
-        entitlementUpdate = {
-          plan_name: "vip",
+        // VIP ou Upgrade Especial -> VIP (0vzkb290 / foybxnsq)
+        planName = "vip";
+        entitlementValues = {
           "leve gratuito": false,
           leve_especial: false,
           leve_vip: true,
@@ -183,8 +172,9 @@ serve(async (req: Request) => {
           hotmart_transaction_id: transactionId
         };
       } else if (isSpecialPurchase) {
-        entitlementUpdate = {
-          plan_name: "especial",
+        // Especial (nve7cj26)
+        planName = "especial";
+        entitlementValues = {
           "leve gratuito": false,
           leve_especial: true,
           leve_vip: false,
@@ -193,12 +183,12 @@ serve(async (req: Request) => {
           hotmart_transaction_id: transactionId
         };
       } else {
+        // Oferta desconhecida
         return new Response(JSON.stringify({
           status: "error",
           message: "Compra recebida, mas a oferta não foi identificada.",
           email: buyerEmail,
-          offer_code: rawOfferCode,
-          price: priceValue
+          offer_code: rawOfferCode
         }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -212,6 +202,7 @@ serve(async (req: Request) => {
       });
     }
 
+    // Localizar ou criar o usuário no Supabase Auth sem duplicidade
     let userId: string | null = null;
     try {
       const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
@@ -221,7 +212,6 @@ serve(async (req: Request) => {
       if (matchedUser) {
         userId = matchedUser.id;
       } else {
-        // Cria a conta do comprador com e-mail confirmado para que ele acesse instantaneamente
         const { data: createdData } = await supabaseAdmin.auth.admin.createUser({
           email: buyerEmail,
           email_confirm: true,
@@ -240,97 +230,127 @@ serve(async (req: Request) => {
       console.warn("[hotmart-webhook] Erro ao buscar/criar usuário no Auth:", userErr);
     }
 
-    // Buscar se já existe registro em user_entitlements por user_id ou por email
-    let existingRowId: string | null = null;
+    if (!userId) {
+      return new Response(JSON.stringify({
+        error: "Não foi possível identificar ou registrar o usuário",
+        email: buyerEmail
+      }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // Localizar registro existente em user_entitlements usando APENAS colunas válidas: user_id ou email_usuario
+    let existingRowUserId: string | null = null;
     try {
-      if (userId) {
-        const { data: rowsByUser } = await supabaseAdmin
-          .from("user_entitlements")
-          .select("id")
-          .eq("user_id", userId)
-          .limit(1);
-        if (rowsByUser && rowsByUser.length > 0) {
-          existingRowId = rowsByUser[0].id;
-        }
+      const { data: rowsByUser } = await supabaseAdmin
+        .from("user_entitlements")
+        .select("user_id")
+        .eq("user_id", userId)
+        .limit(1);
+
+      if (rowsByUser && rowsByUser.length > 0 && rowsByUser[0]?.user_id) {
+        existingRowUserId = rowsByUser[0].user_id;
       }
 
-      if (!existingRowId) {
+      if (!existingRowUserId) {
         const { data: rowsByEmail } = await supabaseAdmin
           .from("user_entitlements")
-          .select("id")
-          .or(`buyer_email.eq.${buyerEmail},email.eq.${buyerEmail},email_usuario.eq.${buyerEmail}`)
+          .select("user_id")
+          .eq("email_usuario", buyerEmail)
           .limit(1);
-        if (rowsByEmail && rowsByEmail.length > 0) {
-          existingRowId = rowsByEmail[0].id;
+
+        if (rowsByEmail && rowsByEmail.length > 0 && rowsByEmail[0]?.user_id) {
+          existingRowUserId = rowsByEmail[0].user_id;
         }
       }
     } catch (searchErr) {
       console.warn("[hotmart-webhook] Aviso ao consultar user_entitlements:", searchErr);
     }
 
-    const entitlementData: Record<string, any> = {
-      ...(userId ? { user_id: userId } : {}),
-      buyer_name: buyerName || undefined,
-      buyer_email: buyerEmail,
-      email: buyerEmail,
+    // Campos estritamente suportados pela tabela user_entitlements:
+    // - user_id
+    // - email_usuario
+    // - "leve gratuito"
+    // - leve_especial
+    // - leve_vip
+    // - lia_access
+    // - hotmart_status
+    // - hotmart_transaction_id
+    // - updated_at
+    const entitlementData = {
+      user_id: userId,
       email_usuario: buyerEmail,
-      ...entitlementUpdate,
+      "leve gratuito": entitlementValues["leve gratuito"],
+      leve_especial: entitlementValues.leve_especial,
+      leve_vip: entitlementValues.leve_vip,
+      lia_access: entitlementValues.lia_access,
+      hotmart_status: entitlementValues.hotmart_status,
+      hotmart_transaction_id: entitlementValues.hotmart_transaction_id,
       updated_at: new Date().toISOString()
     };
 
-    if (existingRowId) {
+    if (existingRowUserId) {
+      // Atualiza o registro existente usando a chave user_id
       const { error: updateError } = await supabaseAdmin
         .from("user_entitlements")
         .update(entitlementData)
-        .eq("id", existingRowId);
+        .eq("user_id", existingRowUserId);
 
       if (updateError) {
         console.error("[hotmart-webhook] Erro ao atualizar user_entitlements:", updateError);
+        return new Response(JSON.stringify({
+          error: "Falha ao atualizar permissões na tabela user_entitlements",
+          details: updateError.message
+        }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
     } else {
+      // Insere um novo registro com user_id e email_usuario
       const { error: insertError } = await supabaseAdmin
         .from("user_entitlements")
-        .insert({
-          ...entitlementData,
-          created_at: new Date().toISOString()
-        });
+        .insert(entitlementData);
 
       if (insertError) {
         console.error("[hotmart-webhook] Erro ao inserir user_entitlements:", insertError);
+        return new Response(JSON.stringify({
+          error: "Falha ao registrar permissões na tabela user_entitlements",
+          details: insertError.message
+        }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
     }
 
-    // Atualiza metadados do usuário no Auth se o usuário existir
-    if (userId) {
-      try {
-        await supabaseAdmin.auth.admin.updateUserById(userId, {
-          app_metadata: {
-            plan: entitlementUpdate.plan_name,
-            "leve gratuito": entitlementUpdate["leve gratuito"],
-            leve_especial: entitlementUpdate.leve_especial,
-            leve_vip: entitlementUpdate.leve_vip,
-            lia_access: entitlementUpdate.lia_access
-          },
-          user_metadata: {
-            ...(buyerName ? { name: buyerName, full_name: buyerName } : {}),
-            email_verified: true
-          }
-        });
-      } catch (metaErr) {
-        console.warn("[hotmart-webhook] Erro ao sincronizar app_metadata:", metaErr);
-      }
+    // Atualiza metadados no Supabase Auth para consistência imediata
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        app_metadata: {
+          plan: planName,
+          "leve gratuito": entitlementValues["leve gratuito"],
+          leve_especial: entitlementValues.leve_especial,
+          leve_vip: entitlementValues.leve_vip,
+          lia_access: entitlementValues.lia_access
+        },
+        user_metadata: {
+          ...(buyerName ? { name: buyerName, full_name: buyerName } : {}),
+          email_verified: true
+        }
+      });
+    } catch (metaErr) {
+      console.warn("[hotmart-webhook] Erro ao sincronizar app_metadata:", metaErr);
     }
 
     return new Response(JSON.stringify({
       status: "success",
       event,
       email: buyerEmail,
-      plan: entitlementUpdate.plan_name,
+      plan: planName,
       entitlements: {
-        "leve gratuito": entitlementUpdate["leve gratuito"],
-        leve_especial: entitlementUpdate.leve_especial,
-        leve_vip: entitlementUpdate.leve_vip,
-        lia_access: entitlementUpdate.lia_access
+        "leve gratuito": entitlementValues["leve gratuito"],
+        leve_especial: entitlementValues.leve_especial,
+        leve_vip: entitlementValues.leve_vip,
+        lia_access: entitlementValues.lia_access
       }
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -345,3 +365,4 @@ serve(async (req: Request) => {
     });
   }
 });
+

@@ -345,6 +345,8 @@ export interface Goal {
   status?: 'in-progress' | 'paused' | 'completed';
   steps: GoalStep[];
   completed: boolean;
+  imageUrl?: string;
+  image?: string;
 }
 
 export type BillCategory = 

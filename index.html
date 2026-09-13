@@ -23,7 +23,14 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://ozzlnqlhrythvjdrdgwe.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://ozzlnqlhrythvjdrdgwe.supabase.co" />
+    <link rel="preconnect" href="https://connect.facebook.net" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500&display=swap" />
+    </noscript>
     <!-- Meta Pixel Code -->
     <script>
       !function(f,b,e,v,n,t,s)
@@ -55,7 +62,7 @@
       })();
 
       try {
-        var rawData = localStorage.getItem('leve_app_data');
+        var rawData = localStorage.getItem('leve_app_data_v3') || localStorage.getItem('leve_app_data');
         if (rawData) {
           var parsed = JSON.parse(rawData);
           if (parsed && parsed.user && parsed.user.theme === 'dark') {

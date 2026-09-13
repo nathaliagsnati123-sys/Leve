@@ -546,7 +546,9 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
       goalMap.set(cg.id, {
         ...existing,
         ...cg,
-        completed: existing.completed || cg.completed
+        completed: existing.completed || cg.completed,
+        imageUrl: cg.imageUrl || existing.imageUrl,
+        image: cg.image || existing.image
       });
     }
   });

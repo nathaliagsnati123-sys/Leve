@@ -256,9 +256,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     try {
       localStorage.removeItem('leve_active_tab');
-    } catch {
-      // ignore
-    }
+      sessionStorage.removeItem('leve_active_tab');
+    } catch {}
+    setActiveTabState('my-day');
   }, []);
 
   const setActiveTab = (tab: ActiveTab) => {
