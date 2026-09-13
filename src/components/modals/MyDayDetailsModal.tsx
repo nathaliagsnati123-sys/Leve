@@ -47,6 +47,14 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
   // Filtro de tarefas
   const [taskFilter, setTaskFilter] = useState<'today' | 'pending' | 'all' | 'completed'>('today');
 
+  // Filtragem de tarefas de hoje e gerais (declarado no topo junto aos hooks)
+  const filteredTasks = useMemo(() => {
+    if (taskFilter === 'today') return todayTasks;
+    if (taskFilter === 'pending') return data.tasks.filter((t) => !t.completed);
+    if (taskFilter === 'completed') return data.tasks.filter((t) => t.completed);
+    return data.tasks;
+  }, [taskFilter, todayTasks, data.tasks]);
+
   // Adicionar prioridade inline
   const [isAddingPriority, setIsAddingPriority] = useState(false);
   const [newPriorityTitle, setNewPriorityTitle] = useState('');
@@ -58,6 +66,7 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitCategory, setNewHabitCategory] = useState<HabitCategory>('Saúde');
 
+  // Modal fechado
   if (!type) return null;
 
   // Handlers de Prioridade
@@ -116,14 +125,6 @@ export const MyDayDetailsModal: React.FC<MyDayDetailsModalProps> = ({ type, onCl
     ...rawVerse,
     verse: adaptTextToGender(rawVerse.verse, treatmentPreference)
   };
-
-  // Filtragem de tarefas de hoje e gerais
-  const filteredTasks = useMemo(() => {
-    if (taskFilter === 'today') return todayTasks;
-    if (taskFilter === 'pending') return data.tasks.filter((t) => !t.completed);
-    if (taskFilter === 'completed') return data.tasks.filter((t) => t.completed);
-    return data.tasks;
-  }, [taskFilter, todayTasks, data.tasks]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
