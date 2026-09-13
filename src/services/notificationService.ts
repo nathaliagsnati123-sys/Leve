@@ -175,6 +175,25 @@ function timeStringToMinutes(timeStr: string): number {
   return h * 60 + m;
 }
 
+// Timestamp do momento em que o app ou site foi aberto nesta sessão
+let appSessionStartTimestamp: number = 0;
+
+/**
+ * Registra a inicialização da sessão da aplicação.
+ * Previne disparos indevidos de notificações no momento em que o usuário entra no app ou no site.
+ */
+export function markAppEntrySession(): void {
+  appSessionStartTimestamp = Date.now();
+  try {
+    // Inicializa o timestamp do lembrete de água para contar a partir da entrada,
+    // garantindo que nunca dispare imediatamente ao abrir o aplicativo ou site.
+    const lastWater = localStorage.getItem('leve_last_water_reminder_ts');
+    if (!lastWater || Number(lastWater) <= 0) {
+      localStorage.setItem('leve_last_water_reminder_ts', String(Date.now()));
+    }
+  } catch {}
+}
+
 /**
  * Processador periódico de lembretes:
  * Checa tarefas com horário, água, hábitos, espiritualidade e fechamento do dia.
@@ -185,6 +204,12 @@ export function checkAndTriggerReminders(
 ): void {
   const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
   if (!settings.enabled) return;
+
+  // Respeita rigorosamente a preferência do usuário: NUNCA dispara notificações ao entrar no app ou site.
+  // Permite uma janela de carência de pelo menos 90 segundos após abrir a aplicação antes de processar lembretes periódicos.
+  if (appSessionStartTimestamp > 0 && (Date.now() - appSessionStartTimestamp < 90000)) {
+    return;
+  }
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -228,6 +253,13 @@ export function checkAndTriggerReminders(
         } catch {}
 
         const nowTs = Date.now();
+        if (lastNotifiedWater === 0) {
+          try {
+            localStorage.setItem('leve_last_water_reminder_ts', String(nowTs));
+          } catch {}
+          return;
+        }
+
         // Se já passou o tempo do intervalo desde a última notificação
         if (nowTs - lastNotifiedWater >= intervalMs) {
           const remainingMl = targetMl - amountMl;
@@ -357,12 +389,11 @@ export function checkAndTriggerReminders(
     const motivationTime = settings.dailyMotivationTime || '09:00';
     const motivationKey = `daily_motivation_${todayDateStr}`;
 
-    const motivationMinutes = timeStringToMinutes(motivationTime);
-    // Dispara no minuto exato do horário ou na primeira abertura do app caso já tenha passado do horário definido e ainda não tenha sido enviada hoje
+    // Dispara SOMENTE no minuto exato configurado (ex: 09:00).
+    // NUNCA dispara de forma intrusiva ao abrir o aplicativo ou site mais tarde.
     const isExactMinute = currentFormattedTime === motivationTime;
-    const isPastToday = currentMinutes >= motivationMinutes && currentMinutes <= motivationMinutes + 180;
 
-    if ((isExactMinute || isPastToday) && !hasNotifiedToday(motivationKey, todayDateStr)) {
+    if (isExactMinute && !hasNotifiedToday(motivationKey, todayDateStr)) {
       const quote = getDailyMotivationalQuote(todayDateStr, data.user?.treatmentPreference);
       notify(
         '✨ Inspiração do seu Dia • LEVE',

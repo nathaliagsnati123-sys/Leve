@@ -5,7 +5,8 @@
 import { 
   AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, 
   SleepLog, JournalEntry, Memory, Prayer, FiveMinuteGodSession, Goal, Bill, 
-  Income, EmotionalCheckIn, UserProfile, NotificationSettings 
+  Income, EmotionalCheckIn, UserProfile, NotificationSettings,
+  WorkoutRoutine, StudySubject, StudySummary, SelfCareAction
 } from '../types';
 import { getRememberedEmail, sanitizeAppData } from './storage';
 
@@ -324,12 +325,14 @@ export function isDefaultPlaceholderData(data: AppData | null | undefined): bool
   const habitIds = (data.habits || []).map(h => h?.id).filter(Boolean);
   const isDefaultHabits = habitIds.length === 0 || (habitIds.length <= 1 && (!habitIds[0] || habitIds[0] === 'h-1'));
   const hasNoJournal = Object.keys(data.journal || {}).length === 0;
+  const hasNoWorkouts = (!data.workoutRoutines || data.workoutRoutines.length === 0);
+  const hasNoStudies = (!data.studies || ((data.studies.subjects?.length || 0) === 0 && (data.studies.summaries?.length || 0) === 0));
   const hasNoCustomData = (!data.prayers || data.prayers.length <= 1) &&
     (!data.devotionals || data.devotionals.length === 0) &&
     (!data.goals || data.goals.length === 0) &&
     (!data.bills || data.bills.length === 0);
 
-  return isDefaultTasks && isDefaultHabits && hasNoJournal && hasNoCustomData;
+  return isDefaultTasks && isDefaultHabits && hasNoJournal && hasNoCustomData && hasNoWorkouts && hasNoStudies;
 }
 
 /**
@@ -627,6 +630,18 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
   };
 
   // 19. Autocuidado
+  const selfCareMap = new Map<string, SelfCareAction>();
+  (local.selfCareList || []).forEach(a => { if (a?.id) selfCareMap.set(a.id, a); });
+  (cloud.selfCareList || []).forEach(ca => {
+    if (!ca?.id) return;
+    const existing = selfCareMap.get(ca.id);
+    if (!existing) {
+      selfCareMap.set(ca.id, ca);
+    } else {
+      selfCareMap.set(ca.id, { ...existing, ...ca });
+    }
+  });
+
   const selfCareCompleted = {
     ...(local.selfCareCompleted || {}),
     ...(cloud.selfCareCompleted || {})
@@ -638,6 +653,56 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
     ...(cloud.favoriteVerses || [])
   ]));
 
+  // 21. Fichas de Treino (Workout Routines): União por ID, mantendo exercícios e histórico de conclusões
+  const routineMap = new Map<string, WorkoutRoutine>();
+  (local.workoutRoutines || []).forEach(r => { if (r?.id) routineMap.set(r.id, r); });
+  (cloud.workoutRoutines || []).forEach(cr => {
+    if (!cr?.id) return;
+    const existing = routineMap.get(cr.id);
+    if (!existing) {
+      routineMap.set(cr.id, cr);
+    } else {
+      routineMap.set(cr.id, {
+        ...existing,
+        ...cr,
+        exercises: cr.exercises && cr.exercises.length >= (existing.exercises?.length || 0)
+          ? cr.exercises
+          : (existing.exercises || []),
+        completedDates: Array.from(new Set([
+          ...(existing.completedDates || []),
+          ...(cr.completedDates || [])
+        ]))
+      });
+    }
+  });
+
+  // 22. Caderno de Estudos (Subjects & Summaries): União completa por ID entre todos os aparelhos
+  const subjectMap = new Map<string, StudySubject>();
+  (local.studies?.subjects || []).forEach(s => { if (s?.id) subjectMap.set(s.id, s); });
+  (cloud.studies?.subjects || []).forEach(cs => {
+    if (!cs?.id) return;
+    const existing = subjectMap.get(cs.id);
+    if (!existing) {
+      subjectMap.set(cs.id, cs);
+    } else {
+      subjectMap.set(cs.id, { ...existing, ...cs });
+    }
+  });
+
+  const summaryMap = new Map<string, StudySummary>();
+  (local.studies?.summaries || []).forEach(s => { if (s?.id) summaryMap.set(s.id, s); });
+  (cloud.studies?.summaries || []).forEach(cs => {
+    if (!cs?.id) return;
+    const existing = summaryMap.get(cs.id);
+    if (!existing) {
+      summaryMap.set(cs.id, cs);
+    } else {
+      const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const cloudTime = new Date(cs.updatedAt || cs.createdAt || 0).getTime();
+      summaryMap.set(cs.id, cloudTime >= localTime ? { ...existing, ...cs } : { ...cs, ...existing });
+    }
+  });
+
   return sanitizeAppData({
     user: mergedUser,
     tasks: Array.from(taskMap.values()),
@@ -647,7 +712,7 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
     groceries: Array.from(groceryMap.values()),
     movement: Array.from(movementMap.values()),
     sleep,
-    selfCareList: cloud.selfCareList && cloud.selfCareList.length > 0 ? cloud.selfCareList : (local.selfCareList || []),
+    selfCareList: Array.from(selfCareMap.values()),
     selfCareCompleted,
     checkIns,
     journal,
@@ -679,16 +744,10 @@ export function mergeAppData(local: AppData, cloud: AppData): AppData {
         ...(cloud.notificationSettings || {})
       } as NotificationSettings
     } : {}),
-    workoutRoutines: cloud.workoutRoutines && cloud.workoutRoutines.length > 0
-      ? cloud.workoutRoutines
-      : (local.workoutRoutines || []),
+    workoutRoutines: Array.from(routineMap.values()),
     studies: {
-      subjects: cloud.studies?.subjects && cloud.studies.subjects.length > 0
-        ? cloud.studies.subjects
-        : (local.studies?.subjects || []),
-      summaries: cloud.studies?.summaries && cloud.studies.summaries.length > 0
-        ? cloud.studies.summaries
-        : (local.studies?.summaries || [])
+      subjects: Array.from(subjectMap.values()),
+      summaries: Array.from(summaryMap.values())
     }
   });
 }

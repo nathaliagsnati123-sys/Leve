@@ -27,6 +27,7 @@ import {
   sendSystemNotification,
   checkAndTriggerReminders,
   sendDailyMotivationalNotification,
+  markAppEntrySession,
   NotificationPermissionStatus
 } from '../services/notificationService';
 
@@ -770,30 +771,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return sendDailyMotivationalNotification(data, (msg) => showToast(msg, 'success'));
   }, [data, requestNotificationPermission, showToast]);
 
-  // Verificador em segundo plano para lembretes de tarefas, água, hábitos, fé e fechamento
+  // Inicializa a sessão para proteger contra notificações na entrada do app ou site
   useEffect(() => {
-    // Checagem inicial com pequeno atraso para o app carregar suavemente
-    const timer = setTimeout(() => {
-      checkAndTriggerReminders(data, (msg) => showToast(msg, 'info'));
-    }, 2500);
+    markAppEntrySession();
+  }, []);
 
-    // Checagem a cada 35 segundos
+  // Verificador em segundo plano para lembretes de tarefas, água, hábitos, fé e fechamento
+  // Respeita rigorosamente a solicitação: NUNCA dispara notificações na entrada do app ou site
+  useEffect(() => {
+    // Checagem periódica suave enquanto o app/site está em uso (sem disparos na inicialização)
     const interval = setInterval(() => {
       checkAndTriggerReminders(data, (msg) => showToast(msg, 'info'));
-    }, 35000);
-
-    // Checagem automática ao retornar à aba / desbloquear o celular
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkAndTriggerReminders(data, (msg) => showToast(msg, 'info'));
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    }, 45000);
 
     return () => {
-      clearTimeout(timer);
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [data, showToast]);
 

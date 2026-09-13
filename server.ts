@@ -331,6 +331,13 @@ function mergeDataServer(existing: any, incoming: any): any {
   const goals = mergeArrayById(existing.goals, incoming.goals);
   const bills = mergeArrayById(existing.bills, incoming.bills);
   const incomes = mergeArrayById(existing.incomes, incoming.incomes);
+  const workoutRoutines = mergeArrayById(existing.workoutRoutines, incoming.workoutRoutines);
+  const selfCareList = mergeArrayById(existing.selfCareList, incoming.selfCareList);
+
+  const studies = {
+    subjects: mergeArrayById(existing.studies?.subjects, incoming.studies?.subjects),
+    summaries: mergeArrayById(existing.studies?.summaries, incoming.studies?.summaries)
+  };
 
   const myLife = {
     books: mergeArrayById(existing.myLife?.books, incoming.myLife?.books),
@@ -362,7 +369,10 @@ function mergeDataServer(existing: any, incoming: any): any {
     goals,
     bills,
     incomes,
-    myLife
+    myLife,
+    workoutRoutines,
+    selfCareList,
+    studies
   };
 }
 

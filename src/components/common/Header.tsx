@@ -1,150 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateToBrazilian, getTodayDateString } from '../../services/storage';
-import { Search, Award, Menu, User, Cloud, Camera } from 'lucide-react';
+import { Menu, Camera } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
 import { AvatarPickerModal } from '../modals/AvatarPickerModal';
 
 export const Header: React.FC = () => {
-  const { 
-    data, 
-    setIsSearchOpen, 
-    setIsAchievementsOpen,
-    setIsMobileMenuOpen,
-    todayCompletionPercentage
-  } = useApp();
-
-  const { user, setIsAuthModalOpen } = useAuth();
+  const { data, setIsMobileMenuOpen } = useApp();
+  const { user } = useAuth();
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
-  const todayBrazilian = formatDateToBrazilian(getTodayDateString());
-  const unlockedCount = Object.keys(data.unlockedAchievements).length;
+  // Nome da pessoa conectada (respeita o perfil salvo ou metadados da conta)
+  const userName = 
+    data.user.name?.trim() || 
+    (user?.user_metadata?.full_name || user?.user_metadata?.name || '')?.trim() || 
+    (user?.email ? user.email.split('@')[0] : '') || 
+    'Meu Perfil';
+
+  // Data serena e proporcional para celular, tablet e computador
+  const dateInfo = useMemo(() => {
+    const todayStr = getTodayDateString();
+    const full = formatDateToBrazilian(todayStr);
+
+    try {
+      const [year, month, day] = todayStr.split('-').map(Number);
+      const dateObj = new Date(year, month - 1, day);
+      const weekdayShort = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+      const monthShort = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+      const capitalizedWeekday = weekdayShort.charAt(0).toUpperCase() + weekdayShort.slice(1);
+      const compact = `${capitalizedWeekday}, ${day} de ${monthShort}`;
+      return { full, compact };
+    } catch {
+      return { full, compact: full };
+    }
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 bg-[#F9FAF8]/95 dark:bg-[#141B18]/95 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800/80 transition-colors pt-safe-header">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
-        {/* Left side: Hamburger button & brand identity */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
+        {/* 1. Nome do App & Ícone (com a data por baixo no mobile e tablet) */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
           <button
             id="header-mobile-menu-btn"
+            type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden p-2 -ml-1 rounded-xl text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800/60 transition active:scale-95 flex items-center justify-center shrink-0 cursor-pointer"
-            title="Abrir menu com todas as opções"
-            aria-label="Abrir todas as opções"
+            className="md:hidden p-1.5 -ml-1 rounded-xl text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800/60 transition active:scale-95 flex items-center justify-center shrink-0 cursor-pointer"
+            title="Abrir menu"
+            aria-label="Abrir menu de navegação"
           >
             <Menu className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-xs ring-1 ring-stone-300 dark:ring-stone-700 bg-white shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-xs ring-1 ring-stone-300/80 dark:ring-stone-700 bg-white shrink-0">
               <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-serif tracking-widest text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100 leading-none">
+              <span className="font-serif tracking-widest text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100 leading-tight">
                 LEVE
               </span>
-              <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate sm:hidden mt-0.5">
-                {todayBrazilian.split(',')[0]}
+              {/* Data posicionada por baixo do nome do app no mobile e tablet */}
+              <span className="lg:hidden text-[10px] sm:text-[11px] text-stone-500 dark:text-stone-400 font-medium truncate capitalize leading-tight mt-0.5">
+                <span className="sm:hidden">{dateInfo.compact}</span>
+                <span className="hidden sm:inline">{dateInfo.full}</span>
               </span>
             </div>
           </div>
         </div>
 
-        {/* Center: Full Date (cleanly separated for medium and larger screens) */}
-        <div className="hidden md:flex flex-col items-center justify-center text-center">
-          <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-            {todayBrazilian}
+        {/* 2. A Data centralizada (no computador / desktop) */}
+        <div className="hidden lg:flex items-center justify-center text-center min-w-0 px-4">
+          <span className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-medium truncate capitalize">
+            {dateInfo.full}
           </span>
         </div>
 
-        {/* Action controls on right */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Opção para colocar Avatar ou Foto do perfil */}
+        {/* 3. Nome da pessoa logada + foto ou avatar escolhido */}
+        <div className="flex items-center shrink-0">
           <button
-            id="header-avatar-btn"
+            id="header-user-btn"
             type="button"
             onClick={() => setIsAvatarPickerOpen(true)}
-            className="group relative flex items-center gap-1.5 p-1 pr-2.5 sm:pr-3 rounded-full text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100/90 dark:bg-stone-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-stone-200/80 dark:border-stone-700/80 transition cursor-pointer shadow-2xs"
-            title="Adicionar ou alterar sua foto / avatar"
-            aria-label="Adicionar ou alterar sua foto / avatar"
+            className="group flex items-center gap-2 sm:gap-2.5 p-1 pl-2 sm:pl-3 pr-1 rounded-full text-stone-800 dark:text-stone-100 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition cursor-pointer"
+            title="Alterar foto ou avatar"
+            aria-label="Perfil do usuário e foto"
           >
-            <div className="relative">
+            <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 max-w-[95px] sm:max-w-[160px] truncate text-right">
+              {userName}
+            </span>
+            <div className="relative shrink-0">
               <UserAvatar 
                 avatar={data.user.avatar} 
-                name={data.user.name} 
+                name={userName} 
                 size="sm" 
               />
-              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#1F3A34] text-white flex items-center justify-center ring-1 ring-white dark:ring-stone-900 group-hover:scale-115 transition-transform">
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#1F3A34] text-white flex items-center justify-center ring-1 ring-white dark:ring-stone-900 group-hover:scale-110 transition-transform">
                 <Camera className="w-2 h-2 text-emerald-300" />
               </div>
             </div>
-            <div className="flex flex-col text-left leading-none max-w-[80px] sm:max-w-[105px]">
-              <span className="font-semibold text-xs text-stone-800 dark:text-stone-100 truncate">
-                {data.user.name || 'Meu Perfil'}
-              </span>
-              <span className="text-[9px] text-stone-400 dark:text-stone-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                Alterar foto
-              </span>
-            </div>
           </button>
-
-          {/* Account & Sync Button */}
-          <button
-            id="header-auth-btn"
-            type="button"
-            onClick={() => setIsAuthModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100 dark:bg-stone-800/70 hover:bg-stone-200/70 dark:hover:bg-stone-700/60 border border-stone-200/70 dark:border-stone-700/60 transition cursor-pointer"
-            title={user ? `Conectado como ${user.email} (Sincronizado)` : 'Acessar de outros dispositivos'}
-          >
-            {user ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-300/40"></span>
-                <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden md:inline text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">Nuvem</span>
-              </>
-            ) : (
-              <>
-                <User className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400" />
-                <span className="hidden md:inline">Entrar</span>
-              </>
-            )}
-          </button>
-
-          {/* Achievements badge */}
-          <button
-            id="header-achievements-btn"
-            onClick={() => setIsAchievementsOpen(true)}
-            className="relative p-2 rounded-full text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/60 transition cursor-pointer"
-            title="Minhas Conquistas"
-          >
-            <Award className="w-4 h-4 text-amber-700 dark:text-amber-300" />
-            {unlockedCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-[9px] font-bold text-white flex items-center justify-center">
-                {unlockedCount}
-              </span>
-            )}
-          </button>
-
-          {/* Search trigger */}
-          <button
-            id="header-search-btn"
-            onClick={() => setIsSearchOpen(true)}
-            className="p-2 rounded-full text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/60 transition cursor-pointer"
-            title="Buscar tarefas, notas, orações..."
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
-          {/* Daily completion mini pill on larger screens */}
-          <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-600 dark:text-stone-300">
-            <span>Dia:</span>
-            <span className="font-semibold text-emerald-800 dark:text-emerald-300">{todayCompletionPercentage}%</span>
-          </div>
         </div>
       </div>
 
-      {/* Modal de seleção de foto ou avatar */}
+      {/* Modal para trocar ou escolher avatar/foto */}
       <AvatarPickerModal
         isOpen={isAvatarPickerOpen}
         onClose={() => setIsAvatarPickerOpen(false)}
