@@ -230,13 +230,13 @@ export function subscribeToCloudSyncEvents(
         }
         if (!isClosed) {
           clearTimeout(reconnectTimer);
-          reconnectTimer = setTimeout(connect, 3000);
+          reconnectTimer = setTimeout(connect, 1200);
         }
       };
     } catch (err) {
       console.warn('[sync SSE] Falha ao criar EventSource:', err);
       if (!isClosed) {
-        reconnectTimer = setTimeout(connect, 4000);
+        reconnectTimer = setTimeout(connect, 1500);
       }
     }
   }

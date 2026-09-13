@@ -16,7 +16,7 @@ import {
 import { 
   mergeAppData, pollCloudForUpdates, getLastSyncTimestamp, setLastSyncTimestamp,
   subscribeToCloudSyncEvents, subscribeToLocalTabUpdates, broadcastLocalTabUpdate,
-  isDefaultPlaceholderData
+  isDefaultPlaceholderData, pushAppDataToCloud, pullAppDataFromCloud, getDeviceId
 } from '../services/syncService';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
@@ -363,49 +363,116 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [userProfile, user?.id]);
 
   // ============================================================================
-  // Multi-Device Cloud Sync Engine (Sincronização entre todos os dispositivos)
-  // ============================================================================
-  // MULTI-DEVICE CLOUD SYNC ENGINE (Sincronização em Tempo Real entre Dispositivos)
+  // Multi-Device Cloud Sync Engine (Sincronização 100% Automática em Tempo Real)
   // ============================================================================
   const isApplyingRemoteRef = React.useRef(false);
-  const isSyncingRef = React.useRef(false);
+  const isPushingRef = React.useRef(false);
+  const pendingPushDataRef = React.useRef<AppData | null>(null);
+  const hasPendingLocalChangesRef = React.useRef(false);
+  const autoSyncDebounceTimerRef = React.useRef<any>(null);
   const isInitialPullCompleteRef = React.useRef(false);
   const lastSyncedTimestampRef = React.useRef<number>(getLastSyncTimestamp());
-  const lastLocalEditTimeRef = React.useRef<number>(0);
 
   const activeEmail = (user?.email || getRememberedEmail() || '').trim().toLowerCase();
   const activeUserId = user?.id || '';
   const hasAccount = Boolean(activeEmail || activeUserId);
 
-  // Força uma sincronização completa manual
+  // Envia as alterações pendentes para a nuvem sem perda de dados
+  const flushAutoPush = useCallback(async () => {
+    if (!hasAccount || isPushingRef.current) return;
+    const targetData = pendingPushDataRef.current;
+    if (!targetData) return;
+
+    isPushingRef.current = true;
+    try {
+      const res = await pushAppDataToCloud(targetData, { email: activeEmail, userId: activeUserId });
+      if (res.success) {
+        if (pendingPushDataRef.current === targetData) {
+          pendingPushDataRef.current = null;
+          hasPendingLocalChangesRef.current = false;
+        }
+        const now = res.timestamp || Date.now();
+        lastSyncedTimestampRef.current = now;
+        setLastSyncTimestamp(now);
+        broadcastLocalTabUpdate(targetData, now);
+      }
+    } catch (err) {
+      console.warn('[Auto-Sync] Erro ao enviar:', err);
+    } finally {
+      isPushingRef.current = false;
+      // Se novas edições locais chegaram durante a transmissão anterior, envia-as imediatamente!
+      if (pendingPushDataRef.current) {
+        setTimeout(flushAutoPush, 50);
+      }
+    }
+  }, [hasAccount, activeEmail, activeUserId]);
+
+  // Aplica dados remotos autoritativos recebidos da nuvem
+  const applyIncomingRemoteData = useCallback((remoteData: AppData, timestamp: number) => {
+    // Se este dispositivo NÃO possui alterações locais pendentes de envio:
+    // Adota diretamente o estado remoto autoritativo!
+    // Isso garante fidelidade total e instantânea:
+    // - Tarefas excluídas no celular somem no computador no mesmo segundo!
+    // - Tarefas marcadas/desmarcadas refletem imediatamente!
+    // - Hábitos concluídos/desmarcados refletem fielmente!
+    // - Novas notas, refeições, metas e água aparecem na hora!
+    if (!hasPendingLocalChangesRef.current && !pendingPushDataRef.current) {
+      isApplyingRemoteRef.current = true;
+      const cleanData = sanitizeAppData(remoteData);
+      setData(cleanData);
+      saveAppData(cleanData);
+      lastSyncedTimestampRef.current = timestamp;
+      setLastSyncTimestamp(timestamp);
+      return;
+    }
+
+    // Caso o usuário estivesse digitando localmente ao mesmo tempo:
+    // Mescla as alterações e agenda envio
+    isApplyingRemoteRef.current = true;
+    setData((prev) => {
+      const merged = mergeAppData(prev, remoteData);
+      saveAppData(merged);
+      pendingPushDataRef.current = merged;
+      if (autoSyncDebounceTimerRef.current) {
+        clearTimeout(autoSyncDebounceTimerRef.current);
+      }
+      autoSyncDebounceTimerRef.current = setTimeout(flushAutoPush, 100);
+      return merged;
+    });
+    lastSyncedTimestampRef.current = timestamp;
+    setLastSyncTimestamp(timestamp);
+  }, [flushAutoPush]);
+
+  // Força uma sincronização manual caso o usuário deseje
   const forceSyncAll = useCallback(async (): Promise<boolean> => {
     if (!hasAccount) return false;
-    isSyncingRef.current = true;
+    isPushingRef.current = true;
     try {
-      // 1. Sempre envia os dados deste dispositivo para a nuvem primeiro para garantir que nada se perca
-      await syncDataNow(data);
+      // 1. Sempre envia os dados deste dispositivo para a nuvem
+      await pushAppDataToCloud(data, { email: activeEmail, userId: activeUserId });
+      pendingPushDataRef.current = null;
+      hasPendingLocalChangesRef.current = false;
 
-      // 2. Em seguida, busca os dados da nuvem para reconciliar e atualizar
-      const cloudData = await pullCloudData();
-      if (cloudData) {
+      // 2. Em seguida, busca os dados atualizados da nuvem
+      const cloudRes = await pullAppDataFromCloud({ email: activeEmail, userId: activeUserId }, 0);
+      if (cloudRes.hasUpdates && cloudRes.data) {
         isApplyingRemoteRef.current = true;
-        const nextData = sanitizeAppData(cloudData);
+        const nextData = sanitizeAppData(cloudRes.data);
         setData(nextData);
         saveAppData(nextData);
-        const now = Date.now();
+        const now = cloudRes.timestamp || Date.now();
         lastSyncedTimestampRef.current = now;
         setLastSyncTimestamp(now);
         broadcastLocalTabUpdate(nextData, now);
-        return true;
       }
       return true;
     } catch (err) {
       console.warn('[forceSyncAll] Erro:', err);
       return false;
     } finally {
-      isSyncingRef.current = false;
+      isPushingRef.current = false;
     }
-  }, [hasAccount, pullCloudData, syncDataNow, data]);
+  }, [hasAccount, activeEmail, activeUserId, data]);
 
   // 1. Ao iniciar o app ou logar: puxa da nuvem para sincronizar a conta imediatamente
   useEffect(() => {
@@ -415,26 +482,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     async function syncOnLoginOrMount() {
       try {
-        isSyncingRef.current = true;
-        const cloudData = await pullCloudData();
-        if (cloudData && !isCancelled) {
+        const cloudRes = await pullAppDataFromCloud({ email: activeEmail, userId: activeUserId }, 0);
+        if (cloudRes.hasUpdates && cloudRes.data && !isCancelled) {
           isApplyingRemoteRef.current = true;
           setData((prev) => {
             const next = isDefaultPlaceholderData(prev)
-              ? sanitizeAppData(cloudData)
-              : mergeAppData(prev, cloudData);
+              ? sanitizeAppData(cloudRes.data!)
+              : mergeAppData(prev, cloudRes.data!);
             saveAppData(next);
             return next;
           });
-          const now = Date.now();
+          const now = cloudRes.timestamp || Date.now();
           lastSyncedTimestampRef.current = now;
           setLastSyncTimestamp(now);
-          broadcastLocalTabUpdate(cloudData, now);
-        } else if (!cloudData && !isCancelled) {
-          // Nuvem ainda sem dados: apenas envia se tivermos dados reais locais
+          broadcastLocalTabUpdate(cloudRes.data, now);
+        } else if (!cloudRes.data && !isCancelled) {
+          // Nuvem ainda sem dados: envia dados locais se existirem
           const hasLocalContent = (data.tasks?.length || 0) > 0 || (data.habits?.length || 0) > 0;
           if (hasLocalContent && !isDefaultPlaceholderData(data)) {
-            await syncDataNow(data);
+            await pushAppDataToCloud(data, { email: activeEmail, userId: activeUserId });
             const now = Date.now();
             lastSyncedTimestampRef.current = now;
             setLastSyncTimestamp(now);
@@ -444,13 +510,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('Sync on mount error:', e);
       } finally {
         isInitialPullCompleteRef.current = true;
-        isSyncingRef.current = false;
       }
     }
 
     syncOnLoginOrMount();
     return () => { isCancelled = true; };
-  }, [user?.id, activeEmail]);
+  }, [user?.id, activeEmail, activeUserId]);
 
   // 2. Transmissão em tempo real instantânea (SSE) e Cross-Tab: reflete alterações de outros dispositivos em <100ms
   useEffect(() => {
@@ -460,93 +525,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeSSE = subscribeToCloudSyncEvents(
       { email: activeEmail, userId: activeUserId },
       (remoteData, timestamp) => {
-        isApplyingRemoteRef.current = true;
-        setData((prev) => {
-          const hasUnsavedEdits = lastLocalEditTimeRef.current > lastSyncedTimestampRef.current;
-          let nextState: AppData;
-          if (!hasUnsavedEdits || isDefaultPlaceholderData(prev)) {
-            nextState = sanitizeAppData(remoteData);
-          } else {
-            nextState = mergeAppData(prev, remoteData);
-          }
-          saveAppData(nextState);
-          return nextState;
-        });
-        lastSyncedTimestampRef.current = timestamp;
-        setLastSyncTimestamp(timestamp);
+        applyIncomingRemoteData(remoteData, timestamp);
       }
     );
 
     // Escuta alterações imediatas em outras abas do mesmo navegador
     const unsubscribeTabs = subscribeToLocalTabUpdates((tabData, timestamp) => {
-      isApplyingRemoteRef.current = true;
-      setData(tabData);
-      saveAppData(tabData);
-      lastSyncedTimestampRef.current = timestamp;
+      applyIncomingRemoteData(tabData, timestamp);
     });
 
     return () => {
       unsubscribeSSE();
       unsubscribeTabs();
     };
-  }, [hasAccount, activeEmail, activeUserId]);
+  }, [hasAccount, activeEmail, activeUserId, applyIncomingRemoteData]);
 
-  // 3. Debounced auto-sync (Push): Envia alterações locais para a nuvem de forma ágil (350ms)
-  useEffect(() => {
-    if (!hasAccount || !isInitialPullCompleteRef.current) return;
-
-    if (isApplyingRemoteRef.current) {
-      isApplyingRemoteRef.current = false;
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      if (isSyncingRef.current) return;
-      isSyncingRef.current = true;
-      try {
-        await syncDataNow(data);
-        const now = Date.now();
-        lastSyncedTimestampRef.current = now;
-        setLastSyncTimestamp(now);
-        broadcastLocalTabUpdate(data, now);
-      } finally {
-        isSyncingRef.current = false;
-      }
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [data, hasAccount, syncDataNow]);
-
-  // 4. Salvar imediatamente ao minimizar o app ou fechar a janela (Mobile e Desktop)
+  // 3. Salvar imediatamente ao minimizar o app ou fechar a janela (Mobile e Desktop)
   useEffect(() => {
     if (!hasAccount) return;
 
-    const handleFlushSync = () => {
-      if (!isSyncingRef.current) {
-        syncDataNow(data);
+    const handleQuickFlush = () => {
+      if (pendingPushDataRef.current) {
+        try {
+          const payload = JSON.stringify({
+            email: activeEmail,
+            userId: activeUserId,
+            data: pendingPushDataRef.current,
+            clientTimestamp: Date.now(),
+            deviceId: getDeviceId()
+          });
+          if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+            navigator.sendBeacon('/api/sync/push', new Blob([payload], { type: 'application/json' }));
+          } else {
+            fetch('/api/sync/push', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: payload,
+              keepalive: true
+            }).catch(() => {});
+          }
+        } catch {}
       }
     };
 
-    window.addEventListener('beforeunload', handleFlushSync);
+    window.addEventListener('beforeunload', handleQuickFlush);
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        handleFlushSync();
+        handleQuickFlush();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      window.removeEventListener('beforeunload', handleFlushSync);
+      window.removeEventListener('beforeunload', handleQuickFlush);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [data, hasAccount, syncDataNow]);
+  }, [hasAccount, activeEmail, activeUserId]);
 
-  // 5. Poller de contingência (caso a conexão SSE oscile na rede do celular)
+  // 4. Poller de contingência ultra-rápido (1.5s) e ao focar na aba/celular
   useEffect(() => {
     if (!hasAccount) return;
 
     const checkForOtherDeviceUpdates = async () => {
-      if (document.visibilityState === 'hidden' || isSyncingRef.current) return;
+      if (document.visibilityState === 'hidden' || isPushingRef.current) return;
       try {
         const check = await pollCloudForUpdates(
           { email: activeEmail, userId: activeUserId },
@@ -554,31 +595,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
 
         if (check.hasUpdates) {
-          isSyncingRef.current = true;
-          const cloudData = await pullCloudData(0);
-          if (cloudData) {
-            isApplyingRemoteRef.current = true;
-            setData((prev) => {
-              const hasUnsavedEdits = lastLocalEditTimeRef.current > lastSyncedTimestampRef.current;
-              const next = (!hasUnsavedEdits || isDefaultPlaceholderData(prev))
-                ? sanitizeAppData(cloudData)
-                : mergeAppData(prev, cloudData);
-              saveAppData(next);
-              return next;
-            });
-            const now = check.timestamp || Date.now();
-            lastSyncedTimestampRef.current = now;
-            setLastSyncTimestamp(now);
+          const cloudRes = await pullAppDataFromCloud({ email: activeEmail, userId: activeUserId }, 0);
+          if (cloudRes.hasUpdates && cloudRes.data) {
+            applyIncomingRemoteData(cloudRes.data, cloudRes.timestamp || Date.now());
           }
-          isSyncingRef.current = false;
         }
       } catch {
-        isSyncingRef.current = false;
+        // silencioso
       }
     };
 
-    // Polling a cada 3 segundos
-    const pollInterval = setInterval(checkForOtherDeviceUpdates, 3000);
+    // Polling a cada 1.5s
+    const pollInterval = setInterval(checkForOtherDeviceUpdates, 1500);
 
     // Verificação imediata ao focar na janela / reabrir o app no celular
     const handleWindowFocus = () => {
@@ -597,17 +625,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [hasAccount, activeEmail, activeUserId, pullCloudData]);
+  }, [hasAccount, activeEmail, activeUserId, applyIncomingRemoteData]);
 
   // Persist state
   const updateData = useCallback((updater: (prev: AppData) => AppData) => {
-    lastLocalEditTimeRef.current = Date.now();
     setData((prev) => {
       const next = updater(prev);
       saveAppData(next);
+
+      // Registra alteração local e dispara auto-sync em tempo real (180ms)
+      hasPendingLocalChangesRef.current = true;
+      pendingPushDataRef.current = next;
+
+      if (hasAccount) {
+        if (autoSyncDebounceTimerRef.current) {
+          clearTimeout(autoSyncDebounceTimerRef.current);
+        }
+        autoSyncDebounceTimerRef.current = setTimeout(() => {
+          flushAutoPush();
+        }, 180);
+      }
+
       return next;
     });
-  }, []);
+  }, [hasAccount, flushAutoPush]);
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'gentle' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);

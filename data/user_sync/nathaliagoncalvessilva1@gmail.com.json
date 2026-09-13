@@ -1,0 +1,14 @@
+{
+  "email": "nathaliagoncalvessilva1@gmail.com",
+  "userId": "763546ad-23a8-4e54-9291-84a3909bd172",
+  "data": {
+    "user": {
+      "name": "Nathe"
+    },
+    "tasks": []
+  },
+  "updatedAt": 1789308081539,
+  "version": 2,
+  "clientTimestamp": 1789307485900,
+  "deviceId": "test_push"
+}

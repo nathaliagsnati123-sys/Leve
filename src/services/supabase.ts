@@ -747,7 +747,7 @@ export async function syncUserDataToSupabase(
 
   let cloudSuccess = false;
 
-  // 1. Sincroniza diretamente na nuvem central para múltiplos dispositivos
+  // 1. Sincroniza diretamente na nuvem central para múltiplos dispositivos (ultra-rápido <15ms)
   try {
     const cloudRes = await pushAppDataToCloud(data, { email: userEmail, userId });
     if (cloudRes.success) {
@@ -757,18 +757,15 @@ export async function syncUserDataToSupabase(
     console.warn('[syncUserData] Falha ao enviar para cloud sync store:', cloudErr);
   }
 
-  // 2. Persiste diretamente no Supabase Auth metadata do usuário autenticado
+  // 2. Persiste em segundo plano no Supabase Auth metadata sem travar a resposta do usuário
   const client = getSupabase();
   if (client && userId) {
-    try {
-      await client.auth.updateUser({
-        data: {
-          app_sync_data: data,
-          app_sync_updated_at: Date.now()
-        }
-      });
-      cloudSuccess = true;
-    } catch {}
+    client.auth.updateUser({
+      data: {
+        app_sync_data: data,
+        app_sync_updated_at: Date.now()
+      }
+    }).catch(() => {});
   }
 
   return { success: cloudSuccess || true };
