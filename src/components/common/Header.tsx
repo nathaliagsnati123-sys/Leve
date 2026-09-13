@@ -1,15 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateToBrazilian, getTodayDateString } from '../../services/storage';
-import { Menu, Camera } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
-import { AvatarPickerModal } from '../modals/AvatarPickerModal';
 
 export const Header: React.FC = () => {
   const { data, setIsMobileMenuOpen } = useApp();
   const { user } = useAuth();
-  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
   // Nome da pessoa conectada (respeita o perfil salvo ou metadados da conta)
   const userName = 
@@ -76,38 +74,24 @@ export const Header: React.FC = () => {
           </span>
         </div>
 
-        {/* 3. Nome da pessoa logada + foto ou avatar escolhido */}
-        <div className="flex items-center shrink-0">
-          <button
-            id="header-user-btn"
-            type="button"
-            onClick={() => setIsAvatarPickerOpen(true)}
-            className="group flex items-center gap-2 sm:gap-2.5 p-1 pl-2 sm:pl-3 pr-1 rounded-full text-stone-800 dark:text-stone-100 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition cursor-pointer"
-            title="Alterar foto ou avatar"
-            aria-label="Perfil do usuário e foto"
-          >
-            <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 max-w-[95px] sm:max-w-[160px] truncate text-right">
-              {userName}
-            </span>
-            <div className="relative shrink-0">
-              <UserAvatar 
-                avatar={data.user.avatar} 
-                name={userName} 
-                size="sm" 
-              />
-              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#1F3A34] text-white flex items-center justify-center ring-1 ring-white dark:ring-stone-900 group-hover:scale-110 transition-transform">
-                <Camera className="w-2 h-2 text-emerald-300" />
-              </div>
-            </div>
-          </button>
+        {/* 3. Nome da pessoa logada + foto ou avatar escolhido (apenas visualização) */}
+        <div 
+          id="header-user-btn"
+          className="flex items-center gap-2 sm:gap-2.5 shrink-0 select-none"
+          aria-label="Perfil do usuário"
+        >
+          <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 max-w-[100px] sm:max-w-[180px] truncate text-right">
+            {userName}
+          </span>
+          <div className="shrink-0">
+            <UserAvatar 
+              avatar={data.user.avatar} 
+              name={userName} 
+              size="sm" 
+            />
+          </div>
         </div>
       </div>
-
-      {/* Modal para trocar ou escolher avatar/foto */}
-      <AvatarPickerModal
-        isOpen={isAvatarPickerOpen}
-        onClose={() => setIsAvatarPickerOpen(false)}
-      />
     </header>
   );
 };

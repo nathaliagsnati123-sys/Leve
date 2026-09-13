@@ -11,7 +11,7 @@ interface AvatarPickerModalProps {
 const EMOJI_AVATARS = [
   '🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', 
   '🧘‍♀️', '🌊', '🦋', '🌱', '🤍', '📖', '🕯️', '🎨', 
-  '🌙', '🍓', '🍵', '🌺', '🍃', '💫', '🕊️', '🍂'
+  '🌙', '🍓', '🍵', '🌺', '🍃', '💫', '🌷', '🍂'
 ];
 
 export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({ isOpen, onClose }) => {
@@ -106,14 +106,20 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({ isOpen, on
   const isCustomPhoto = isImageAvatar(selectedAvatar);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className="w-full max-w-md bg-white dark:bg-[#121A17] border border-stone-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md bg-white dark:bg-[#121A17] border border-stone-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] my-auto animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between gap-3 bg-stone-50/60 dark:bg-stone-900/40">
+        <div className="p-4 sm:p-5 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between gap-3 bg-stone-50/60 dark:bg-stone-900/40 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
               <Camera className="w-4 h-4" />
@@ -140,7 +146,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({ isOpen, on
         </div>
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto space-y-6">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5">
           {/* Preview central */}
           <div className="flex flex-col items-center justify-center text-center space-y-3">
             <div className="relative group">
