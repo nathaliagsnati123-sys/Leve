@@ -1,0 +1,123 @@
+{
+  "email": "dallia.avr@gmail.com",
+  "userId": "12a84e7f-42f7-43b2-a21e-a64bbe4edd9e",
+  "data": {
+    "user": {
+      "name": "Dállia",
+      "avatar": "🌸",
+      "accentColor": "#1F3A34",
+      "theme": "light",
+      "hasCompletedOnboarding": true,
+      "treatmentPreference": "feminino",
+      "dailyIntention": "Ter mais calma e paciência no meu caminhar 🕊️",
+      "hiddenSections": []
+    },
+    "tasks": [],
+    "habits": [],
+    "hydration": {},
+    "meals": {},
+    "groceries": [],
+    "movement": [],
+    "sleep": {},
+    "selfCareList": [
+      {
+        "id": "sc-1",
+        "title": "Tomei banho com calma",
+        "category": "Corpo"
+      },
+      {
+        "id": "sc-2",
+        "title": "Cuidei da minha pele",
+        "category": "Corpo"
+      },
+      {
+        "id": "sc-3",
+        "title": "Organizei meu espaço",
+        "category": "Mente"
+      },
+      {
+        "id": "sc-4",
+        "title": "Fiz algo que gosto",
+        "category": "Coração"
+      },
+      {
+        "id": "sc-5",
+        "title": "Descansei",
+        "category": "Corpo"
+      },
+      {
+        "id": "sc-6",
+        "title": "Passei tempo com alguém importante",
+        "category": "Coração"
+      },
+      {
+        "id": "sc-7",
+        "title": "Saí um pouco do celular",
+        "category": "Mente"
+      },
+      {
+        "id": "sc-8",
+        "title": "Fiz algo por mim",
+        "category": "Coração"
+      }
+    ],
+    "selfCareCompleted": {},
+    "checkIns": {},
+    "journal": {},
+    "memories": [],
+    "prayers": [],
+    "devotionals": [],
+    "singleMeals": [],
+    "sleepList": [],
+    "fiveMinuteSessions": [],
+    "favoriteVerses": [],
+    "goals": [],
+    "bills": [],
+    "incomes": [],
+    "cycle": {
+      "averageCycleLength": 28,
+      "averagePeriodLength": 5,
+      "periods": [],
+      "dailyLogs": {}
+    },
+    "unlockedAchievements": {},
+    "myLife": {
+      "books": [],
+      "movies": [],
+      "series": [],
+      "hobbies": [],
+      "places": [],
+      "dreams": []
+    },
+    "notificationSettings": {
+      "enabled": true,
+      "soundEnabled": true,
+      "hydrationEnabled": true,
+      "hydrationIntervalMinutes": 90,
+      "hydrationStartTime": "08:00",
+      "hydrationEndTime": "22:00",
+      "tasksEnabled": true,
+      "taskReminderMinutesBefore": 10,
+      "dailyTasksSummaryEnabled": true,
+      "dailyTasksSummaryTime": "08:30",
+      "habitsEnabled": true,
+      "morningHabitsReminderTime": "08:00",
+      "eveningHabitsReminderTime": "20:30",
+      "spiritualityEnabled": true,
+      "spiritualityReminderTime": "07:30",
+      "dailyMotivationEnabled": true,
+      "dailyMotivationTime": "09:00",
+      "dayClosingEnabled": true,
+      "dayClosingReminderTime": "21:30"
+    },
+    "workoutRoutines": [],
+    "studies": {
+      "subjects": [],
+      "summaries": []
+    }
+  },
+  "updatedAt": 1789398371642,
+  "version": 1,
+  "clientTimestamp": 1789398371642,
+  "deviceId": "system_restore"
+}

@@ -148,12 +148,16 @@ function hashPassword(password: string): string {
 // Multi-Device Cloud Sync Store (Sincronização em tempo real entre dispositivos)
 // ============================================================================
 const USER_SYNC_DIR = path.join(process.cwd(), "data", "user_sync");
+const USER_BACKUP_DIR = path.join(process.cwd(), "data", "user_sync_backups");
 const USER_MAP_FILE = path.join(process.cwd(), "data", "user_sync_map.json");
 
 function ensureUserSyncDir() {
   try {
     if (!fs.existsSync(USER_SYNC_DIR)) {
       fs.mkdirSync(USER_SYNC_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(USER_BACKUP_DIR)) {
+      fs.mkdirSync(USER_BACKUP_DIR, { recursive: true });
     }
   } catch (err) {
     console.warn("[sync store] Erro ao criar diretório USER_SYNC_DIR:", err);
@@ -524,6 +528,19 @@ function readUserSyncPayload(email?: string, userId?: string): {
         return parsed;
       }
     }
+
+    // Fallback: Tenta recuperar do diretório de backup local
+    const backupPath = path.join(USER_BACKUP_DIR, `${accountKey}.json`);
+    if (fs.existsSync(backupPath)) {
+      try {
+        const backupContent = fs.readFileSync(backupPath, "utf-8");
+        const backupParsed = JSON.parse(backupContent || "{}");
+        if (backupParsed && backupParsed.data) {
+          fs.writeFileSync(filePath, backupContent, "utf-8");
+          return backupParsed;
+        }
+      } catch {}
+    }
   } catch (err) {
     console.warn("[sync store] Erro ao ler dados de sincronização:", err);
   }
@@ -593,6 +610,12 @@ function writeUserSyncPayload(
     fs.writeFileSync(tempFile, JSON.stringify(storedObject, null, 2), "utf-8");
     fs.renameSync(tempFile, filePath);
     tempFile = null;
+
+    // Salva uma cópia redundante no diretório de backups protegidos
+    try {
+      const backupPath = path.join(USER_BACKUP_DIR, `${accountKey}.json`);
+      fs.writeFileSync(backupPath, JSON.stringify(storedObject, null, 2), "utf-8");
+    } catch {}
 
     // Atualiza cache em memória
     syncCache.set(accountKey, { updatedAt, version: currentVersion, filePath });

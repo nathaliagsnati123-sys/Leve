@@ -381,7 +381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Envia as alterações pendentes para a nuvem sem perda de dados
   const flushAutoPush = useCallback(async () => {
-    if (!hasAccount || isPushingRef.current) return;
+    if (!hasAccount || isPushingRef.current || !isInitialPullCompleteRef.current) return;
     const targetData = pendingPushDataRef.current;
     if (!targetData) return;
 
