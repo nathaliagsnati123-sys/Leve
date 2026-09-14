@@ -8,7 +8,7 @@ export function isEmailConfirmationIssue(errorMsg?: string | null): boolean {
   if (!errorMsg) return false;
   const lower = errorMsg.toLowerCase().trim();
 
-  // Exclusão estrita: se mencionar senha, credenciais ou digitação de dados, NUNCA é erro de confirmação
+  // Exclusão estrita: se mencionar senha, credenciais, digitação de dados, compras, tokens ou JSON, NUNCA é erro de confirmação
   if (
     lower.includes('senha') ||
     lower.includes('password') ||
@@ -16,8 +16,13 @@ export function isEmailConfirmationIssue(errorMsg?: string | null): boolean {
     lower.includes('invalid credentials') ||
     lower.includes('incorret') ||
     lower.includes('verifique seus dados') ||
-    lower.includes('não encontramos uma conta') ||
-    lower.includes('realize sua compra')
+    lower.includes('não encontramos') ||
+    lower.includes('realize sua compra') ||
+    lower.includes('compra primeiro') ||
+    lower.includes('token') ||
+    lower.includes('json') ||
+    lower.includes('the page') ||
+    lower.includes('syntaxerror')
   ) {
     return false;
   }

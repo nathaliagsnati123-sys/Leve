@@ -29,7 +29,9 @@ import {
   saveCachedEntitlements,
   getCachedUserProfile,
   saveCachedUserProfile,
-  supabaseCompleteFirstAccess
+  supabaseCompleteFirstAccess,
+  getLocalAuthSession,
+  clearLocalAuthSession
 } from '../services/supabase';
 import { isProtectedAccount } from '../utils/protectedAccounts';
 import { AppData, TreatmentPreference } from '../types';
@@ -309,22 +311,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setSyncStatus('local-only');
           return;
         }
-      }
 
-      setSession(newSession);
-      setUser(newSession?.user || null);
-      if (newSession?.user) {
+        setSession(newSession);
+        setUser(newSession.user);
         setMustChangePassword(checkRequiresPasswordChange(newSession.user));
         if (newSession.user.email) {
           saveRememberedEmail(newSession.user.email);
         }
         markPresentationCompleted();
         setSyncStatus('synced');
-        await Promise.all([
-          loadEntitlements(newSession.user.id, newSession),
-          loadProfile(newSession.user.id)
-        ]);
+        loadEntitlements(newSession.user.id, newSession).catch(() => {});
+        loadProfile(newSession.user.id).catch(() => {});
       } else {
+        // Se o Supabase SDK emitiu SIGNED_OUT (por exemplo, após logout anterior),
+        // verifica se temos uma sessão local ativa no localStorage antes de anular
+        const local = getLocalAuthSession();
+        if (local?.user) {
+          // Mantém a sessão local ativa intacta, prevenindo expulsão acidental
+          return;
+        }
+
+        setSession(null);
+        setUser(null);
         setMustChangePassword(false);
         setSyncStatus('local-only');
         setEntitlements(null);
@@ -460,11 +468,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(data.session);
         setMustChangePassword(checkRequiresPasswordChange(data.user));
         setSyncStatus('synced');
-        // Consulta obrigatória dos entitlements do novo usuário no Supabase
-        await Promise.all([
-          loadEntitlements(data.user.id, data.session),
-          loadProfile(data.user.id)
-        ]);
+        // Consulta em segundo plano dos entitlements e perfil sem falhar o login
+        loadEntitlements(data.user.id, data.session).catch((e) => {
+          console.warn('[AuthContext] Erro silencioso ao carregar entitlements no login:', e);
+        });
+        loadProfile(data.user.id).catch((e) => {
+          console.warn('[AuthContext] Erro silencioso ao carregar profile no login:', e);
+        });
         return { success: true };
       }
       return { success: false, error: 'Não foi possível autenticar o usuário.' };
@@ -709,8 +719,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setMustChangePassword(false);
       setSyncStatus('local-only');
 
-      // 2. Encerrar sessão no Supabase Auth
-      await supabaseSignOut();
+      // 2. Limpar sessão local e encerrar sessão no Supabase Auth
+      clearLocalAuthSession();
+      try {
+        await supabaseSignOut();
+      } catch {}
 
       // 3. Limpeza profunda de dados temporários, LEVIA, cache de plano e dados de aplicativo
       try {
@@ -722,6 +735,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.removeItem('leve_treatment_pref_current');
         localStorage.removeItem('leve_active_tab');
         localStorage.removeItem('leve_entitlements_cache');
+        localStorage.removeItem('leve_user_identity');
         localStorage.removeItem('leve_app_data_v3');
         localStorage.removeItem('leve_app_data_v2');
         localStorage.removeItem('leve_app_data_v1');

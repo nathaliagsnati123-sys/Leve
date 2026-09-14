@@ -70,11 +70,20 @@ export function clearLocalAuthSession(): void {
   try {
     localStorage.removeItem(LOCAL_AUTH_SESSION_KEY);
     localStorage.removeItem(LOCAL_AUTH_LEGACY_KEY);
-    // Clear cached entitlements and user profiles
+    // Clear cached entitlements, user profiles and Supabase tokens
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith(LOCAL_ENTITLEMENTS_PREFIX) || k.startsWith(LOCAL_PROFILE_PREFIX))) {
+      if (
+        k && (
+          k.startsWith(LOCAL_ENTITLEMENTS_PREFIX) ||
+          k.startsWith(LOCAL_PROFILE_PREFIX) ||
+          (k.startsWith('sb-') && k.endsWith('-auth-token')) ||
+          k === 'supabase.auth.token' ||
+          k === 'sb-access-token' ||
+          k === 'sb-refresh-token'
+        )
+      ) {
         keysToRemove.push(k);
       }
     }
@@ -597,19 +606,19 @@ export async function supabaseSignIn(email: string, password: string) {
         // Resposta não-JSON do servidor (ex: erro de proxy/HTML)
       }
 
-      // Se o status for 404, 401 ou 403, respeita a decisão do servidor e não tenta fallback
-      if (logRes.status === 404) {
-        return {
-          data: null,
-          error: new Error('Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.')
-        };
-      }
+      // Se o servidor respondeu com qualquer status de erro (404, 401, 403, 400, etc.),
+      // respeita a decisão do servidor e NUNCA tenta fallback com Supabase SDK
       if (logRes.status === 401) {
         return {
           data: null,
           error: new Error('E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.')
         };
       }
+
+      return {
+        data: null,
+        error: new Error('Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.')
+      };
     }
   } catch (apiErr) {
     console.warn('[supabaseSignIn] API central de login indisponível, usando fallback:', apiErr);

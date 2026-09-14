@@ -375,9 +375,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isInitialPullCompleteRef = React.useRef(false);
   const lastSyncedTimestampRef = React.useRef<number>(getLastSyncTimestamp());
 
-  const activeEmail = (user?.email || getRememberedEmail() || '').trim().toLowerCase();
+  const activeEmail = (user?.email || '').trim().toLowerCase();
   const activeUserId = user?.id || '';
-  const hasAccount = Boolean(activeEmail || activeUserId);
+  const hasAccount = Boolean(user && (activeEmail || activeUserId));
 
   // Envia as alterações pendentes para a nuvem sem perda de dados
   const flushAutoPush = useCallback(async () => {

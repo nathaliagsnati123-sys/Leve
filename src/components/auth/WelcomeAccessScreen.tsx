@@ -173,7 +173,8 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
         });
         showToast('Boas-vindas de volta ao LEVE!', 'success');
       } else {
-        setErrorMessage(translateAuthError(res.error) || 'E-mail ou senha incorretos.');
+        const translated = translateAuthError(res.error);
+        setErrorMessage(translated || 'Não foi possível autenticar a conta. Verifique seus dados.');
       }
     } catch (err: any) {
       setIsSubmitting(false);

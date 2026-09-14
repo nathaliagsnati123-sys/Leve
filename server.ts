@@ -1416,7 +1416,14 @@ async function startServer() {
         });
       }
 
-      // 5. Conta inexistente, gratuita ou sem compra paga
+      // 5. Se o usuário já existe e é pago/protegido, mas a senha não confere
+      if (isProtected || (user && (user.plan !== "LEVE Gratuito" || user.leve_vip || user.leve_especial))) {
+        return res.status(401).json({
+          error: "E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente."
+        });
+      }
+
+      // 6. Conta inexistente, de teste, gratuita ou sem compra paga
       return res.status(404).json({
         error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
       });
