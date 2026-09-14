@@ -1094,6 +1094,7 @@ export async function fetchUserEntitlements(
         `${SUPABASE_URL}/rest/v1/user_entitlements?select=*&id=eq.${effectiveUserId}`
       ];
       if (userEmail) {
+        endpointsToTry.push(`${SUPABASE_URL}/rest/v1/user_entitlements?select=*&email_usuario=eq.${encodeURIComponent(userEmail)}`);
         endpointsToTry.push(`${SUPABASE_URL}/rest/v1/user_entitlements?select=*&email=eq.${encodeURIComponent(userEmail)}`);
       }
       // Consulta aberta onde a política RLS avalia auth.uid() da sessão
@@ -1132,6 +1133,19 @@ export async function fetchUserEntitlements(
 
         if (qId.data && qId.data.length > 0) {
           rows = qId.data;
+        }
+      } catch {}
+    }
+
+    if (rows.length === 0 && userEmail) {
+      try {
+        const qEmailUsuario = await client
+          .from('user_entitlements')
+          .select('*')
+          .eq('email_usuario', userEmail);
+
+        if (qEmailUsuario.data && qEmailUsuario.data.length > 0) {
+          rows = qEmailUsuario.data;
         }
       } catch {}
     }
