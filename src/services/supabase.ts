@@ -4,6 +4,7 @@ import { AppData, MyLifeData, StudiesData, TreatmentPreference } from '../types'
 import { extractPlanFromRow } from './authorization';
 import { normalizeTreatmentPreference } from '../utils/treatment';
 import { pushAppDataToCloud, pullAppDataFromCloud } from './syncService';
+import { isProtectedAccount } from '../utils/protectedAccounts';
 
 export function cleanSupabaseUrl(raw?: string | null): string {
   const fallback = 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
@@ -127,6 +128,13 @@ export function getInitialCachedSession(): Session | null {
   try {
     const local = getLocalAuthSession();
     if (local && (local.user || local.access_token)) {
+      const email = (local.user?.email || '').trim().toLowerCase();
+      const plan = local.user?.user_metadata?.plan;
+      const isProtected = isProtectedAccount(email);
+      if (!isProtected && (plan === 'LEVE Gratuito' || plan === 'free' || plan === 'gratuito')) {
+        clearLocalAuthSession();
+        return null;
+      }
       return local;
     }
   } catch {}
@@ -140,6 +148,13 @@ export function getInitialCachedSession(): Session | null {
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && (parsed.user || parsed.access_token)) {
+            const email = (parsed.user?.email || '').trim().toLowerCase();
+            const plan = parsed.user?.user_metadata?.plan;
+            const isProtected = isProtectedAccount(email);
+            if (!isProtected && (plan === 'LEVE Gratuito' || plan === 'free' || plan === 'gratuito')) {
+              localStorage.removeItem(k);
+              return null;
+            }
             return parsed as Session;
           }
         }

@@ -253,6 +253,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const currentSession = await supabaseGetSession();
         if (mounted) {
+          if (currentSession?.user) {
+            const email = (currentSession.user.email || '').trim().toLowerCase();
+            const meta = currentSession.user.user_metadata || {};
+            const plan = meta.plan || meta.plan_name;
+            const isProtected = isProtectedAccount(email);
+            if (!isProtected && (plan === 'LEVE Gratuito' || plan === 'gratuito' || plan === 'free')) {
+              await supabaseSignOut();
+              setSession(null);
+              setUser(null);
+              setMustChangePassword(false);
+              setSyncStatus('local-only');
+              return;
+            }
+          }
+
           setSession(currentSession);
           setUser(currentSession?.user || null);
           setMustChangePassword(checkRequiresPasswordChange(currentSession?.user || null));
@@ -281,6 +296,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Subscribe to auth events (SIGNED_IN, SIGNED_OUT, PASSWORD_RECOVERY, TOKEN_REFRESHED)
     const { unsubscribe } = onSupabaseAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
+      if (newSession?.user) {
+        const email = (newSession.user.email || '').trim().toLowerCase();
+        const meta = newSession.user.user_metadata || {};
+        const plan = meta.plan || meta.plan_name;
+        const isProtected = isProtectedAccount(email);
+        if (!isProtected && (plan === 'LEVE Gratuito' || plan === 'gratuito' || plan === 'free')) {
+          await supabaseSignOut();
+          setSession(null);
+          setUser(null);
+          setMustChangePassword(false);
+          setSyncStatus('local-only');
+          return;
+        }
+      }
+
       setSession(newSession);
       setUser(newSession?.user || null);
       if (newSession?.user) {
