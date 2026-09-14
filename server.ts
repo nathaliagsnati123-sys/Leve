@@ -788,68 +788,110 @@ async function startServer() {
         return res.status(400).json({ error: "E-mail não fornecido" });
       }
 
+      const isProtected = isProtectedAccount(email);
+      const storedUsers = getStoredUsers();
+      const localUser = storedUsers[email];
+
+      // 1. Se o usuário estiver no banco local
+      if (localUser) {
+        const isFree = localUser.plan === "LEVE Gratuito" || (!localUser.leve_vip && !localUser.leve_especial && !isProtected);
+        if (isFree && !isProtected) {
+          return res.status(404).json({
+            error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+          });
+        }
+
+        localUser.confirmed = true;
+        saveStoredUser(localUser);
+        return res.json({
+          success: true,
+          message: "E-mail confirmado com sucesso! Você já pode entrar.",
+          alreadyConfirmed: false
+        });
+      }
+
+      // 2. Se não estiver no banco local, tenta via Supabase Admin API
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
       const serviceKey = getSupabaseServiceRoleKey();
 
-      if (!serviceKey) {
-        return res.status(500).json({ error: "Chave de serviço não configurada no servidor" });
+      if (!serviceKey || !supabaseUrl) {
+        return res.status(404).json({
+          error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+        });
       }
 
-      const origin = new URL(supabaseUrl).origin;
-      const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`
-        }
-      });
-
-      if (!listRes.ok) {
-        const errText = await listRes.text();
-        console.warn("[confirm-user] Erro ao listar usuários:", errText);
-        return res.status(listRes.status).json({ error: "Falha ao consultar usuário no banco de dados" });
-      }
-
-      const listData = await listRes.json();
-      const users: any[] = listData?.users || [];
-      const user = users.find((u: any) => (u.email || "").toLowerCase() === email);
-
-      if (!user) {
-        return res.status(404).json({ error: "Nenhum cadastro encontrado com este e-mail" });
-      }
-
-      // Check if already confirmed
-      if (user.email_confirmed_at) {
-        return res.json({ success: true, message: "E-mail já está confirmado e ativo!", alreadyConfirmed: true });
-      }
-
-      // Update user to confirm email immediately
-      const updateRes = await fetch(`${origin}/auth/v1/admin/users/${user.id}`, {
-        method: "PUT",
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email_confirm: true,
-          user_metadata: {
-            ...(user.user_metadata || {}),
-            email_verified: true
+      try {
+        const origin = new URL(supabaseUrl).origin;
+        const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`
           }
-        })
-      });
+        });
 
-      if (!updateRes.ok) {
-        const errText = await updateRes.text();
-        console.warn("[confirm-user] Falha ao atualizar usuário:", errText);
-        return res.status(500).json({ error: "Falha ao liberar e-mail do usuário" });
+        if (!listRes.ok) {
+          return res.status(400).json({
+            error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+          });
+        }
+
+        const listData = await listRes.json();
+        const users: any[] = listData?.users || [];
+        const user = users.find((u: any) => (u.email || "").toLowerCase() === email);
+
+        if (!user) {
+          return res.status(404).json({
+            error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+          });
+        }
+
+        // Bloqueio de contas gratuitas no Supabase
+        const meta = user.user_metadata || {};
+        const plan = meta.plan || meta.plan_name;
+        const isFree = !isProtected && (plan === "LEVE Gratuito" || plan === "gratuito" || plan === "free" || (!meta.leve_vip && !meta.leve_especial));
+        if (isFree) {
+          return res.status(404).json({
+            error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+          });
+        }
+
+        // Se já está confirmado
+        if (user.email_confirmed_at) {
+          return res.json({ success: true, message: "E-mail já está confirmado e ativo!", alreadyConfirmed: true });
+        }
+
+        // Atualiza usuário para confirmado imediatamente
+        const updateRes = await fetch(`${origin}/auth/v1/admin/users/${user.id}`, {
+          method: "PUT",
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email_confirm: true,
+            user_metadata: {
+              ...(user.user_metadata || {}),
+              email_verified: true
+            }
+          })
+        });
+
+        if (!updateRes.ok) {
+          return res.status(400).json({ error: "Falha ao liberar e-mail do usuário no serviço de autenticação." });
+        }
+
+        console.log(`[confirm-user] Usuário ${email} ativado com sucesso.`);
+        return res.json({ success: true, message: "E-mail confirmado com sucesso! Você já pode entrar." });
+      } catch (supErr: any) {
+        console.warn("[confirm-user] Erro ao comunicar com Supabase:", supErr);
+        return res.status(400).json({
+          error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+        });
       }
-
-      console.log(`[confirm-user] Usuário ${email} ativado com sucesso.`);
-      return res.json({ success: true, message: "E-mail confirmado com sucesso! Você já pode entrar." });
     } catch (err: any) {
       console.error("[confirm-user] Exceção:", err);
-      return res.status(500).json({ error: err?.message || "Erro interno ao confirmar usuário" });
+      return res.status(400).json({ error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro." });
     }
   });
 
@@ -1309,7 +1351,7 @@ async function startServer() {
           });
         }
         // É cliente pago, porém a senha está incorreta
-        return res.status(401).json({ error: "E-mail ou senha incorretos." });
+        return res.status(401).json({ error: "E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente." });
       }
 
       // 4. Se não existe no Supabase Auth, checa se há compra paga legada (purchases.json)

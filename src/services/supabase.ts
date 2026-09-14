@@ -583,15 +583,32 @@ export async function supabaseSignIn(email: string, password: string) {
     } else {
       // Se o servidor retornou erro controlado (ex: conta não encontrada, senha inválida)
       try {
-        const errData = await logRes.json();
-        if (errData?.error) {
-          return {
-            data: null,
-            error: new Error(errData.error)
-          };
+        const contentType = logRes.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errData = await logRes.json();
+          if (errData?.error) {
+            return {
+              data: null,
+              error: new Error(errData.error)
+            };
+          }
         }
       } catch {
         // Resposta não-JSON do servidor (ex: erro de proxy/HTML)
+      }
+
+      // Se o status for 404, 401 ou 403, respeita a decisão do servidor e não tenta fallback
+      if (logRes.status === 404) {
+        return {
+          data: null,
+          error: new Error('Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.')
+        };
+      }
+      if (logRes.status === 401) {
+        return {
+          data: null,
+          error: new Error('E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.')
+        };
       }
     }
   } catch (apiErr) {

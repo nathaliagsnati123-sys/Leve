@@ -11,6 +11,7 @@ export const NutritionView: React.FC = () => {
   const { 
     data, 
     addMealLog, 
+    deleteMealLog,
     addGroceryItem, 
     toggleGroceryItem, 
     deleteGroceryItem, 
@@ -188,11 +189,21 @@ export const NutritionView: React.FC = () => {
                       <span className="font-bold text-stone-900 dark:text-stone-100 font-serif">
                         {m.category}
                       </span>
-                      {m.howIFelt && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 font-medium">
-                          {m.howIFelt}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {m.howIFelt && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 font-medium">
+                            {m.howIFelt}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => deleteMealLog(m.id)}
+                          className="p-1 rounded-lg text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition"
+                          title="Remover refeição"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-stone-600 dark:text-stone-300">
                       {m.description}

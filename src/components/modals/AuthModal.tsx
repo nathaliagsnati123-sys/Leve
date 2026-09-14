@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import { translateAuthError } from '../../utils/authErrors';
+import { translateAuthError, isEmailConfirmationIssue } from '../../utils/authErrors';
 import { parseBoolean } from '../../services/supabase';
 import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 import { TreatmentPreference } from '../../types';
@@ -310,9 +310,7 @@ export const AuthModal: React.FC = () => {
                 <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div className="flex-1 leading-relaxed">{translateAuthError(errorMessage)}</div>
               </div>
-              {(errorMessage.toLowerCase().includes('confirm') || 
-                errorMessage.toLowerCase().includes('verifi') || 
-                errorMessage.toLowerCase().includes('não confirmado')) && (
+              {isEmailConfirmationIssue(errorMessage) && (
                 <button
                   type="button"
                   disabled={isSubmitting}
@@ -323,9 +321,10 @@ export const AuthModal: React.FC = () => {
                   <span>{isSubmitting ? 'Liberando...' : 'Liberar e Confirmar Meu E-mail Agora'}</span>
                 </button>
               )}
-              {(errorMessage.toLowerCase().includes('credenciais') || 
+              {((errorMessage.toLowerCase().includes('credenciais') || 
                 errorMessage.toLowerCase().includes('senha') ||
-                errorMessage.toLowerCase().includes('invalid')) && (
+                errorMessage.toLowerCase().includes('invalid')) && 
+                !errorMessage.toLowerCase().includes('não encontramos uma conta')) && (
                 <button
                   type="button"
                   disabled={isSubmitting}
@@ -342,6 +341,11 @@ export const AuthModal: React.FC = () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: name.trim() })
                       });
+                      const contentType = claimRes.headers.get('content-type') || '';
+                      if (!contentType.includes('application/json')) {
+                        setErrorMessage('Serviço temporariamente indisponível. Tente novamente em instantes.');
+                        return;
+                      }
                       const claimData = await claimRes.json();
                       if (claimRes.ok) {
                         const logRes = await login(email, password);
@@ -351,7 +355,7 @@ export const AuthModal: React.FC = () => {
                           return;
                         }
                       }
-                      setErrorMessage(claimData?.error || 'Não foi possível ativar sua senha automaticamente.');
+                      setErrorMessage(translateAuthError(claimData?.error) || 'Não foi possível ativar sua senha automaticamente.');
                     } catch {
                       setErrorMessage('Erro ao ativar acesso pós-compra.');
                     } finally {

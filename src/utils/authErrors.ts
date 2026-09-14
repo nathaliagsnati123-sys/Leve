@@ -1,4 +1,38 @@
 // Utilitários de tradução e tratamento de erros de autenticação - LEVE
+
+/**
+ * Verifica se a mensagem de erro é estritamente sobre e-mail pendente de confirmação.
+ * NUNCA deve retornar true para erros de senha, credenciais ou digitação ("verifique seus dados").
+ */
+export function isEmailConfirmationIssue(errorMsg?: string | null): boolean {
+  if (!errorMsg) return false;
+  const lower = errorMsg.toLowerCase().trim();
+
+  // Exclusão estrita: se mencionar senha, credenciais ou digitação de dados, NUNCA é erro de confirmação
+  if (
+    lower.includes('senha') ||
+    lower.includes('password') ||
+    lower.includes('credencia') ||
+    lower.includes('invalid credentials') ||
+    lower.includes('incorret') ||
+    lower.includes('verifique seus dados') ||
+    lower.includes('não encontramos uma conta') ||
+    lower.includes('realize sua compra')
+  ) {
+    return false;
+  }
+
+  return (
+    lower.includes('email not confirmed') ||
+    lower.includes('e-mail ainda não foi confirmado') ||
+    lower.includes('não confirmado') ||
+    lower.includes('pendente de confirmação') ||
+    lower.includes('confirmar seu e-mail') ||
+    lower.includes('confirmação de e-mail') ||
+    lower.includes('link de confirmação')
+  );
+}
+
 /**
  * Traduz mensagens de erro comuns de autenticação (Supabase Auth, rede, validações)
  * para português claro, amigável e acolhedor.
@@ -8,7 +42,23 @@ export function translateAuthError(errorMsg?: string | null): string {
 
   const lower = errorMsg.toLowerCase().trim();
 
-  // Credenciais / login
+  // 1. PRIORIDADE MÁXIMA: Interceptar QUALQUER erro técnico de JSON / Parsing / HTML / Token
+  if (
+    lower.includes('unexpected token') ||
+    lower.includes('is not valid json') ||
+    lower.includes('not valid json') ||
+    lower.includes('the page c') ||
+    lower.includes('the page') ||
+    lower.includes('a página') ||
+    lower.includes('syntaxerror') ||
+    lower.includes('token inesperado') ||
+    lower.includes('json.parse') ||
+    (lower.includes('json') && (lower.includes('válido') || lower.includes('valid')))
+  ) {
+    return 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.';
+  }
+
+  // 2. Credenciais / login incorretos
   if (lower.includes('invalid login credentials') || lower.includes('invalid credentials')) {
     return 'E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.';
   }

@@ -371,10 +371,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: targetEmail.trim().toLowerCase() })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, error: 'Serviço temporariamente indisponível. Tente novamente em instantes.' };
+      }
       const data = await res.json();
       return data;
     } catch (err: any) {
-      return { success: false, error: err?.message || 'Erro ao conectar ao servidor para liberar e-mail' };
+      return { success: false, error: translateAuthError(err?.message) || 'Erro ao conectar ao servidor para liberar e-mail' };
     }
   }, []);
 
@@ -385,10 +389,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: targetEmail.trim().toLowerCase() })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, error: 'Serviço temporariamente indisponível. Tente novamente em instantes.' };
+      }
       const data = await res.json();
       return data;
     } catch (err: any) {
-      return { success: false, error: err?.message || 'Erro ao reenviar confirmação de e-mail' };
+      return { success: false, error: translateAuthError(err?.message) || 'Erro ao reenviar confirmação de e-mail' };
     }
   }, []);
 
@@ -413,12 +421,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email.trim().toLowerCase() })
           });
-          const autoData = await autoRes.json();
-          if (autoData?.success) {
-            console.log('[AuthContext] Auto-confirmação bem-sucedida! Repetindo login...');
-            const retryRes = await supabaseSignIn(email, password);
-            data = retryRes.data;
-            error = retryRes.error;
+          const contentType = autoRes.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const autoData = await autoRes.json();
+            if (autoData?.success) {
+              console.log('[AuthContext] Auto-confirmação bem-sucedida! Repetindo login...');
+              const retryRes = await supabaseSignIn(email, password);
+              data = retryRes.data;
+              error = retryRes.error;
+            }
           }
         } catch (autoErr) {
           console.warn('[AuthContext] Falha na auto-confirmação silenciosa:', autoErr);
@@ -429,6 +440,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
+        const userMeta = data.user.user_metadata || {};
+        const isProtected = isProtectedAccount(email);
+        const plan = userMeta.plan || userMeta.plan_name;
+        const isFree = !isProtected && (plan === 'LEVE Gratuito' || plan === 'gratuito' || plan === 'free' || (!userMeta.leve_vip && !userMeta.leve_especial));
+
+        if (isFree) {
+          // Se for conta de teste ou gratuita sem compra aprovada, bloqueia acesso imediatamente
+          await supabaseSignOut().catch(() => {});
+          return {
+            success: false,
+            error: 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.'
+          };
+        }
+
         saveRememberedEmail(email);
         markPresentationCompleted();
         setUser(data.user);

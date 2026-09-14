@@ -1,7 +1,7 @@
 // Contexto Principal do Aplicativo LEVE
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
-  AppData, Task, Habit, HydrationLog, MealLog, GroceryItem, MovementActivity, 
+  AppData, Task, Habit, HydrationLog, MealLog, SingleMealEntry, GroceryItem, MovementActivity, 
   SleepLog, EmotionalCheckIn, JournalEntry, Memory, Prayer, Devotional,
   FiveMinuteGodSession, Goal, Bill, Income, MenstrualPeriod, CycleDailyLog, UserProfile,
   Achievement, MyLifeBook, MyLifeMovie, MyLifeSeries, MyLifeHobby, MyLifePlace, MyLifeDream,
@@ -121,6 +121,8 @@ interface AppContextType {
   
   // Meals & Groceries
   updateMeal: (date: string, meals: Partial<MealLog>) => void;
+  addMealLog: (entry: Omit<SingleMealEntry, 'id'>) => void;
+  deleteMealLog: (id: string) => void;
   addGroceryItem: (item: Omit<GroceryItem, 'id' | 'completed'>) => void;
   toggleGroceryItem: (id: string) => void;
   deleteGroceryItem: (id: string) => void;
@@ -1114,6 +1116,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
     showToast('Registro de alimentação salvo.');
+  }, [updateData, showToast]);
+
+  const addMealLog = useCallback((entry: Omit<SingleMealEntry, 'id'>) => {
+    const newItem: SingleMealEntry = {
+      ...entry,
+      id: 'meal-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7)
+    };
+    updateData((prev) => ({
+      ...prev,
+      singleMeals: [newItem, ...(prev.singleMeals || [])]
+    }));
+    showToast('Refeição registrada com carinho! 🥗');
+  }, [updateData, showToast]);
+
+  const deleteMealLog = useCallback((id: string) => {
+    updateData((prev) => ({
+      ...prev,
+      singleMeals: (prev.singleMeals || []).filter((m) => m.id !== id)
+    }));
+    showToast('Registro de refeição removido.');
   }, [updateData, showToast]);
 
   const addGroceryItem = useCallback((item: Omit<GroceryItem, 'id' | 'completed'>) => {
@@ -2265,6 +2287,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setWaterTarget,
         updateHydrationTarget,
         updateMeal,
+        addMealLog,
+        deleteMealLog,
         addGroceryItem,
         toggleGroceryItem,
         deleteGroceryItem,

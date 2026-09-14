@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { 
   ArrowRight, ArrowLeft, Check, Sparkles, UserPlus, LogIn, 
-  Lock, Mail, User, Eye, EyeOff, ShieldCheck, RefreshCw 
+  Lock, Mail, User, Eye, EyeOff, ShieldCheck, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 import { trackPixelEvent } from '../../utils/pixel';
-import { translateAuthError } from '../../utils/authErrors';
+import { translateAuthError, isEmailConfirmationIssue } from '../../utils/authErrors';
 import { 
   getRememberedEmail, saveRememberedEmail, 
   isPresentationAlreadyCompleted, markPresentationCompleted, 
@@ -233,7 +233,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
         }
         setSuccessMessage('E-mail verificado e liberado com sucesso! Digite sua senha e clique em Entrar.');
       } else {
-        setErrorMessage(res.error || 'Não foi possível confirmar o e-mail automaticamente.');
+        setErrorMessage(translateAuthError(res.error) || 'Não foi possível confirmar o e-mail automaticamente.');
       }
     } catch {
       setErrorMessage('Erro ao tentar liberar o e-mail.');
@@ -522,16 +522,22 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
               </div>
 
               {errorMessage && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 space-y-2">
-                  <p>{errorMessage}</p>
-                  {(errorMessage.toLowerCase().includes('confirm') || 
-                    errorMessage.toLowerCase().includes('verifi') || 
-                    errorMessage.toLowerCase().includes('não confirmado')) && (
+                <div 
+                  id="auth-error-banner"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/50 text-xs sm:text-sm text-rose-800 dark:text-rose-200 space-y-2.5 transition-all"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed font-medium">
+                      {translateAuthError(errorMessage)}
+                    </p>
+                  </div>
+                  {isEmailConfirmationIssue(errorMessage) && (
                     <button
                       type="button"
                       disabled={isSubmitting}
                       onClick={handleQuickConfirmAndLogin}
-                      className="w-full py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
                     >
                       <ShieldCheck className="w-4 h-4 text-emerald-200" />
                       <span>{isSubmitting ? 'Liberando...' : 'Liberar e Confirmar Meu E-mail Agora'}</span>
