@@ -28,8 +28,10 @@ import {
   getCachedEntitlements,
   saveCachedEntitlements,
   getCachedUserProfile,
-  saveCachedUserProfile
+  saveCachedUserProfile,
+  supabaseCompleteFirstAccess
 } from '../services/supabase';
+import { isProtectedAccount } from '../utils/protectedAccounts';
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
 import { normalizeTreatmentPreference } from '../utils/treatment';
@@ -82,6 +84,27 @@ interface AuthContextType {
   treatmentPreference: TreatmentPreference;
   updateTreatmentPreference: (preference: TreatmentPreference) => Promise<boolean>;
   saveProfile: (profile: { name?: string; full_name?: string; avatar?: string; treatment_preference?: TreatmentPreference }) => Promise<boolean>;
+
+  // Primeiro Acesso e Troca de Senha
+  mustChangePassword: boolean;
+  setMustChangePassword: (must: boolean) => void;
+  completeFirstAccess: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+}
+
+function checkRequiresPasswordChange(u: User | null): boolean {
+  if (!u || !u.email) return false;
+  if (isProtectedAccount(u.email)) return false;
+  const meta = u.user_metadata || {};
+  const appMeta = (u as any).app_metadata || {};
+  return (
+    meta.must_change_password === true ||
+    appMeta.must_change_password === true ||
+    meta.first_access_completed === false ||
+    appMeta.first_access_completed === false ||
+    meta.require_password_change === true ||
+    appMeta.require_password_change === true ||
+    meta.temporary_password === true
+  );
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,6 +117,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [user, setUser] = useState<User | null>(() => initialUser);
   const [session, setSession] = useState<Session | null>(() => initialSession);
+  const [mustChangePassword, setMustChangePassword] = useState<boolean>(() => {
+    return checkRequiresPasswordChange(initialUser);
+  });
 
   // Apenas exibe spinner de bloqueio se houver parâmetros de confirmação de e-mail na URL para trocar
   const hasUrlAuthCode = typeof window !== 'undefined' && (
@@ -229,6 +255,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (mounted) {
           setSession(currentSession);
           setUser(currentSession?.user || null);
+          setMustChangePassword(checkRequiresPasswordChange(currentSession?.user || null));
           setSyncStatus(currentSession?.user ? 'synced' : 'local-only');
           if (currentSession?.user) {
             if (currentSession.user.email) {
@@ -257,6 +284,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSession(newSession);
       setUser(newSession?.user || null);
       if (newSession?.user) {
+        setMustChangePassword(checkRequiresPasswordChange(newSession.user));
         if (newSession.user.email) {
           saveRememberedEmail(newSession.user.email);
         }
@@ -267,6 +295,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           loadProfile(newSession.user.id)
         ]);
       } else {
+        setMustChangePassword(false);
         setSyncStatus('local-only');
         setEntitlements(null);
         setUserProfile(null);
@@ -374,6 +403,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         markPresentationCompleted();
         setUser(data.user);
         setSession(data.session);
+        setMustChangePassword(checkRequiresPasswordChange(data.user));
         setSyncStatus('synced');
         // Consulta obrigatória dos entitlements do novo usuário no Supabase
         await Promise.all([
@@ -621,6 +651,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setEntitlements(null);
       setUserProfile(null);
       setLocalTreatmentPref(null);
+      setMustChangePassword(false);
       setSyncStatus('local-only');
 
       // 2. Encerrar sessão no Supabase Auth
@@ -750,6 +781,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const hasLeveAccess = true;
   const hasLiaAccess = true;
 
+  const completeFirstAccess = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user || !user.email) {
+      return { success: false, error: 'Usuário não identificado.' };
+    }
+    const cleanPwd = (newPassword || '').trim();
+    if (!cleanPwd || cleanPwd.length < 6) {
+      return { success: false, error: 'A senha deve ter no mínimo 6 caracteres.' };
+    }
+
+    try {
+      const res = await supabaseCompleteFirstAccess(cleanPwd, user.email);
+      if (!res.success) {
+        return { success: false, error: res.error || 'Não foi possível registrar a nova senha.' };
+      }
+
+      setMustChangePassword(false);
+      setUser((prev: any) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          user_metadata: {
+            ...(prev.user_metadata || {}),
+            must_change_password: false,
+            first_access_completed: true,
+            require_password_change: false
+          }
+        };
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erro ao processar nova senha.' };
+    }
+  }, [user]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -786,7 +852,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         userProfile,
         treatmentPreference,
         updateTreatmentPreference,
-        saveProfile
+        saveProfile,
+        mustChangePassword,
+        setMustChangePassword,
+        completeFirstAccess
       }}
     >
       {children}

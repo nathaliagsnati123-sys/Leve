@@ -1,4 +1,28 @@
 {
+  "dallia.avr@gmail.com": {
+    "email": "dallia.avr@gmail.com",
+    "user_id": "protected-dallia-avr",
+    "buyer_name": "Dallia",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": false,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-14T00:00:00.000Z"
+  },
+  "cssanches@yahoo.com.br": {
+    "email": "cssanches@yahoo.com.br",
+    "user_id": "protected-cssanches",
+    "buyer_name": "CS Sanches",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": false,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-14T00:00:00.000Z"
+  },
   "nathaliagsnati123@gmail.com": {
     "email": "nathaliagsnati123@gmail.com",
     "user_id": "79e04a29-2e07-42f2-9953-b1bca7f423a0",
@@ -10,5 +34,17 @@
     "lia_access": true,
     "hotmart_status": "approved",
     "updated_at": "2026-09-13T11:40:00.000Z"
+  },
+  "gabrieltmo0301@gmail.com": {
+    "email": "gabrieltmo0301@gmail.com",
+    "user_id": "protected-gabriel-tmo",
+    "buyer_name": "Gabriel",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": false,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-14T00:00:00.000Z"
   }
 }

@@ -39,7 +39,7 @@ export const SUPABASE_URL: string = cleanSupabaseUrl(rawEnvUrl as string);
 
 const LOCAL_STORAGE_ANON_KEY = 'leve_supabase_anon_key';
 const LOCAL_AUTH_SESSION_KEY = 'leve_local_auth_session';
-const LOCAL_AUTH_USERS_KEY = 'leve_local_auth_users';
+const LOCAL_AUTH_LEGACY_KEY = 'leve_local_auth_users';
 
 export function getLocalAuthSession(): Session | null {
   if (typeof window === 'undefined') return null;
@@ -55,20 +55,12 @@ export function getLocalAuthSession(): Session | null {
   return null;
 }
 
-export function saveLocalAuthSession(session: Session, password?: string): void {
+export function saveLocalAuthSession(session: Session): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(LOCAL_AUTH_SESSION_KEY, JSON.stringify(session));
-    if (session.user?.email && password) {
-      const rawUsers = localStorage.getItem(LOCAL_AUTH_USERS_KEY);
-      const users = rawUsers ? JSON.parse(rawUsers) : {};
-      users[session.user.email.toLowerCase()] = {
-        user: session.user,
-        password: password,
-        updated_at: new Date().toISOString()
-      };
-      localStorage.setItem(LOCAL_AUTH_USERS_KEY, JSON.stringify(users));
-    }
+    // Purga imediata de qualquer resquício legado de senhas em texto puro no localStorage
+    localStorage.removeItem(LOCAL_AUTH_LEGACY_KEY);
   } catch {}
 }
 
@@ -76,6 +68,7 @@ export function clearLocalAuthSession(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(LOCAL_AUTH_SESSION_KEY);
+    localStorage.removeItem(LOCAL_AUTH_LEGACY_KEY);
     // Clear cached entitlements and user profiles
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -443,7 +436,7 @@ export async function supabaseSignUp(
     if (regRes.ok) {
       const regData = await regRes.json();
       if (regData.success && regData.session) {
-        saveLocalAuthSession(regData.session, password);
+        saveLocalAuthSession(regData.session);
         // Tenta também no cliente Supabase em segundo plano
         if (client) {
           try {
@@ -505,7 +498,7 @@ export async function supabaseSignUp(
       user: localUser,
     } as any;
 
-    saveLocalAuthSession(localSession, password);
+    saveLocalAuthSession(localSession);
 
     return {
       data: {
@@ -563,7 +556,7 @@ export async function supabaseSignIn(email: string, password: string) {
     if (logRes.ok) {
       const logData = await logRes.json();
       if (logData.success && logData.session) {
-        saveLocalAuthSession(logData.session, password);
+        saveLocalAuthSession(logData.session);
         return {
           data: {
             user: logData.session.user,
@@ -586,28 +579,9 @@ export async function supabaseSignIn(email: string, password: string) {
   }
 
   if (!client) {
-    console.info('[Supabase Auth] Modo local seguro para login.');
-    try {
-      const rawUsers = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_AUTH_USERS_KEY) : null;
-      const users = rawUsers ? JSON.parse(rawUsers) : {};
-      const found = users[cleanEmail];
-      if (found && found.password === password) {
-        const localSession: Session = {
-          access_token: 'local-token-' + Date.now(),
-          token_type: 'bearer',
-          expires_in: 3600 * 24 * 365,
-          expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
-          refresh_token: 'local-refresh-' + Date.now(),
-          user: found.user,
-        } as any;
-        saveLocalAuthSession(localSession, password);
-        return { data: { user: found.user, session: localSession }, error: null };
-      }
-    } catch {}
-
     return {
       data: null,
-      error: new Error('E-mail ou senha incorretos. Caso seja seu primeiro acesso, clique em Criar Conta.')
+      error: new Error('Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.')
     };
   }
 
@@ -685,6 +659,81 @@ export async function supabaseUpdatePassword(newPassword: string) {
   } catch (err: any) {
     console.error('[Supabase Auth] Exceção em updateUser password:', err);
     return { data: null, error: err };
+  }
+}
+
+export async function supabaseCompleteFirstAccess(newPassword: string, email?: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const cleanPwd = (newPassword || '').trim();
+    if (!cleanPwd || cleanPwd.length < 6) {
+      return { success: false, error: 'A nova senha deve ter no mínimo 6 caracteres.' };
+    }
+
+    const userEmail = (email || '').trim().toLowerCase();
+
+    // 1. Atualizar primeiramente via mecanismo oficial do Supabase Auth (client.auth.updateUser)
+    let clientUpdated = false;
+    const client = getSupabase();
+    if (client) {
+      try {
+        const { data, error } = await client.auth.updateUser({
+          password: cleanPwd,
+          data: {
+            must_change_password: false,
+            first_access_completed: true,
+            require_password_change: false
+          }
+        });
+        if (error) {
+          console.warn('[supabaseCompleteFirstAccess] Aviso no client Supabase updateUser:', error);
+        } else if (data?.user) {
+          clientUpdated = true;
+        }
+      } catch (clientErr) {
+        console.warn('[supabaseCompleteFirstAccess] Exceção no client Supabase:', clientErr);
+      }
+    }
+
+    // 2. Sincronizar com o backend central para espelhar metadados e garantia administrativa
+    try {
+      const res = await fetch('/api/auth/complete-first-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, newPassword: cleanPwd })
+      });
+
+      if (res.ok) {
+        const resData = await res.json();
+        if (!resData.success && !clientUpdated) {
+          return { success: false, error: resData.error || 'Erro ao registrar nova senha.' };
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[supabaseCompleteFirstAccess] Aviso ao comunicar com /api/auth/complete-first-access:', apiErr);
+    }
+
+    // 3. Atualizar cache local de sessão (sem armazenar qualquer senha)
+    const localSess = getLocalAuthSession();
+    if (localSess && localSess.user) {
+      localSess.user.user_metadata = {
+        ...(localSess.user.user_metadata || {}),
+        must_change_password: false,
+        first_access_completed: true,
+        require_password_change: false
+      };
+      saveLocalAuthSession(localSess);
+    }
+
+    if (userEmail) {
+      try {
+        localStorage.removeItem(`leve_must_change_pwd_${userEmail}`);
+      } catch {}
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[supabaseCompleteFirstAccess] Erro:', err);
+    return { success: false, error: err?.message || 'Erro inesperado ao definir nova senha.' };
   }
 }
 

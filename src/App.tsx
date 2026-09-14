@@ -33,6 +33,7 @@ const StudiesView = lazy(() => import('./components/views/StudiesView').then(m =
 
 // Tela de boas-vindas / login
 const WelcomeAccessScreen = lazy(() => import('./components/auth/WelcomeAccessScreen').then(m => ({ default: m.WelcomeAccessScreen })));
+const ForcePasswordChangeScreen = lazy(() => import('./components/auth/ForcePasswordChangeScreen').then(m => ({ default: m.ForcePasswordChangeScreen })));
 
 // Modais globais carregados sob demanda apenas quando ativados pelo usuário
 const BrainDumpModal = lazy(() => import('./components/modals/BrainDumpModal').then(m => ({ default: m.BrainDumpModal })));
@@ -75,7 +76,8 @@ const AppContent: React.FC = () => {
     isLoading, 
     isAuthModalOpen, 
     setIsAuthModalOpen, 
-    setAuthTab 
+    setAuthTab,
+    mustChangePassword
   } = useAuth();
 
   useEffect(() => {
@@ -114,6 +116,18 @@ const AppContent: React.FC = () => {
         </Suspense>
         <Suspense fallback={null}>
           {isAuthModalOpen && <AuthModal />}
+        </Suspense>
+      </div>
+    );
+  }
+
+  // 3. Se o usuário estiver no primeiro acesso com senha temporária: força a tela de definição de nova senha
+  if (mustChangePassword) {
+    return (
+      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col font-sans">
+        <OfflineIndicator />
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <ForcePasswordChangeScreen />
         </Suspense>
       </div>
     );

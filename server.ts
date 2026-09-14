@@ -75,6 +75,19 @@ export function getSupabasePublishableKey(): string {
 // ============================================================================
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 
+export const PROTECTED_ACCOUNTS = [
+  "dallia.avr@gmail.com",
+  "cssanches@yahoo.com.br",
+  "nathaliagsnati123@gmail.com",
+  "gabrieltmo0301@gmail.com"
+];
+
+export function isProtectedAccount(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return PROTECTED_ACCOUNTS.includes(clean);
+}
+
 export interface StoredUser {
   id: string;
   email: string;
@@ -87,6 +100,8 @@ export interface StoredUser {
   leve_vip?: boolean;
   lia_access?: boolean;
   confirmed: boolean;
+  must_change_password?: boolean;
+  first_access_completed?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -1147,6 +1162,9 @@ async function startServer() {
             saveStoredUser(user);
           }
 
+          const isProtected = isProtectedAccount(email);
+          const needsChange = !isProtected && (user.must_change_password === true || user.first_access_completed === false);
+
           const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
           const session = {
             access_token: token,
@@ -1162,10 +1180,12 @@ async function startServer() {
                 full_name: user.name,
                 avatar: user.avatar,
                 treatment_preference: user.treatmentPreference,
-                plan: user.plan,
-                leve_especial: user.leve_especial,
-                leve_vip: user.leve_vip,
-                lia_access: user.lia_access
+                plan: isProtected ? "vip" : user.plan,
+                leve_especial: isProtected ? false : user.leve_especial,
+                leve_vip: isProtected ? true : user.leve_vip,
+                lia_access: isProtected ? true : user.lia_access,
+                must_change_password: needsChange,
+                first_access_completed: !needsChange
               }
             }
           };
@@ -1186,19 +1206,22 @@ async function startServer() {
 
       if (!user && hasSyncOrPurchase) {
         // Primeiro login neste backend para uma conta existente: adota a senha e cria o usuário
+        const isProtected = isProtectedAccount(email);
         const newId = crypto.randomUUID();
         const newUser: StoredUser = {
           id: newId,
           email,
           passwordHash: pwdHash,
-          name: purchase?.name || "",
+          name: purchase?.name || purchase?.buyer_name || "",
           avatar: "🌿",
           treatmentPreference: "feminino",
-          plan: purchase?.plan_name || "LEVE Gratuito",
-          leve_especial: Boolean(purchase?.leve_especial),
-          leve_vip: Boolean(purchase?.leve_vip),
-          lia_access: Boolean(purchase?.lia_access),
+          plan: isProtected ? "vip" : (purchase?.plan_name || "LEVE Gratuito"),
+          leve_especial: isProtected ? false : Boolean(purchase?.leve_especial),
+          leve_vip: isProtected ? true : Boolean(purchase?.leve_vip),
+          lia_access: isProtected ? true : Boolean(purchase?.lia_access),
           confirmed: true,
+          must_change_password: false,
+          first_access_completed: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -1226,7 +1249,9 @@ async function startServer() {
               plan: newUser.plan,
               leve_especial: newUser.leve_especial,
               leve_vip: newUser.leve_vip,
-              lia_access: newUser.lia_access
+              lia_access: newUser.lia_access,
+              must_change_password: false,
+              first_access_completed: true
             }
           }
         };
@@ -1255,6 +1280,10 @@ async function startServer() {
           if (supRes.ok) {
             const supData = await supRes.json();
             if (supData?.user) {
+              const isProtected = isProtectedAccount(email);
+              const meta = supData.user.user_metadata || {};
+              const needsChange = !isProtected && (meta.must_change_password === true || meta.first_access_completed === false);
+
               const migratedUser: StoredUser = {
                 id: supData.user.id,
                 email,
@@ -1262,11 +1291,13 @@ async function startServer() {
                 name: supData.user.user_metadata?.name || "",
                 avatar: supData.user.user_metadata?.avatar || "🌿",
                 treatmentPreference: supData.user.user_metadata?.treatment_preference || "feminino",
-                plan: supData.user.user_metadata?.plan || "LEVE Gratuito",
-                leve_especial: Boolean(supData.user.user_metadata?.leve_especial),
-                leve_vip: Boolean(supData.user.user_metadata?.leve_vip),
-                lia_access: Boolean(supData.user.user_metadata?.lia_access),
+                plan: isProtected ? "vip" : (supData.user.user_metadata?.plan || "LEVE Gratuito"),
+                leve_especial: isProtected ? false : Boolean(supData.user.user_metadata?.leve_especial),
+                leve_vip: isProtected ? true : Boolean(supData.user.user_metadata?.leve_vip),
+                lia_access: isProtected ? true : Boolean(supData.user.user_metadata?.lia_access),
                 confirmed: true,
+                must_change_password: needsChange,
+                first_access_completed: !needsChange,
                 created_at: supData.user.created_at || new Date().toISOString(),
                 updated_at: new Date().toISOString()
               };
@@ -1274,7 +1305,14 @@ async function startServer() {
 
               return res.json({
                 success: true,
-                user: supData.user,
+                user: {
+                  ...supData.user,
+                  user_metadata: {
+                    ...meta,
+                    must_change_password: needsChange,
+                    first_access_completed: !needsChange
+                  }
+                },
                 session: supData
               });
             }
@@ -1289,6 +1327,102 @@ async function startServer() {
     }
   });
 
+  // 3. Concluir primeiro acesso e definir senha definitiva
+  app.post("/api/auth/complete-first-access", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const newPassword = (req.body?.newPassword || "").trim();
+
+      if (!email || !newPassword) {
+        return res.status(400).json({ error: "E-mail e nova senha são obrigatórios." });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "A nova senha deve ter no mínimo 6 caracteres." });
+      }
+
+      const users = getStoredUsers();
+      let user = users[email];
+      const pwdHash = hashPassword(newPassword);
+
+      if (user) {
+        user.passwordHash = pwdHash;
+        user.must_change_password = false;
+        user.first_access_completed = true;
+        user.updated_at = new Date().toISOString();
+        saveStoredUser(user);
+      } else {
+        const purchases = getStoredPurchases();
+        const purchase = purchases[email];
+        const newId = crypto.randomUUID();
+        const newUser: StoredUser = {
+          id: newId,
+          email,
+          passwordHash: pwdHash,
+          name: purchase?.name || purchase?.buyer_name || "",
+          avatar: "🌿",
+          treatmentPreference: "feminino",
+          plan: "vip",
+          leve_especial: false,
+          leve_vip: true,
+          lia_access: true,
+          confirmed: true,
+          must_change_password: false,
+          first_access_completed: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        saveStoredUser(newUser);
+      }
+
+      // Atualiza também no Supabase Auth caso o usuário exista lá
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = getSupabaseServiceRoleKey();
+      if (supabaseUrl && serviceKey) {
+        try {
+          const origin = new URL(supabaseUrl).origin;
+          const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+          });
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const supUser = (listData?.users || []).find((u: any) => (u.email || "").toLowerCase() === email);
+            if (supUser) {
+              await fetch(`${origin}/auth/v1/admin/users/${supUser.id}`, {
+                method: "PUT",
+                headers: {
+                  apikey: serviceKey,
+                  Authorization: `Bearer ${serviceKey}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  password: newPassword,
+                  email_confirm: true,
+                  user_metadata: {
+                    ...(supUser.user_metadata || {}),
+                    must_change_password: false,
+                    first_access_completed: true,
+                    require_password_change: false
+                  }
+                })
+              });
+            }
+          }
+        } catch (supErr) {
+          console.warn("[complete-first-access] Aviso ao sincronizar com Supabase:", supErr);
+        }
+      }
+
+      return res.json({
+        success: true,
+        message: "Senha definitiva cadastrada com sucesso! Bem-vinda ao LEVE."
+      });
+    } catch (err: any) {
+      console.error("[complete-first-access] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro ao atualizar senha." });
+    }
+  });
+
   // Consulta de entitlements por e-mail ou userId com fallback em cascata
   app.get("/api/user/entitlements", async (req, res) => {
     try {
@@ -1297,6 +1431,25 @@ async function startServer() {
 
       if (!email && !userId) {
         return res.status(400).json({ error: "E-mail ou userId é obrigatório" });
+      }
+
+      // 0. Contas protegidas têm acesso VIP imediato e garantido sem bloqueios
+      if (isProtectedAccount(email)) {
+        return res.json({
+          email,
+          plan_name: "vip",
+          leve_gratuito: false,
+          "leve gratuito": false,
+          leve_especial: false,
+          "leve especial": false,
+          leve_vip: true,
+          "leve vip": true,
+          lia_access: true,
+          hotmart_status: "approved",
+          source: "protected_account",
+          must_change_password: false,
+          first_access_completed: true
+        });
       }
 
       // 1. Checar store local persistente
