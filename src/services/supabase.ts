@@ -565,6 +565,19 @@ export async function supabaseSignIn(email: string, password: string) {
           error: null
         };
       }
+    } else {
+      // Se o servidor retornou erro controlado (ex: conta não encontrada, senha inválida)
+      try {
+        const errData = await logRes.json();
+        if (errData?.error) {
+          return {
+            data: null,
+            error: new Error(errData.error)
+          };
+        }
+      } catch {
+        // Resposta não-JSON do servidor (ex: erro de proxy/HTML)
+      }
     }
   } catch (apiErr) {
     console.warn('[supabaseSignIn] API central de login indisponível, usando fallback:', apiErr);

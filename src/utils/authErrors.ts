@@ -70,9 +70,30 @@ export function translateAuthError(errorMsg?: string | null): string {
     return 'Por segurança, você só pode solicitar isso uma vez a cada 60 segundos. Aguarde um instante.';
   }
 
-  // Usuário não encontrado
-  if (lower.includes('user not found')) {
-    return 'Nenhuma conta encontrada com este e-mail. Que tal criar uma nova conta?';
+  // Usuário não encontrado / sem conta
+  if (
+    lower.includes('não encontramos uma conta') ||
+    lower.includes('user not found') ||
+    lower.includes('user_not_found')
+  ) {
+    return 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.';
+  }
+
+  // Erros técnicos de JSON / Parsing / HTML que vazam para a UI
+  if (
+    lower.includes('não é um json') ||
+    lower.includes('não é um json válido') ||
+    lower.includes('is not valid json') ||
+    lower.includes('unexpected token') ||
+    lower.includes('token inesperado') ||
+    lower.includes('syntaxerror') ||
+    lower.includes('a página') ||
+    lower.includes('the page') ||
+    lower.includes('json.parse') ||
+    (lower.includes('json') && lower.includes('válido')) ||
+    (lower.includes('json') && lower.includes('valid'))
+  ) {
+    return 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.';
   }
 
   // Erro de rede / servidor

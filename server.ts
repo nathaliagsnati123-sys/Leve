@@ -1154,7 +1154,7 @@ async function startServer() {
       const user = users[email];
       const pwdHash = hashPassword(password);
 
-      // Se o usuário existe no users.json
+      // 1. Se o usuário já existe localmente em users.json e a senha confere
       if (user) {
         if (user.passwordHash === pwdHash || user.passwordHash === password) {
           if (user.passwordHash === password) {
@@ -1198,14 +1198,102 @@ async function startServer() {
         }
       }
 
-      // Se não está no users.json, mas já existe sync file da conta ou compra registrada:
+      // 2. Tenta autenticação no Supabase Auth com as credenciais fornecidas
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+      if (supabaseUrl && kAnon) {
+        try {
+          const origin = new URL(supabaseUrl).origin;
+          const supRes = await fetch(`${origin}/auth/v1/token?grant_type=password`, {
+            method: "POST",
+            headers: {
+              apikey: kAnon,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+          });
+          if (supRes.ok) {
+            const supData = await supRes.json();
+            if (supData?.user) {
+              const isProtected = isProtectedAccount(email);
+              const meta = supData.user.user_metadata || {};
+              const needsChange = !isProtected && (meta.must_change_password === true || meta.first_access_completed === false);
+
+              const migratedUser: StoredUser = {
+                id: supData.user.id,
+                email,
+                passwordHash: pwdHash,
+                name: supData.user.user_metadata?.name || "",
+                avatar: supData.user.user_metadata?.avatar || "🌿",
+                treatmentPreference: supData.user.user_metadata?.treatment_preference || "feminino",
+                plan: isProtected ? "vip" : (supData.user.user_metadata?.plan || "LEVE Gratuito"),
+                leve_especial: isProtected ? false : Boolean(supData.user.user_metadata?.leve_especial),
+                leve_vip: isProtected ? true : Boolean(supData.user.user_metadata?.leve_vip),
+                lia_access: isProtected ? true : Boolean(supData.user.user_metadata?.lia_access),
+                confirmed: true,
+                must_change_password: needsChange,
+                first_access_completed: !needsChange,
+                created_at: supData.user.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+              saveStoredUser(migratedUser);
+
+              return res.json({
+                success: true,
+                user: {
+                  ...supData.user,
+                  user_metadata: {
+                    ...meta,
+                    must_change_password: needsChange,
+                    first_access_completed: !needsChange
+                  }
+                },
+                session: supData
+              });
+            }
+          }
+        } catch {}
+      }
+
+      // 3. Se a autenticação falhou, verificar se a conta existe no Supabase Auth
+      let emailExistsInSupabase = false;
+      const serviceKey = getSupabaseServiceRoleKey();
+      if (serviceKey && supabaseUrl) {
+        try {
+          const origin = new URL(supabaseUrl).origin;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const listRes = await fetch(`${origin}/auth/v1/admin/users`, {
+            headers: {
+              apikey: serviceKey,
+              Authorization: `Bearer ${serviceKey}`
+            },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            emailExistsInSupabase = Array.isArray(listData?.users) && listData.users.some(
+              (u: any) => (u.email || "").trim().toLowerCase() === email
+            );
+          }
+        } catch (errCheck) {
+          console.warn("[login] Falha ao verificar existência de e-mail no Supabase:", errCheck);
+        }
+      }
+
+      // Se o e-mail existe no Supabase Auth, significa que a senha digitada está incorreta
+      if (emailExistsInSupabase) {
+        return res.status(401).json({ error: "E-mail ou senha incorretos." });
+      }
+
+      // 4. Se não existe no Supabase Auth, checa compras legadas ou arquivo de sincronização
       const syncPath = getSyncFilePath(email);
       const purchases = getStoredPurchases();
       const purchase = purchases[email];
       const hasSyncOrPurchase = fs.existsSync(syncPath) || Boolean(purchase);
 
       if (!user && hasSyncOrPurchase) {
-        // Primeiro login neste backend para uma conta existente: adota a senha e cria o usuário
         const isProtected = isProtectedAccount(email);
         const newId = crypto.randomUUID();
         const newUser: StoredUser = {
@@ -1263,64 +1351,10 @@ async function startServer() {
         });
       }
 
-      // Tenta Supabase caso o usuário tenha sido criado remotamente
-      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
-      const kAnon = (process.env.VITE_SUPABASE_ANON_KEY || "").trim();
-      if (supabaseUrl && kAnon) {
-        try {
-          const origin = new URL(supabaseUrl).origin;
-          const supRes = await fetch(`${origin}/auth/v1/token?grant_type=password`, {
-            method: "POST",
-            headers: {
-              apikey: kAnon,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ email, password })
-          });
-          if (supRes.ok) {
-            const supData = await supRes.json();
-            if (supData?.user) {
-              const isProtected = isProtectedAccount(email);
-              const meta = supData.user.user_metadata || {};
-              const needsChange = !isProtected && (meta.must_change_password === true || meta.first_access_completed === false);
-
-              const migratedUser: StoredUser = {
-                id: supData.user.id,
-                email,
-                passwordHash: pwdHash,
-                name: supData.user.user_metadata?.name || "",
-                avatar: supData.user.user_metadata?.avatar || "🌿",
-                treatmentPreference: supData.user.user_metadata?.treatment_preference || "feminino",
-                plan: isProtected ? "vip" : (supData.user.user_metadata?.plan || "LEVE Gratuito"),
-                leve_especial: isProtected ? false : Boolean(supData.user.user_metadata?.leve_especial),
-                leve_vip: isProtected ? true : Boolean(supData.user.user_metadata?.leve_vip),
-                lia_access: isProtected ? true : Boolean(supData.user.user_metadata?.lia_access),
-                confirmed: true,
-                must_change_password: needsChange,
-                first_access_completed: !needsChange,
-                created_at: supData.user.created_at || new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              };
-              saveStoredUser(migratedUser);
-
-              return res.json({
-                success: true,
-                user: {
-                  ...supData.user,
-                  user_metadata: {
-                    ...meta,
-                    must_change_password: needsChange,
-                    first_access_completed: !needsChange
-                  }
-                },
-                session: supData
-              });
-            }
-          }
-        } catch {}
-      }
-
-      return res.status(401).json({ error: "E-mail ou senha incorretos." });
+      // 5. Conta não encontrada em nenhum lugar (Supabase Auth, users.json, purchases.json)
+      return res.status(404).json({
+        error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+      });
     } catch (err: any) {
       console.error("[login] Erro:", err);
       return res.status(500).json({ error: err?.message || "Erro no login." });
