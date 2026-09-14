@@ -80,9 +80,16 @@ export const Header: React.FC = () => {
           className="flex items-center gap-2 sm:gap-2.5 shrink-0 select-none"
           aria-label="Perfil do usuário"
         >
-          <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 max-w-[100px] sm:max-w-[180px] truncate text-right">
-            {userName}
-          </span>
+          <div className="flex items-center gap-1.5 max-w-[120px] sm:max-w-[200px]">
+            <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 truncate text-right">
+              {userName}
+            </span>
+            {user && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 shrink-0">
+                VIP
+              </span>
+            )}
+          </div>
           <div className="shrink-0">
             <UserAvatar 
               avatar={data.user.avatar} 

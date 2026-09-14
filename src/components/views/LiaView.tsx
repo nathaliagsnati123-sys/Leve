@@ -8,7 +8,6 @@ import {
   CheckSquare, Calendar, Sprout, Target, Receipt,
   BookOpen, Compass, Clock, AlertCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { EntitlementLockScreen } from '../common/EntitlementLockScreen';
 import { LeviaChatMessage, LeviaProposedAction } from '../../types/levia';
 import { askLevia, executeProposedActions } from '../../services/leviaService';
 
@@ -253,11 +252,6 @@ export const LiaView: React.FC = () => {
     }
   };
 
-  // Se o usuário não tem plano VIP com acesso à LEVIA
-  if (!hasLiaAccess) {
-    return <EntitlementLockScreen feature="lia" />;
-  }
-
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-12">
       {/* Concept Banner */}
@@ -265,7 +259,7 @@ export const LiaView: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[10px] font-bold uppercase tracking-wider">
-              Exclusivo VIP
+              Assistente IA
             </span>
             <span className="text-xs text-emerald-100/90 font-medium">
               “Você fala. A LEVIA organiza.”

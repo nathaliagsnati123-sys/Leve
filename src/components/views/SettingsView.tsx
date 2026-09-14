@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Settings, Sun, Moon, Monitor, User, LogOut, Check, Mail, HeartHandshake, Sparkles, RefreshCw,
-  AlertTriangle, Cloud, Download, Camera, Upload, Trash2, Smartphone, Laptop
+  AlertTriangle, Cloud, Download, Camera, Upload, Trash2, Smartphone, Laptop, ShieldCheck
 } from 'lucide-react';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
@@ -511,54 +511,30 @@ export const SettingsView: React.FC = () => {
 
         {user ? (
           <div className="space-y-3">
-            {/* Informações do Plano Ativo com Botão de Atualização */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700">
+            {/* Status da Conta */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/50">
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                  plan === 'vip'
-                    ? 'bg-amber-100/70 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                    : plan === 'special'
-                    ? 'bg-emerald-100/70 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                    : 'bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-700'
-                }`}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold block">
+                  <span className="text-[10px] uppercase tracking-wider text-amber-800/80 dark:text-amber-400 font-semibold block">
                     Plano Ativo
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                      {planLabel}
+                      LEVE VIP
                     </span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      plan === 'vip'
-                        ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                        : plan === 'special'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${plan === 'vip' ? 'bg-amber-500' : plan === 'special' ? 'bg-emerald-500' : 'bg-stone-400'}`} />
-                      {plan === 'vip' ? 'VIP' : plan === 'special' ? 'Especial' : 'Gratuito'}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-amber-100/80 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      VIP Ativo
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await refreshEntitlements();
-                    showToast('Permissões do plano atualizadas!');
-                  }}
-                  disabled={isCheckingEntitlements}
-                  title="Recarregar plano do Supabase"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 shadow-2xs transition cursor-pointer disabled:opacity-60"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingEntitlements ? 'animate-spin' : ''}`} />
-                  <span>{isCheckingEntitlements ? 'Checando...' : 'Atualizar Plano'}</span>
-                </button>
+              <div className="text-xs text-stone-600 dark:text-stone-300">
+                Todas as áreas e LEVIA inclusas
               </div>
             </div>
 

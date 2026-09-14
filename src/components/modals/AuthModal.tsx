@@ -381,150 +381,61 @@ export const AuthModal: React.FC = () => {
           {/* USER LOGGED IN VIEW */}
           {user ? (
             <div className="space-y-4">
-              {/* Informação do Plano Disponível do Cliente */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A211D] border border-stone-200/80 dark:border-stone-800/80 space-y-3">
+              {/* Informação da Conta e Status de Sincronização */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A211D] border border-stone-200/80 dark:border-stone-800/80 space-y-3 text-left">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
-                      <Sparkles className="w-4 h-4" />
+                    <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/80 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
+                      <Sparkles className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
                       <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block">
                         Plano Ativo
                       </span>
                       <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
-                        {planLabel}
+                        LEVE VIP
                       </h3>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      plan === 'vip'
-                        ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                        : plan === 'special'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${plan === 'vip' ? 'bg-amber-500' : plan === 'special' ? 'bg-emerald-500' : 'bg-stone-400'}`} />
-                      {plan === 'vip' ? 'VIP' : plan === 'special' ? 'Especial' : 'Gratuito'}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => refreshEntitlements()}
-                      disabled={isCheckingEntitlements}
-                      title="Atualizar informações do plano"
-                      className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isCheckingEntitlements ? 'animate-spin' : ''}`} />
-                    </button>
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    VIP Ativo
+                  </span>
                 </div>
 
-                {/* Recursos e Acessos Inclusos no Plano */}
                 <div className="pt-2.5 border-t border-stone-100 dark:border-stone-800/80 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Meu Dia (Rotina essencial diária)</span>
+                      <span>Todos os recursos e abas do aplicativo</span>
                     </span>
                     <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                      Liberado
+                      Disponível
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-                      <CheckCircle className={`w-3.5 h-3.5 ${hasLeveAccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-300 dark:text-stone-600'}`} />
-                      <span>Todas as áreas LEVE (Hábitos, Metas, Finanças, etc.)</span>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>LEVIA • Assistente de Inteligência Artificial</span>
                     </span>
-                    <span className={`text-[11px] font-semibold ${hasLeveAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-400 dark:text-stone-500'}`}>
-                      {hasLeveAccess ? 'Liberado' : 'Requer Especial ou VIP'}
+                    <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      Disponível
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-                      <CheckCircle className={`w-3.5 h-3.5 ${hasLiaAccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-300 dark:text-stone-600'}`} />
-                      <span>LEVIA • Mentora de Inteligência Artificial</span>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Sincronização em tempo real na nuvem</span>
                     </span>
-                    <span className={`text-[11px] font-semibold ${hasLiaAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                      {hasLiaAccess ? 'Liberado' : 'Exclusivo VIP'}
+                    <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      Ativa
                     </span>
                   </div>
                 </div>
               </div>
-
-              {/* Oferta de Upgrade Exclusiva para Especial */}
-              {plan === 'special' && (
-                <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-800/80 space-y-2.5 text-left">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-700 dark:text-amber-300">
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-amber-950 dark:text-amber-200">
-                        Quer ter a LEVIA?
-                      </h4>
-                      <p className="text-[10px] text-amber-800/80 dark:text-amber-400">
-                        Upgrade exclusivo Especial → VIP
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed">
-                    Você já tem o LEVE Especial. Faça o upgrade e ative a LEVIA por apenas R$16,00.
-                  </p>
-
-                  <a
-                    id="auth-modal-upgrade-levia-btn"
-                    href={buildHotmartUrl(HOTMART_CHECKOUT.UPGRADE_LEVIA, user?.email)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-2.5 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                    <span>Ativar LEVIA por R$16,00</span>
-                    <ExternalLink className="w-3 h-3 opacity-80" />
-                  </a>
-                </div>
-              )}
-
-              {/* Opções de Aquisição para Usuários Gratuitos */}
-              {plan === 'free' && (
-                <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-850/80 border border-stone-200/80 dark:border-stone-800 space-y-2.5 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                      Desbloquear Recursos
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <a
-                      id="auth-modal-buy-especial-btn"
-                      href={buildHotmartUrl(HOTMART_CHECKOUT.ESPECIAL, user?.email)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2 px-3.5 rounded-xl bg-[#1F3A34] hover:bg-[#182E29] text-white font-semibold text-xs flex items-center justify-between shadow-2xs transition cursor-pointer"
-                    >
-                      <span>Adquirir LEVE Especial</span>
-                      <span className="font-bold text-emerald-300">R$ 49,90</span>
-                    </a>
-
-                    <a
-                      id="auth-modal-buy-vip-btn"
-                      href={buildHotmartUrl(HOTMART_CHECKOUT.VIP_DIRECT, user?.email)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center justify-between shadow-2xs transition cursor-pointer"
-                    >
-                      <span>Assinar LEVE VIP (com LEVIA)</span>
-                      <span className="font-bold text-amber-200">R$ 65,90</span>
-                    </a>
-                  </div>
-                </div>
-              )}
 
               {/* Sync and Logout Actions */}
               <div className="flex flex-col gap-2 pt-2">

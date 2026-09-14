@@ -6,7 +6,6 @@ import {
   Sparkles, Search, Plus, Sparkle, ChevronLeft, ChevronRight, Star 
 } from 'lucide-react';
 import { normalizeTreatmentPreference } from '../../utils/treatment';
-import { MyLifeLockedScreen } from '../my-life/MyLifeLockedScreen';
 import { MyLifeItemModal, ModalCategory } from '../my-life/MyLifeItemModal';
 import { BooksSection } from '../my-life/BooksSection';
 import { MoviesSection } from '../my-life/MoviesSection';
@@ -100,11 +99,6 @@ export const MyLifeView: React.FC = () => {
 
   const handleCatMouseUp = () => setIsDragging(false);
   const handleCatMouseLeave = () => setIsDragging(false);
-
-  // Check access: must have hasLeveAccess or bypassed for demo/testing
-  if (!hasLeveAccess && !demoBypass) {
-    return <MyLifeLockedScreen onBypassDemo={() => setDemoBypass(true)} />;
-  }
 
   const myLife = data.myLife || {
     books: [],

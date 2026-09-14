@@ -7,7 +7,6 @@ import { MobileMenuDrawer } from './components/common/MobileMenuDrawer';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { RefreshCw } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { EntitlementLockScreen } from './components/common/EntitlementLockScreen';
 
 // 1. A tela principal de rotina ("Meu Dia") é carregada de forma direta para abertura instantânea (0ms)
 import { MyDayView } from './components/views/MyDayView';
@@ -126,27 +125,7 @@ const AppContent: React.FC = () => {
       return <MyDayView />;
     }
 
-    // 2. Verificação de permissões apenas para primeiro acesso se ainda não houver cache
-    if (user && !entitlements && isCheckingEntitlements) {
-      return (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
-          <RefreshCw className="w-6 h-6 text-[#1F3A34] dark:text-emerald-400 animate-spin" />
-          <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">Verificando seu plano LEVE...</p>
-        </div>
-      );
-    }
-
-    // 3. Bloqueio centralizado caso o plano do usuário não tenha acesso
-    if (activeTab !== 'settings' && !canAccessFeature(activeTab)) {
-      return (
-        <EntitlementLockScreen 
-          feature={activeTab}
-          onGoToFree={() => setActiveTab('my-day')}
-        />
-      );
-    }
-
-    // 4. Renderização com Suspense para todas as demais abas sob demanda
+    // 2. Renderização com Suspense para todas as demais abas (totalmente liberadas)
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         {(() => {

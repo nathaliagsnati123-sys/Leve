@@ -14,7 +14,6 @@ import {
   getSelfCareSuggestions, 
   getRandomMotivationalQuote 
 } from '../../services/quotesAndVerses';
-import { HOTMART_CHECKOUT, buildHotmartUrl } from '../../services/authorization';
 import { Priority, Task } from '../../types';
 import { isSectionHidden } from '../../utils/sections';
 import { 
@@ -49,19 +48,7 @@ export const MyDayView: React.FC = () => {
     notificationSettings
   } = useApp();
 
-  const { user, hasLeveAccess, refreshEntitlements, isCheckingEntitlements } = useAuth();
-  const [isRefreshingPlan, setIsRefreshingPlan] = useState(false);
-
-  const handleRefreshPlan = async () => {
-    setIsRefreshingPlan(true);
-    try {
-      await refreshEntitlements();
-    } finally {
-      setIsRefreshingPlan(false);
-    }
-  };
-
-  const especialCheckoutUrl = buildHotmartUrl(HOTMART_CHECKOUT.ESPECIAL, user?.email);
+  const { user } = useAuth();
   const todayStr = getTodayDateString();
 
   // Dynamic greeting based on time of day
@@ -114,12 +101,12 @@ export const MyDayView: React.FC = () => {
   const selfCareList = getSelfCareSuggestions(treatmentPreference);
   const dailySelfCare = selfCareList[dayOfYear % selfCareList.length];
 
-  // Visibilidade das seções pagas (somente para quem tem LEVE Especial ou VIP)
-  const showHabits = hasLeveAccess && !isSectionHidden('habits', hiddenSections, treatmentPreference);
-  const showHydration = hasLeveAccess && !isSectionHidden('hydration', hiddenSections, treatmentPreference);
-  const showSelfCare = hasLeveAccess && !isSectionHidden('self-care', hiddenSections, treatmentPreference);
-  const showSpirituality = hasLeveAccess && !isSectionHidden('spirituality', hiddenSections, treatmentPreference);
-  const showJournal = hasLeveAccess && !isSectionHidden('journal', hiddenSections, treatmentPreference);
+  // Visibilidade das seções da rotina diária (100% liberadas)
+  const showHabits = !isSectionHidden('habits', hiddenSections, treatmentPreference);
+  const showHydration = !isSectionHidden('hydration', hiddenSections, treatmentPreference);
+  const showSelfCare = !isSectionHidden('self-care', hiddenSections, treatmentPreference);
+  const showSpirituality = !isSectionHidden('spirituality', hiddenSections, treatmentPreference);
+  const showJournal = !isSectionHidden('journal', hiddenSections, treatmentPreference);
 
   const gratitudePlaceholder = getGratitudePlaceholder(treatmentPreference);
   const endDayButtonLabel = getEndDayButtonLabel(treatmentPreference);
@@ -795,42 +782,6 @@ export const MyDayView: React.FC = () => {
               Guardar
             </button>
           </form>
-        </section>
-      )}
-
-      {/* Convite Discreto para o LEVE Especial (Aparece apenas na versão gratuita) */}
-      {!hasLeveAccess && (
-        <section className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 dark:from-amber-950/20 dark:via-emerald-950/20 dark:to-teal-950/20 border border-amber-200/70 dark:border-amber-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1 max-w-xl">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Desbloqueie a rotina completa com o LEVE Especial</span>
-            </div>
-            <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-              Cultive hábitos diários, acompanhe hidratação, pratique autocuidado, momentos com Deus e reflexões diretamente no seu Meu Dia.
-            </p>
-          </div>
-          <div className="flex items-center gap-2.5 flex-shrink-0 flex-wrap">
-            <a
-              href={especialCheckoutUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Conhecer o LEVE Especial</span>
-            </a>
-            <button
-              type="button"
-              onClick={handleRefreshPlan}
-              disabled={isRefreshingPlan || isCheckingEntitlements}
-              className="px-3 py-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 text-xs font-medium transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              title="Já comprou? Atualize seu acesso"
-            >
-              <RefreshCw className={`w-3 h-3 ${isRefreshingPlan || isCheckingEntitlements ? 'animate-spin' : ''}`} />
-              <span>Já é assinante?</span>
-            </button>
-          </div>
         </section>
       )}
 

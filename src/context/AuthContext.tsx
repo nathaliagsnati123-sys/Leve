@@ -734,23 +734,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user?.id, refreshEntitlements]);
 
   // ==========================================================================
-  // Sistema Centralizado de Planos & Autorização (LEVE Gratuito, Especial, VIP)
+  // Sistema de Acesso: Apenas o Plano VIP (acesso total a todas as áreas + LEVIA)
   // ==========================================================================
-  const plan: PlanTier = determineUserPlan(user, entitlements);
-  const planLabel = getPlanLabel(plan);
+  const plan: PlanTier = 'vip';
+  const planLabel = 'LEVE VIP';
 
   const canAccessFeature = useCallback(
-    (feature: AppFeature | string): boolean => {
-      return canAccess(feature, plan);
+    (_feature: AppFeature | string): boolean => {
+      return true;
     },
-    [plan]
+    []
   );
 
-  // Áreas pagas gerais: requer plano Especial ou VIP
-  const hasLeveAccess = plan === 'special' || plan === 'vip';
-
-  // Levia (Mentora IA): exclusivo do plano VIP
-  const hasLiaAccess = plan === 'vip';
+  // Áreas gerais e LEVIA: 100% liberadas
+  const hasLeveAccess = true;
+  const hasLiaAccess = true;
 
   return (
     <AuthContext.Provider

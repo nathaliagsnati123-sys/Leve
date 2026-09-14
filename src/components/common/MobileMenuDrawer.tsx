@@ -5,7 +5,7 @@ import { isSectionHidden } from '../../utils/sections';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Lock, Film,
+  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Film,
   Zap, Shield, GraduationCap, Dumbbell
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -162,8 +162,6 @@ export const MobileMenuDrawer: React.FC = () => {
                 {visibleMainNav.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
-                  const isLocked = !canAccessFeature(item.id);
-                  const displayBadge = item.id === 'lia' && plan === 'special' ? 'UPGRADE' : item.badge;
                   return (
                     <button
                       key={item.id}
@@ -177,17 +175,14 @@ export const MobileMenuDrawer: React.FC = () => {
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
                       <span className="truncate flex-1">{item.label}</span>
-                      {displayBadge && (
+                      {item.badge && (
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
                           isActive 
                             ? 'bg-amber-400/20 text-amber-200' 
                             : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
                         }`}>
-                          {displayBadge}
+                          {item.badge}
                         </span>
-                      )}
-                      {isLocked && !displayBadge && (
-                        <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
                       )}
                     </button>
                   );
@@ -206,7 +201,6 @@ export const MobileMenuDrawer: React.FC = () => {
                 {visibleWellnessNav.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
-                  const isLocked = !canAccessFeature(item.id);
                   return (
                     <button
                       key={item.id}
@@ -220,9 +214,6 @@ export const MobileMenuDrawer: React.FC = () => {
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
                       <span className="truncate flex-1">{item.label}</span>
-                      {isLocked && (
-                        <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
-                      )}
                     </button>
                   );
                 })}
@@ -240,7 +231,6 @@ export const MobileMenuDrawer: React.FC = () => {
                 {visibleManagementNav.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
-                  const isLocked = !canAccessFeature(item.id);
                   return (
                     <button
                       key={item.id}
@@ -254,9 +244,6 @@ export const MobileMenuDrawer: React.FC = () => {
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
                       <span className="truncate flex-1">{item.label}</span>
-                      {isLocked && (
-                        <Lock className="w-3.5 h-3.5 text-stone-400/80 dark:text-stone-500 shrink-0" />
-                      )}
                     </button>
                   );
                 })}
@@ -282,18 +269,25 @@ export const MobileMenuDrawer: React.FC = () => {
             }`}
           >
             <div className="flex items-center gap-2.5 truncate">
-              <Cloud className={`w-4 h-4 ${user ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500'}`} />
+              <Cloud className={`w-4 h-4 ${user ? 'text-amber-500 dark:text-amber-400' : 'text-stone-500'}`} />
               <div className="truncate">
-                <p className="text-xs font-bold truncate">
-                  {user ? planLabel : 'Acessar Conta'}
-                </p>
+                <div className="flex items-center gap-1.5 truncate">
+                  <p className="text-xs font-bold truncate">
+                    {user ? 'LEVE VIP' : 'Acessar Conta'}
+                  </p>
+                  {user && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                      VIP
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
                   {user ? user.email : 'Acesse de qualquer dispositivo'}
                 </p>
               </div>
             </div>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/80 dark:bg-stone-800/80 shadow-2xs shrink-0">
-              {user ? 'Online' : 'Entrar'}
+              {user ? 'Ativo' : 'Entrar'}
             </span>
           </button>
 

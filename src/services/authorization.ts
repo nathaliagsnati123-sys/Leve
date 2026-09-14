@@ -298,23 +298,13 @@ export function getRequiredPlan(feature: AppFeature | string): PlanTier {
  * - Todas as outras áreas = LIBERADAS
  * - LEVIA = LIBERADA
  */
-export function canAccess(feature: AppFeature | string, plan: PlanTier): boolean {
-  // 'my-day' é sempre liberado mesmo para usuários gratuitos ou visitantes
-  if (feature === 'my-day' || feature === 'settings') {
-    return true;
-  }
-
-  // LEVIA é exclusiva do plano VIP
-  if (feature === 'lia') {
-    return plan === 'vip';
-  }
-
-  // Todas as demais áreas exigem plano Especial ou VIP
-  return plan === 'special' || plan === 'vip';
+export function canAccess(_feature: AppFeature | string, _plan?: PlanTier): boolean {
+  // Aplicativo totalmente liberado: todos os recursos liberados
+  return true;
 }
 
-export function getPlanLabel(plan: PlanTier): string {
-  return PLAN_LABELS[plan] || 'LEVE Gratuito';
+export function getPlanLabel(_plan?: PlanTier): string {
+  return 'LEVE VIP';
 }
 
 export function getFeatureDisplayName(feature: AppFeature | string): string {
