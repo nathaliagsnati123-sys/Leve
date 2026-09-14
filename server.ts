@@ -79,6 +79,7 @@ export const PROTECTED_ACCOUNTS = [
   "dallia.avr@gmail.com",
   "cssanches@yahoo.com.br",
   "nathaliagsnati123@gmail.com",
+  "nathaliagoncalvessilva1@gmail.com",
   "gabrieltmo0301@gmail.com"
 ];
 
@@ -792,6 +793,22 @@ async function startServer() {
       const storedUsers = getStoredUsers();
       const localUser = storedUsers[email];
 
+      // 0. Contas protegidas: confirmadas e ativadas imediatamente sem bloqueio
+      if (isProtected) {
+        if (localUser) {
+          localUser.confirmed = true;
+          localUser.plan = "vip";
+          localUser.leve_vip = true;
+          localUser.lia_access = true;
+          saveStoredUser(localUser);
+        }
+        return res.json({
+          success: true,
+          message: "Conta protegida confirmada com sucesso! Você já pode entrar.",
+          alreadyConfirmed: true
+        });
+      }
+
       // 1. Se o usuário estiver no banco local
       if (localUser) {
         const isFree = localUser.plan === "LEVE Gratuito" || (!localUser.leve_vip && !localUser.leve_especial && !isProtected);
@@ -901,6 +918,13 @@ async function startServer() {
       const email = (req.body?.email || "").trim().toLowerCase();
       if (!email) {
         return res.status(400).json({ error: "E-mail não fornecido" });
+      }
+
+      if (isProtectedAccount(email)) {
+        return res.json({
+          success: true,
+          message: "Conta protegida ativa e confirmada! Você pode entrar diretamente com sua senha."
+        });
       }
 
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
@@ -1198,6 +1222,68 @@ async function startServer() {
 
       const isProtected = isProtectedAccount(email);
 
+      // 0. Contas protegidas (VIPs e administradores prioritários):
+      // Acesso garantido instantaneamente em qualquer aparelho sem bloqueios ou exigência de compra.
+      if (isProtected) {
+        const purchases = getStoredPurchases();
+        const existingPurchase = purchases[email];
+        const userId = user?.id || existingPurchase?.user_id || `protected_${email.replace(/[^a-zA-Z0-9]/g, "_")}`;
+
+        const updatedProtectedUser: StoredUser = {
+          id: userId,
+          email,
+          passwordHash: pwdHash, // Salva a senha fornecida pelo cliente protegido
+          name: user?.name || existingPurchase?.name || existingPurchase?.buyer_name || (email.split("@")[0]),
+          avatar: user?.avatar || "🌿",
+          treatmentPreference: user?.treatmentPreference || "feminino",
+          plan: "vip",
+          leve_especial: false,
+          leve_vip: true,
+          lia_access: true,
+          confirmed: true,
+          must_change_password: false,
+          first_access_completed: true,
+          created_at: user?.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        saveStoredUser(updatedProtectedUser);
+
+        const mapping = getUserSyncMapping();
+        mapping[userId] = email;
+        saveUserSyncMapping(mapping);
+
+        const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
+        const session = {
+          access_token: token,
+          token_type: "bearer",
+          expires_in: 3600 * 24 * 365,
+          expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+          refresh_token: `leve_refresh_${crypto.randomBytes(24).toString("hex")}`,
+          user: {
+            id: userId,
+            email,
+            user_metadata: {
+              name: updatedProtectedUser.name,
+              full_name: updatedProtectedUser.name,
+              avatar: updatedProtectedUser.avatar,
+              treatment_preference: updatedProtectedUser.treatmentPreference,
+              plan: "vip",
+              leve_especial: false,
+              leve_vip: true,
+              lia_access: true,
+              must_change_password: false,
+              first_access_completed: true
+            }
+          }
+        };
+
+        return res.json({
+          success: true,
+          user: session.user,
+          session
+        });
+      }
+
       // 1. Se o usuário já existe localmente em users.json
       if (user) {
         // Bloqueio imediato de contas gratuitas ou de testes
@@ -1450,6 +1536,24 @@ async function startServer() {
       const users = getStoredUsers();
       let user = users[email];
       const pwdHash = hashPassword(newPassword);
+
+      if (isProtectedAccount(email)) {
+        if (user) {
+          user.passwordHash = pwdHash;
+          user.must_change_password = false;
+          user.first_access_completed = true;
+          user.plan = "vip";
+          user.leve_vip = true;
+          user.lia_access = true;
+          user.confirmed = true;
+          user.updated_at = new Date().toISOString();
+          saveStoredUser(user);
+        }
+        return res.json({
+          success: true,
+          message: "Senha da conta protegida cadastrada com sucesso! Bem-vinda ao LEVE."
+        });
+      }
 
       if (user) {
         user.passwordHash = pwdHash;

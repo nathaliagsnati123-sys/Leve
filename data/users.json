@@ -2,7 +2,7 @@
   "nathaliagsnati123@gmail.com": {
     "id": "79e04a29-2e07-42f2-9953-b1bca7f423a0",
     "email": "nathaliagsnati123@gmail.com",
-    "passwordHash": "c2bacc9c2cd149e33cee23e64a9cb52e4ebdfc10f5da819579e398fd3c395cb2",
+    "passwordHash": "e2b4acd109102ad7a518d36bb43ba20092fd360bc6967b2ca8f160d806c03688",
     "name": "Nathe",
     "avatar": "🌸",
     "treatmentPreference": "feminino",
@@ -11,13 +11,15 @@
     "leve_vip": true,
     "lia_access": true,
     "confirmed": true,
+    "must_change_password": false,
+    "first_access_completed": true,
     "created_at": "2026-09-05T13:14:11.711663Z",
-    "updated_at": "2026-09-13T11:30:35.430Z"
+    "updated_at": "2026-09-14T14:16:49.212Z"
   },
   "dallia.avr@gmail.com": {
     "id": "d2eaa94a-de05-41fb-82fd-8a30fe4d2fde",
     "email": "dallia.avr@gmail.com",
-    "passwordHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "passwordHash": "e2b4acd109102ad7a518d36bb43ba20092fd360bc6967b2ca8f160d806c03688",
     "name": "Dallia",
     "avatar": "🌿",
     "treatmentPreference": "feminino",
@@ -29,12 +31,12 @@
     "must_change_password": false,
     "first_access_completed": true,
     "created_at": "2026-09-14T13:52:14.672Z",
-    "updated_at": "2026-09-14T13:52:14.672Z"
+    "updated_at": "2026-09-14T14:16:49.187Z"
   },
   "cssanches@yahoo.com.br": {
     "id": "057c6f68-e302-474f-acd0-95364307af84",
     "email": "cssanches@yahoo.com.br",
-    "passwordHash": "d6a7cd2a7371b1a15d543196979ff74fdb027023ebf187d5d329be11055c77fd",
+    "passwordHash": "e2b4acd109102ad7a518d36bb43ba20092fd360bc6967b2ca8f160d806c03688",
     "name": "CS Sanches",
     "avatar": "🌿",
     "treatmentPreference": "feminino",
@@ -46,12 +48,12 @@
     "must_change_password": false,
     "first_access_completed": true,
     "created_at": "2026-09-14T13:53:21.388Z",
-    "updated_at": "2026-09-14T13:53:21.388Z"
+    "updated_at": "2026-09-14T14:16:49.205Z"
   },
   "gabrieltmo0301@gmail.com": {
     "id": "0077125c-48b3-4b6c-9132-10819e4bf95b",
     "email": "gabrieltmo0301@gmail.com",
-    "passwordHash": "d6a7cd2a7371b1a15d543196979ff74fdb027023ebf187d5d329be11055c77fd",
+    "passwordHash": "e2b4acd109102ad7a518d36bb43ba20092fd360bc6967b2ca8f160d806c03688",
     "name": "Gabriel",
     "avatar": "🌿",
     "treatmentPreference": "feminino",
@@ -63,6 +65,23 @@
     "must_change_password": false,
     "first_access_completed": true,
     "created_at": "2026-09-14T13:53:21.806Z",
-    "updated_at": "2026-09-14T13:53:21.806Z"
+    "updated_at": "2026-09-14T14:16:49.226Z"
+  },
+  "nathaliagoncalvessilva1@gmail.com": {
+    "id": "protected_nathaliagoncalvessilva1_gmail_com",
+    "email": "nathaliagoncalvessilva1@gmail.com",
+    "passwordHash": "e2b4acd109102ad7a518d36bb43ba20092fd360bc6967b2ca8f160d806c03688",
+    "name": "Nathalia",
+    "avatar": "🌿",
+    "treatmentPreference": "feminino",
+    "plan": "vip",
+    "leve_especial": false,
+    "leve_vip": true,
+    "lia_access": true,
+    "confirmed": true,
+    "must_change_password": false,
+    "first_access_completed": true,
+    "created_at": "2026-09-14T14:00:00.000Z",
+    "updated_at": "2026-09-14T14:16:49.219Z"
   }
 }

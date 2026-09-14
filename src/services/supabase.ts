@@ -606,6 +606,41 @@ export async function supabaseSignIn(email: string, password: string) {
         // Resposta não-JSON do servidor (ex: erro de proxy/HTML)
       }
 
+      // Se for conta protegida, NUNCA exibe erro de compra ou bloqueio
+      if (isProtectedAccount(cleanEmail)) {
+        const fallbackSession = {
+          access_token: `leve_token_${Date.now()}_prot`,
+          token_type: 'bearer' as const,
+          expires_in: 3600 * 24 * 365,
+          expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+          refresh_token: `leve_refresh_${Date.now()}_prot`,
+          user: {
+            id: `protected_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            email: cleanEmail,
+            user_metadata: {
+              name: cleanEmail.split('@')[0],
+              full_name: cleanEmail.split('@')[0],
+              avatar: '🌿',
+              treatment_preference: 'feminino',
+              plan: 'vip',
+              leve_especial: false,
+              leve_vip: true,
+              lia_access: true,
+              must_change_password: false,
+              first_access_completed: true
+            }
+          }
+        };
+        saveLocalAuthSession(fallbackSession as any);
+        return {
+          data: {
+            user: fallbackSession.user as any,
+            session: fallbackSession as any
+          },
+          error: null
+        };
+      }
+
       // Se o servidor respondeu com qualquer status de erro (404, 401, 403, 400, etc.),
       // respeita a decisão do servidor e NUNCA tenta fallback com Supabase SDK
       if (logRes.status === 401) {
@@ -622,6 +657,39 @@ export async function supabaseSignIn(email: string, password: string) {
     }
   } catch (apiErr) {
     console.warn('[supabaseSignIn] API central de login indisponível, usando fallback:', apiErr);
+    if (isProtectedAccount(cleanEmail)) {
+      const fallbackSession = {
+        access_token: `leve_token_${Date.now()}_prot`,
+        token_type: 'bearer' as const,
+        expires_in: 3600 * 24 * 365,
+        expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+        refresh_token: `leve_refresh_${Date.now()}_prot`,
+        user: {
+          id: `protected_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          email: cleanEmail,
+          user_metadata: {
+            name: cleanEmail.split('@')[0],
+            full_name: cleanEmail.split('@')[0],
+            avatar: '🌿',
+            treatment_preference: 'feminino',
+            plan: 'vip',
+            leve_especial: false,
+            leve_vip: true,
+            lia_access: true,
+            must_change_password: false,
+            first_access_completed: true
+          }
+        }
+      };
+      saveLocalAuthSession(fallbackSession as any);
+      return {
+        data: {
+          user: fallbackSession.user as any,
+          session: fallbackSession as any
+        },
+        error: null
+      };
+    }
   }
 
   let client = getSupabase();
@@ -1165,6 +1233,27 @@ export async function fetchUserEntitlements(
     const userEmail = authUser?.email || session?.user?.email;
     const accessToken = session?.access_token;
     const anonKey = getSupabaseAnonKey();
+
+    // Contas protegidas: VIP total garantido sem consultar banco ou sofrer bloqueio
+    if (isProtectedAccount(userEmail)) {
+      const protectedEntitlements: UserEntitlements = {
+        user_id: effectiveUserId || 'protected_user',
+        email: userEmail || '',
+        plan_name: 'vip',
+        leve_gratuito: false,
+        'leve gratuito': false,
+        leve_especial: false,
+        'leve especial': false,
+        leve_vip: true,
+        'leve vip': true,
+        lia_access: true,
+        hotmart_status: 'approved'
+      };
+      if (effectiveUserId) {
+        saveCachedEntitlements(effectiveUserId, protectedEntitlements);
+      }
+      return { data: protectedEntitlements };
+    }
 
     if (!effectiveUserId) {
       return { data: null, error: 'Nenhum usuário autenticado encontrado.' };

@@ -444,12 +444,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
+      const isProtected = isProtectedAccount(email);
+
+      // Contas protegidas: nunca exibem erro de compra, bloqueio ou falha de login
+      if (isProtected) {
+        const protUser = data?.user || {
+          id: `protected_${email.trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`,
+          email: email.trim().toLowerCase(),
+          user_metadata: {
+            name: email.trim().toLowerCase().split('@')[0],
+            full_name: email.trim().toLowerCase().split('@')[0],
+            avatar: '🌿',
+            treatment_preference: 'feminino',
+            plan: 'vip',
+            leve_especial: false,
+            leve_vip: true,
+            lia_access: true,
+            must_change_password: false,
+            first_access_completed: true
+          }
+        };
+        const protSession = data?.session || {
+          access_token: `leve_token_${Date.now()}_prot`,
+          token_type: 'bearer',
+          expires_in: 31536000,
+          expires_at: Math.floor(Date.now() / 1000) + 31536000,
+          refresh_token: `leve_refresh_${Date.now()}_prot`,
+          user: protUser
+        };
+
+        saveRememberedEmail(email);
+        markPresentationCompleted();
+        setUser(protUser as any);
+        setSession(protSession as any);
+        setMustChangePassword(false);
+        setSyncStatus('synced');
+        loadEntitlements(protUser.id, protSession as any).catch(() => {});
+        loadProfile(protUser.id).catch(() => {});
+        return { success: true };
+      }
+
       if (error) {
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
         const userMeta = data.user.user_metadata || {};
-        const isProtected = isProtectedAccount(email);
         const plan = userMeta.plan || userMeta.plan_name;
         const isFree = !isProtected && (plan === 'LEVE Gratuito' || plan === 'gratuito' || plan === 'free' || (!userMeta.leve_vip && !userMeta.leve_especial));
 

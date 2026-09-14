@@ -6,6 +6,7 @@ export const PROTECTED_ACCOUNTS = [
   'dallia.avr@gmail.com',
   'cssanches@yahoo.com.br',
   'nathaliagsnati123@gmail.com',
+  'nathaliagoncalvessilva1@gmail.com',
   'gabrieltmo0301@gmail.com'
 ] as const;
 
