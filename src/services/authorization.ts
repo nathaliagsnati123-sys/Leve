@@ -31,7 +31,9 @@ export const OFFICIAL_LEVE_PRODUCT_CHECKOUT = 'https://pay.hotmart.com/W10464673
 export const FOUNDING_CLIENT_EMAILS = [
   'dallia.avr@gmail.com',
   'nathaliagsnati123@gmail.com',
-  'gabrieltmo0301@gmail.com'
+  'gabrieltmo0301@gmail.com',
+  'cssanches@yahoo.com.br',
+  'nathaliagoncalvessilva1@gmail.com'
 ];
 
 export const FOUNDING_CLIENT_IDS = [
@@ -58,32 +60,26 @@ export function isUserAuthorized(user: any | null, entitlements: any | null): bo
   const email = (user?.email || entitlements?.email || '').trim().toLowerCase();
   const userId = (user?.id || entitlements?.user_id || '').trim();
 
-  // 1. Clientes fundadoras existentes (proteção garantida e incondicional)
+  // 1. Clientes fundadoras e protegidas (proteção garantida e incondicional)
   if (email && FOUNDING_CLIENT_EMAILS.includes(email)) return true;
   if (userId && FOUNDING_CLIENT_IDS.includes(userId)) return true;
 
-  // 2. Resposta de entitlements
+  // 2. Verificação de cancelamento/reembolso explícito em entitlements
   if (entitlements) {
-    if (entitlements.authorized === true || entitlements.has_access === true) return true;
     if (entitlements.authorized === false || entitlements.has_access === false) return false;
-    if (entitlements.hotmart_status === 'approved') return true;
-    if (parseBoolean(entitlements.leve_vip) || parseBoolean(entitlements.leve_especial)) return true;
-    const plan = String(entitlements.plan_name || '').toLowerCase();
-    if (plan === 'vip' || plan === 'especial' || plan === 'completo' || plan === 'pago') return true;
+    if (entitlements.hotmart_status === 'refunded' || entitlements.hotmart_status === 'chargeback') return false;
+    if (entitlements.authorized === true || entitlements.has_access === true) return true;
   }
 
-  // 3. Metadados do usuário no Supabase Auth
+  // 3. Verificação de status nos metadados do usuário
   if (user) {
     const meta = user.user_metadata || {};
     const appMeta = user.app_metadata || {};
-    if (meta.hotmart_status === 'approved' || appMeta.hotmart_status === 'approved') return true;
-    if (parseBoolean(meta.leve_vip) || parseBoolean(appMeta.leve_vip)) return true;
-    if (parseBoolean(meta.leve_especial) || parseBoolean(appMeta.leve_especial)) return true;
-    const metaPlan = String(meta.plan || meta.plan_name || appMeta.plan || '').toLowerCase();
-    if (metaPlan === 'vip' || metaPlan === 'especial' || metaPlan === 'completo') return true;
+    if (meta.hotmart_status === 'refunded' || appMeta.hotmart_status === 'refunded') return false;
+    if (meta.hotmart_status === 'chargeback' || appMeta.hotmart_status === 'chargeback') return false;
   }
 
-  return false;
+  return true;
 }
 
 /**

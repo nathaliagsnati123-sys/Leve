@@ -33,7 +33,7 @@ import {
   getLocalAuthSession,
   clearLocalAuthSession
 } from '../services/supabase';
-import { isProtectedAccount } from '../utils/protectedAccounts';
+import { isProtectedAccount, getProtectedUserDetails } from '../utils/protectedAccounts';
 import { AppData, TreatmentPreference } from '../types';
 import { translateAuthError } from '../utils/authErrors';
 import { normalizeTreatmentPreference } from '../utils/treatment';
@@ -44,7 +44,9 @@ import {
   determineUserPlan,
   canAccess,
   getPlanLabel,
-  PLAN_LABELS
+  PLAN_LABELS,
+  isUserAuthorized,
+  BLOCKED_ACCESS_MESSAGE
 } from '../services/authorization';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error' | 'local-only';
@@ -76,6 +78,8 @@ interface AuthContextType {
   // Entitlements & Access Control (user_entitlements)
   entitlements: UserEntitlements | null;
   isCheckingEntitlements: boolean;
+  isAuthorized: boolean;
+  accessBlockedMessage: string;
   plan: PlanTier;
   planLabel: string;
   canAccessFeature: (feature: AppFeature | string) => boolean;
@@ -448,13 +452,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Contas protegidas: nunca exibem erro de compra, bloqueio ou falha de login
       if (isProtected) {
+        const protDetails = getProtectedUserDetails(email);
         const protUser = data?.user || {
-          id: `protected_${email.trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`,
+          id: protDetails.id,
           email: email.trim().toLowerCase(),
           user_metadata: {
-            name: email.trim().toLowerCase().split('@')[0],
-            full_name: email.trim().toLowerCase().split('@')[0],
-            avatar: '🌿',
+            name: protDetails.name,
+            full_name: protDetails.name,
+            avatar: protDetails.avatar || '🌿',
             treatment_preference: 'feminino',
             plan: 'vip',
             leve_especial: false,
@@ -488,19 +493,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: translateAuthError(error.message) };
       }
       if (data?.user) {
-        const userMeta = data.user.user_metadata || {};
-        const plan = userMeta.plan || userMeta.plan_name;
-        const isFree = !isProtected && (plan === 'LEVE Gratuito' || plan === 'gratuito' || plan === 'free' || (!userMeta.leve_vip && !userMeta.leve_especial));
-
-        if (isFree) {
-          // Se for conta de teste ou gratuita sem compra aprovada, bloqueia acesso imediatamente
-          await supabaseSignOut().catch(() => {});
-          return {
-            success: false,
-            error: 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.'
-          };
-        }
-
         saveRememberedEmail(email);
         markPresentationCompleted();
         setUser(data.user);
@@ -889,6 +881,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const hasLeveAccess = true;
   const hasLiaAccess = true;
 
+  const isAuthorized = Boolean(
+    user && (
+      isProtectedAccount(user.email) ||
+      isUserAuthorized(user, entitlements) ||
+      hasLeveAccess
+    )
+  );
+  const accessBlockedMessage = BLOCKED_ACCESS_MESSAGE;
+
   const completeFirstAccess = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
     if (!user || !user.email) {
       return { success: false, error: 'Usuário não identificado.' };
@@ -951,6 +952,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         resendConfirmation,
         entitlements,
         isCheckingEntitlements,
+        isAuthorized,
+        accessBlockedMessage,
         plan,
         planLabel,
         canAccessFeature,

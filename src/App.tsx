@@ -5,8 +5,9 @@ import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { MobileMenuDrawer } from './components/common/MobileMenuDrawer';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Lock } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { OFFICIAL_LEVE_PRODUCT_CHECKOUT } from './services/authorization';
 
 // 1. A tela principal de rotina ("Meu Dia") é carregada de forma direta para abertura instantânea (0ms)
 import { MyDayView } from './components/views/MyDayView';
@@ -79,7 +80,8 @@ const AppContent: React.FC = () => {
     isAuthModalOpen, 
     setIsAuthModalOpen, 
     setAuthTab,
-    mustChangePassword
+    mustChangePassword,
+    logout
   } = useAuth();
 
   useEffect(() => {
@@ -99,8 +101,8 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 2. Se NÃO estiver autenticado OU NÃO estiver autorizado: exibe a tela inicial de acesso
-  if (!user || !isAuthorized) {
+  // 2. Se NÃO estiver autenticado: exibe a tela inicial de acesso / login
+  if (!user) {
     return (
       <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col font-sans">
         <OfflineIndicator />
@@ -119,6 +121,35 @@ const AppContent: React.FC = () => {
         <Suspense fallback={null}>
           {isAuthModalOpen && <AuthModal />}
         </Suspense>
+      </div>
+    );
+  }
+
+  // 2.1 Se estiver autenticado mas NÃO autorizado (compra cancelada/reembolsada ou conta sem acesso)
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-[#1A231E] rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-800 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-serif font-bold text-stone-900 dark:text-stone-100 mb-2">Acesso Não Ativo</h2>
+          <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed mb-6">{accessBlockedMessage}</p>
+          <a
+            href={OFFICIAL_LEVE_PRODUCT_CHECKOUT}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-3.5 px-4 bg-[#1F3A34] text-white rounded-xl font-medium text-sm hover:bg-[#2A4D45] transition-colors shadow-sm mb-3 block"
+          >
+            Adquirir Acesso ao LEVE
+          </a>
+          <button
+            onClick={() => logout()}
+            className="text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 font-medium py-2 transition-colors cursor-pointer"
+          >
+            Sair ou entrar com outra conta
+          </button>
+        </div>
       </div>
     );
   }

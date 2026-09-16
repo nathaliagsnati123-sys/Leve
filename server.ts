@@ -1164,10 +1164,10 @@ async function startServer() {
 
       const purchases = getStoredPurchases();
       const purchase = purchases[email];
-      const plan = purchase?.plan_name || user?.plan || "LEVE Gratuito";
-      const leve_especial = Boolean(purchase?.leve_especial || user?.leve_especial);
-      const leve_vip = Boolean(purchase?.leve_vip || user?.leve_vip);
-      const lia_access = Boolean(purchase?.lia_access || user?.lia_access);
+      const plan = purchase?.plan_name || user?.plan || "vip";
+      const leve_especial = false;
+      const leve_vip = true;
+      const lia_access = true;
 
       const userId = user?.id || crypto.randomUUID();
       const passwordHash = hashPassword(password);
@@ -1176,13 +1176,13 @@ async function startServer() {
         id: userId,
         email,
         passwordHash,
-        name: name || user?.name || "",
+        name: name || user?.name || email.split("@")[0],
         avatar: avatar || user?.avatar || "🌿",
         treatmentPreference: treatmentPreference || user?.treatmentPreference || "feminino",
-        plan,
-        leve_especial,
-        leve_vip,
-        lia_access,
+        plan: "vip",
+        leve_especial: false,
+        leve_vip: true,
+        lia_access: true,
         confirmed: true,
         created_at: user?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -1309,21 +1309,11 @@ async function startServer() {
 
       // 1. Se o usuário já existe localmente em users.json
       if (user) {
-        // Bloqueio imediato de contas gratuitas ou de testes
-        const isFree = user.plan === "LEVE Gratuito" || (!user.leve_vip && !user.leve_especial && !isProtected);
-        if (isFree && !isProtected) {
-          return res.status(404).json({
-            error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
-          });
-        }
-
         if (user.passwordHash === pwdHash || user.passwordHash === password) {
           if (user.passwordHash === password) {
             user.passwordHash = pwdHash;
             saveStoredUser(user);
           }
-
-          const needsChange = !isProtected && (user.must_change_password === true || user.first_access_completed === false);
 
           const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
           const session = {
@@ -1338,14 +1328,14 @@ async function startServer() {
               user_metadata: {
                 name: user.name,
                 full_name: user.name,
-                avatar: user.avatar,
-                treatment_preference: user.treatmentPreference,
-                plan: isProtected ? "vip" : user.plan,
-                leve_especial: isProtected ? false : user.leve_especial,
-                leve_vip: isProtected ? true : user.leve_vip,
-                lia_access: isProtected ? true : user.lia_access,
-                must_change_password: needsChange,
-                first_access_completed: !needsChange
+                avatar: user.avatar || "🌿",
+                treatment_preference: user.treatmentPreference || "feminino",
+                plan: "vip",
+                leve_especial: false,
+                leve_vip: true,
+                lia_access: true,
+                must_change_password: false,
+                first_access_completed: true
               }
             }
           };
@@ -1376,34 +1366,29 @@ async function startServer() {
             const supData = await supRes.json();
             if (supData?.user) {
               const meta = supData.user.user_metadata || {};
-              const plan = meta.plan || meta.plan_name;
-              const isFree = !isProtected && (plan === "LEVE Gratuito" || plan === "gratuito" || plan === "free" || (!meta.leve_vip && !meta.leve_especial));
-              if (isFree) {
-                return res.status(404).json({
-                  error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
-                });
-              }
-
-              const needsChange = !isProtected && (meta.must_change_password === true || meta.first_access_completed === false);
 
               const migratedUser: StoredUser = {
                 id: supData.user.id,
                 email,
                 passwordHash: pwdHash,
-                name: supData.user.user_metadata?.name || "",
-                avatar: supData.user.user_metadata?.avatar || "🌿",
-                treatmentPreference: supData.user.user_metadata?.treatment_preference || "feminino",
-                plan: isProtected ? "vip" : (supData.user.user_metadata?.plan || "vip"),
-                leve_especial: isProtected ? false : Boolean(supData.user.user_metadata?.leve_especial),
-                leve_vip: isProtected ? true : Boolean(supData.user.user_metadata?.leve_vip),
-                lia_access: isProtected ? true : Boolean(supData.user.user_metadata?.lia_access),
+                name: supData.user.user_metadata?.name || meta.name || email.split("@")[0],
+                avatar: supData.user.user_metadata?.avatar || meta.avatar || "🌿",
+                treatmentPreference: supData.user.user_metadata?.treatment_preference || meta.treatment_preference || "feminino",
+                plan: "vip",
+                leve_especial: false,
+                leve_vip: true,
+                lia_access: true,
                 confirmed: true,
-                must_change_password: needsChange,
-                first_access_completed: !needsChange,
+                must_change_password: false,
+                first_access_completed: true,
                 created_at: supData.user.created_at || new Date().toISOString(),
                 updated_at: new Date().toISOString()
               };
               saveStoredUser(migratedUser);
+
+              const mapping = getUserSyncMapping();
+              mapping[supData.user.id] = email;
+              saveUserSyncMapping(mapping);
 
               return res.json({
                 success: true,
@@ -1411,8 +1396,11 @@ async function startServer() {
                   ...supData.user,
                   user_metadata: {
                     ...meta,
-                    must_change_password: needsChange,
-                    first_access_completed: !needsChange
+                    plan: "vip",
+                    leve_vip: true,
+                    lia_access: true,
+                    must_change_password: false,
+                    first_access_completed: true
                   }
                 },
                 session: supData
@@ -1449,38 +1437,28 @@ async function startServer() {
         }
       }
 
-      // Se o usuário existe no Supabase Auth
+      // Se o usuário existe no Supabase Auth mas a senha foi inválida
       if (foundSupabaseUser) {
-        const meta = foundSupabaseUser.user_metadata || {};
-        const plan = meta.plan || meta.plan_name;
-        const isFree = !isProtected && (plan === "LEVE Gratuito" || plan === "gratuito" || plan === "free" || (!meta.leve_vip && !meta.leve_especial));
-        if (isFree) {
-          return res.status(404).json({
-            error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
-          });
-        }
-        // É cliente pago, porém a senha está incorreta
         return res.status(401).json({ error: "E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente." });
       }
 
-      // 4. Se não existe no Supabase Auth, checa se há compra paga legada (purchases.json)
+      // 4. Se não existe no Supabase Auth, checa se há compra legada (purchases.json)
       const purchases = getStoredPurchases();
       const purchase = purchases[email];
 
-      // Somente permite acesso se for cliente com compra paga real (não gratuito)
-      if (!user && purchase && purchase.plan_name && purchase.plan_name !== "LEVE Gratuito") {
+      if (!user && purchase) {
         const newId = crypto.randomUUID();
         const newUser: StoredUser = {
           id: newId,
           email,
           passwordHash: pwdHash,
-          name: purchase.name || purchase.buyer_name || "",
+          name: purchase.name || purchase.buyer_name || email.split("@")[0],
           avatar: "🌿",
           treatmentPreference: "feminino",
-          plan: isProtected ? "vip" : purchase.plan_name,
-          leve_especial: isProtected ? false : Boolean(purchase.leve_especial),
-          leve_vip: isProtected ? true : Boolean(purchase.leve_vip),
-          lia_access: isProtected ? true : Boolean(purchase.lia_access),
+          plan: "vip",
+          leve_especial: false,
+          leve_vip: true,
+          lia_access: true,
           confirmed: true,
           must_change_password: false,
           first_access_completed: true,
@@ -1508,10 +1486,10 @@ async function startServer() {
               full_name: newUser.name,
               avatar: newUser.avatar,
               treatment_preference: newUser.treatmentPreference,
-              plan: newUser.plan,
-              leve_especial: newUser.leve_especial,
-              leve_vip: newUser.leve_vip,
-              lia_access: newUser.lia_access,
+              plan: "vip",
+              leve_especial: false,
+              leve_vip: true,
+              lia_access: true,
               must_change_password: false,
               first_access_completed: true
             }
@@ -1525,16 +1503,16 @@ async function startServer() {
         });
       }
 
-      // 5. Se o usuário já existe e é pago/protegido, mas a senha não confere
-      if (isProtected || (user && (user.plan !== "LEVE Gratuito" || user.leve_vip || user.leve_especial))) {
+      // 5. Se o usuário já existe localmente mas a senha não conferiu
+      if (user) {
         return res.status(401).json({
           error: "E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente."
         });
       }
 
-      // 6. Conta inexistente, de teste, gratuita ou sem compra paga
+      // 6. Conta inexistente
       return res.status(404).json({
-        error: "Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro."
+        error: "Conta não encontrada. Verifique o e-mail digitado ou realize seu cadastro."
       });
     } catch (err: any) {
       console.error("[login] Erro:", err);

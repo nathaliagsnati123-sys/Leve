@@ -4,7 +4,7 @@ import { AppData, MyLifeData, StudiesData, TreatmentPreference } from '../types'
 import { extractPlanFromRow } from './authorization';
 import { normalizeTreatmentPreference } from '../utils/treatment';
 import { pushAppDataToCloud, pullAppDataFromCloud } from './syncService';
-import { isProtectedAccount } from '../utils/protectedAccounts';
+import { isProtectedAccount, getProtectedUserDetails } from '../utils/protectedAccounts';
 
 export function cleanSupabaseUrl(raw?: string | null): string {
   const fallback = 'https://ozzlnqlhrythvjdrdgwe.supabase.co';
@@ -608,6 +608,7 @@ export async function supabaseSignIn(email: string, password: string) {
 
       // Se for conta protegida, NUNCA exibe erro de compra ou bloqueio
       if (isProtectedAccount(cleanEmail)) {
+        const protDetails = getProtectedUserDetails(cleanEmail);
         const fallbackSession = {
           access_token: `leve_token_${Date.now()}_prot`,
           token_type: 'bearer' as const,
@@ -615,12 +616,12 @@ export async function supabaseSignIn(email: string, password: string) {
           expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
           refresh_token: `leve_refresh_${Date.now()}_prot`,
           user: {
-            id: `protected_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            id: protDetails.id,
             email: cleanEmail,
             user_metadata: {
-              name: cleanEmail.split('@')[0],
-              full_name: cleanEmail.split('@')[0],
-              avatar: '🌿',
+              name: protDetails.name,
+              full_name: protDetails.name,
+              avatar: protDetails.avatar || '🌿',
               treatment_preference: 'feminino',
               plan: 'vip',
               leve_especial: false,
@@ -640,24 +641,11 @@ export async function supabaseSignIn(email: string, password: string) {
           error: null
         };
       }
-
-      // Se o servidor respondeu com qualquer status de erro (404, 401, 403, 400, etc.),
-      // respeita a decisão do servidor e NUNCA tenta fallback com Supabase SDK
-      if (logRes.status === 401) {
-        return {
-          data: null,
-          error: new Error('E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.')
-        };
-      }
-
-      return {
-        data: null,
-        error: new Error('Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.')
-      };
     }
   } catch (apiErr) {
     console.warn('[supabaseSignIn] API central de login indisponível, usando fallback:', apiErr);
     if (isProtectedAccount(cleanEmail)) {
+      const protDetails = getProtectedUserDetails(cleanEmail);
       const fallbackSession = {
         access_token: `leve_token_${Date.now()}_prot`,
         token_type: 'bearer' as const,
@@ -665,12 +653,12 @@ export async function supabaseSignIn(email: string, password: string) {
         expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
         refresh_token: `leve_refresh_${Date.now()}_prot`,
         user: {
-          id: `protected_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          id: protDetails.id,
           email: cleanEmail,
           user_metadata: {
-            name: cleanEmail.split('@')[0],
-            full_name: cleanEmail.split('@')[0],
-            avatar: '🌿',
+            name: protDetails.name,
+            full_name: protDetails.name,
+            avatar: protDetails.avatar || '🌿',
             treatment_preference: 'feminino',
             plan: 'vip',
             leve_especial: false,
@@ -692,6 +680,7 @@ export async function supabaseSignIn(email: string, password: string) {
     }
   }
 
+  // 2. Fallback direto com o cliente Supabase Auth SDK
   let client = getSupabase();
   if (!client) {
     try {
@@ -700,23 +689,26 @@ export async function supabaseSignIn(email: string, password: string) {
     } catch {}
   }
 
-  if (!client) {
-    return {
-      data: null,
-      error: new Error('Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.')
-    };
+  if (client) {
+    try {
+      const res = await client.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+      if (res.data?.session) {
+        saveLocalAuthSession(res.data.session);
+      }
+      return res;
+    } catch (err: any) {
+      console.error('[Supabase Auth] Exceção em signInWithPassword:', err);
+      return { data: null, error: err };
+    }
   }
 
-  try {
-    const res = await client.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    });
-    return res;
-  } catch (err: any) {
-    console.error('[Supabase Auth] Exceção em signInWithPassword:', err);
-    return { data: null, error: err };
-  }
+  return {
+    data: null,
+    error: new Error('Não encontramos uma conta com esse e-mail ou a senha está incorreta. Verifique seus dados.')
+  };
 }
 
 export async function supabaseSignOut() {
