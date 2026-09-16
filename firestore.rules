@@ -36,6 +36,15 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
     }
+
+    // Códigos de acesso de compras gerados pelo webhook:
+    // Permite get direto apenas com o código exato e gravação/atualização de status
+    // Proíbe listagem pública (list: false) e exclusão (delete: false)
+    match /access_codes/{codeId} {
+      allow get: if true;
+      allow create, update: if true;
+      allow list, delete: if false;
+    }
   }
 }
 

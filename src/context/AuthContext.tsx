@@ -31,7 +31,9 @@ import {
   saveCachedUserProfile,
   supabaseCompleteFirstAccess,
   getLocalAuthSession,
-  clearLocalAuthSession
+  clearLocalAuthSession,
+  validateAccessCodeApi,
+  activateAccountWithAccessCodeApi
 } from '../services/supabase';
 import { isProtectedAccount, getProtectedUserDetails } from '../utils/protectedAccounts';
 import { AppData, TreatmentPreference } from '../types';
@@ -95,6 +97,17 @@ interface AuthContextType {
   mustChangePassword: boolean;
   setMustChangePassword: (must: boolean) => void;
   completeFirstAccess: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Validação e Ativação com Código de Acesso Exclusivo (Hotmart)
+  validateAccessCode: (email: string, code: string) => Promise<{ valid: boolean; buyerName?: string; error?: string; isProtected?: boolean }>;
+  activateWithAccessCode: (
+    email: string,
+    code: string,
+    password: string,
+    name?: string,
+    treatmentPreference?: TreatmentPreference,
+    avatar?: string
+  ) => Promise<{ success: boolean; error?: string; message?: string }>;
 }
 
 function checkRequiresPasswordChange(u: User | null): boolean {
@@ -925,6 +938,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user]);
 
+  const validateAccessCode = useCallback(async (email: string, code: string) => {
+    return await validateAccessCodeApi(email, code);
+  }, []);
+
+  const activateWithAccessCode = useCallback(async (
+    email: string,
+    code: string,
+    password: string,
+    name?: string,
+    treatmentPreference?: TreatmentPreference,
+    avatar?: string
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
+    try {
+      const res = await activateAccountWithAccessCodeApi(email, code, password, name, treatmentPreference, avatar);
+      if (res.success && res.session) {
+        setSession(res.session);
+        setUser(res.user || res.session.user);
+        saveRememberedEmail(email);
+        markPresentationCompleted();
+        setMustChangePassword(false);
+        refreshEntitlements();
+        return { success: true, message: res.message };
+      }
+      return { success: false, error: res.error || 'Erro ao ativar conta com código.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erro ao ativar conta.' };
+    }
+  }, [refreshEntitlements]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -966,7 +1008,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         saveProfile,
         mustChangePassword,
         setMustChangePassword,
-        completeFirstAccess
+        completeFirstAccess,
+        validateAccessCode,
+        activateWithAccessCode
       }}
     >
       {children}

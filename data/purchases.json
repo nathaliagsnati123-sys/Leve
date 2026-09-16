@@ -46,5 +46,17 @@
     "lia_access": true,
     "hotmart_status": "approved",
     "updated_at": "2026-09-14T00:00:00.000Z"
+  },
+  "lucianagsantos24@gmail.com": {
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve gratuito": false,
+    "leve_especial": true,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "hotmart_transaction_id": "HP1789577143391",
+    "email": "lucianagsantos24@gmail.com",
+    "updated_at": "2026-09-16T16:45:44.919Z"
   }
 }

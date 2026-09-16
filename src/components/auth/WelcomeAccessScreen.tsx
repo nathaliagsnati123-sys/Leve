@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Check, Sparkles, UserPlus, LogIn, 
-  Lock, Mail, User, Eye, EyeOff, ShieldCheck, RefreshCw, AlertCircle
+  Lock, Mail, User, Eye, EyeOff, ShieldCheck, RefreshCw, AlertCircle, KeyRound
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -21,30 +21,48 @@ interface WelcomeAccessScreenProps {
 }
 
 export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
-  const { login, signup, resetPassword, confirmUserEmail, resendConfirmation } = useAuth();
+  const { 
+    login, 
+    signup, 
+    resetPassword, 
+    confirmUserEmail, 
+    resendConfirmation,
+    validateAccessCode,
+    activateWithAccessCode 
+  } = useAuth();
   const { data, updateUser, showToast } = useApp();
 
   const savedEmail = getRememberedEmail();
   const presentationAlreadyDone = isPresentationAlreadyCompleted();
 
-  // Step 1, 2, 3, 4: Apresentação (1: Boas-vindas, 2: Mente livre, 3: Cuidado integral, 4: LEVIA) | Step 5: Login ou Cadastro
-  // Se a apresentação já foi feita ou se já existe e-mail salvo no aparelho, exibe diretamente a tela de acesso (Step 5)
+  // Detecção de parâmetros na URL (ex: ?code=LEVE-XXXX-XXXX&email=...)
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const paramCode = urlParams ? (urlParams.get('code') || urlParams.get('codigo') || '').trim().toUpperCase() : '';
+  const paramEmail = urlParams ? (urlParams.get('email') || '').trim().toLowerCase() : '';
+  const paramMode = urlParams ? (urlParams.get('mode') || '').trim().toLowerCase() : '';
+
+  // Step 1, 2, 3, 4: Apresentação | Step 5: Login, Primeiro Acesso ou Cadastro
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(() => {
-    return presentationAlreadyDone || Boolean(savedEmail) ? 5 : 1;
-  });
-  const [authMode, setAuthMode] = useState<'signup' | 'login' | 'reset'>(() => {
-    return savedEmail ? 'login' : 'signup';
+    return Boolean(paramCode) || presentationAlreadyDone || Boolean(savedEmail) ? 5 : 1;
   });
 
-  // Form states - criação de conta simples: apenas nome, email, senha e confirmação de senha
+  const [authMode, setAuthMode] = useState<'first_access' | 'login' | 'signup' | 'reset'>(() => {
+    if (paramCode || paramMode === 'first_access' || paramMode === 'primeiro-acesso') {
+      return 'first_access';
+    }
+    return savedEmail ? 'login' : 'first_access';
+  });
+
+  // Form states
   const [name, setName] = useState(data.user.name || '');
   const [avatar, setAvatar] = useState(data.user.avatar || '🌿');
   const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
     return normalizeTreatmentPreference(data.user.treatmentPreference || 'feminino');
   });
 
-  // E-mail preenchido automaticamente com o e-mail salvo neste dispositivo
-  const [email, setEmail] = useState(() => savedEmail);
+  // E-mail preenchido com URL, salvo ou vazio
+  const [email, setEmail] = useState(() => paramEmail || savedEmail || '');
+  const [accessCode, setAccessCode] = useState(() => paramCode || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,9 +71,25 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (paramCode) {
+      setAccessCode(paramCode);
+      setAuthMode('first_access');
+      setStep(5);
+    }
+    if (paramEmail && !email) {
+      setEmail(paramEmail);
+    }
+  }, [paramCode, paramEmail]);
+
   const handleEmailChange = (val: string) => {
     setEmail(val);
     saveRememberedEmail(val);
+  };
+
+  const handleCodeChange = (val: string) => {
+    // Formata em maiúsculas automaticamente
+    setAccessCode(val.toUpperCase().replace(/\s+/g, ''));
   };
 
   const avatarOptions = ['🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', '🧘‍♀️', '🌊'];
@@ -67,6 +101,73 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
     setStep(5);
     setErrorMessage(null);
     setSuccessMessage(null);
+  };
+
+  // Ativação de Primeiro Acesso via Código Exclusivo Hotmart
+  const handleFirstAccessSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = accessCode.trim().toUpperCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail) {
+      setErrorMessage('Por favor, informe o mesmo e-mail utilizado na compra na Hotmart.');
+      return;
+    }
+
+    if (!cleanCode) {
+      setErrorMessage('Por favor, digite o código de acesso recebido no seu e-mail.');
+      return;
+    }
+
+    if (!cleanPassword) {
+      setErrorMessage('Por favor, crie uma senha para o seu acesso pessoal.');
+      return;
+    }
+
+    if (cleanPassword.length < 6) {
+      setErrorMessage('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (cleanPassword !== confirmPassword.trim()) {
+      setErrorMessage('As senhas não coincidem. Por favor, confira a digitação.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await activateWithAccessCode(
+        cleanEmail,
+        cleanCode,
+        cleanPassword,
+        name.trim() || undefined,
+        treatmentPreference,
+        avatar
+      );
+
+      setIsSubmitting(false);
+
+      if (res.success) {
+        saveRememberedEmail(cleanEmail);
+        markPresentationCompleted();
+        saveUserIdentity({ hasCompletedOnboarding: true });
+        updateUser({ hasCompletedOnboarding: true, name: name.trim() || undefined });
+
+        trackPixelEvent('CompleteRegistration');
+        trackPixelEvent('Purchase');
+
+        showToast('Acesso completo liberado com sucesso! Bem-vinda ao LEVE.', 'success');
+      } else {
+        setErrorMessage(res.error || 'Código de acesso inválido ou e-mail incorreto.');
+      }
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setErrorMessage(err?.message || 'Erro ao ativar sua conta com código de acesso.');
+    }
   };
 
   // Cadastro de nova conta
@@ -482,43 +583,58 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
             <div className="space-y-5 text-left animate-in fade-in duration-200">
               <div className="text-center space-y-1">
                 <h2 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100">
+                  {authMode === 'first_access' && 'Ativar Primeiro Acesso'}
                   {authMode === 'signup' && 'Crie sua conta no LEVE'}
                   {authMode === 'login' && 'Acesse sua conta'}
                   {authMode === 'reset' && 'Recuperar senha'}
                 </h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto">
+                  {authMode === 'first_access' && 'Informe o código que você recebeu no seu e-mail após a compra.'}
                   {authMode === 'signup' && 'Guarde suas anotações e rotina com segurança.'}
                   {authMode === 'login' && 'Entre para sincronizar suas anotações e rotina.'}
                   {authMode === 'reset' && 'Informe seu e-mail para receber as instruções.'}
                 </p>
               </div>
 
-              {/* Alternar abas: Criar Conta vs Já tenho conta */}
-              <div className="flex rounded-2xl bg-stone-100 dark:bg-stone-800/80 p-1">
+              {/* Alternar abas: Primeiro Acesso vs Já tenho conta vs Criar Conta */}
+              <div className="flex rounded-2xl bg-stone-100 dark:bg-stone-800/80 p-1 gap-1">
                 <button
                   type="button"
-                  onClick={() => { setAuthMode('signup'); setErrorMessage(null); setSuccessMessage(null); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    authMode === 'signup'
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-800'
+                  onClick={() => { setAuthMode('first_access'); setErrorMessage(null); setSuccessMessage(null); }}
+                  className={`flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    authMode === 'first_access'
+                      ? 'bg-emerald-800 text-white shadow-xs'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Criar Conta</span>
+                  <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Primeiro Acesso</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => { setAuthMode('login'); setErrorMessage(null); setSuccessMessage(null); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                     authMode === 'login'
                       ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-800'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Já tenho conta</span>
+                  <LogIn className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Já tenho conta</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('signup'); setErrorMessage(null); setSuccessMessage(null); }}
+                  className={`flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    authMode === 'signup'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Criar Conta</span>
                 </button>
               </div>
 
@@ -551,6 +667,150 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-700 dark:text-emerald-300">
                   {successMessage}
                 </div>
+              )}
+
+              {/* FORMULÁRIO 0: PRIMEIRO ACESSO COM CÓDIGO (HOTMART) */}
+              {authMode === 'first_access' && (
+                <form onSubmit={handleFirstAccessSubmit} className="space-y-4">
+                  {/* Banner explicativo acolhedor */}
+                  <div className="p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      Digite o <strong>código exclusivo</strong> que você recebeu no e-mail após a compra para ativar seu acesso completo com a LEVIA.
+                    </div>
+                  </div>
+
+                  {/* 1. E-mail da Compra */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      E-mail da Compra (Hotmart) <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => handleEmailChange(e.target.value)}
+                        placeholder="seu@email.com"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Código de Acesso */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      Código de Acesso <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <input
+                        type="text"
+                        required
+                        value={accessCode}
+                        onChange={(e) => handleCodeChange(e.target.value)}
+                        placeholder="LEVE-XXXX-XXXX"
+                        maxLength={20}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-emerald-300 dark:border-emerald-700/80 text-stone-900 dark:text-stone-100 font-mono font-semibold tracking-wider text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50 uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. Nome de preferência (opcional) */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      Seu Nome <span className="text-stone-400 font-normal">(opcional)</span>
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Como gostaria de ser chamada?"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4. Criar Senha Pessoal */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      Crie sua Senha Pessoal <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                        title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 5. Confirmação de Senha */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      Confirmação de Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Digite a senha novamente"
+                        className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                        title={showConfirmPassword ? 'Ocultar senha' : 'Ver senha'}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Botão de Ativação */}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 px-5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-emerald-300" />
+                        <span>Validando e ativando conta...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Validar Código e Ativar Acesso Completo</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <p className="text-center text-[11px] text-stone-400 dark:text-stone-500 leading-relaxed pt-1">
+                    Não localizou o e-mail com seu código? Verifique sua caixa de <em>Spam</em> ou <em>Promoções</em> buscando por <strong>LEVE</strong>.
+                  </p>
+                </form>
               )}
 
               {/* FORMULÁRIO 1: CRIAR CONTA (Apenas nome, email, senha e confirmação de senha) */}

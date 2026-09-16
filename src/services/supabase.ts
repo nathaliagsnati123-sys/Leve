@@ -1676,3 +1676,81 @@ export async function saveUserProfileToSupabase(
 
   return { success: true };
 }
+
+// --------------------------------------------------------
+// Validação e Ativação com Código de Acesso Exclusivo (Hotmart)
+// --------------------------------------------------------
+
+export async function validateAccessCodeApi(email: string, code: string): Promise<{
+  valid: boolean;
+  buyerName?: string;
+  error?: string;
+  isProtected?: boolean;
+}> {
+  try {
+    const res = await fetch('/api/auth/validate-access-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        code: code.trim().toUpperCase()
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return { valid: false, error: err?.message || 'Erro ao validar código de acesso.' };
+  }
+}
+
+export async function activateAccountWithAccessCodeApi(
+  email: string,
+  code: string,
+  password: string,
+  name?: string,
+  treatmentPreference?: TreatmentPreference,
+  avatar?: string
+): Promise<{
+  success: boolean;
+  user?: any;
+  session?: any;
+  error?: string;
+  message?: string;
+}> {
+  try {
+    const res = await fetch('/api/auth/activate-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        code: code.trim().toUpperCase(),
+        password,
+        name: name ? name.trim() : undefined,
+        treatmentPreference: treatmentPreference || 'feminino',
+        avatar: avatar || '🌿'
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success && data.session) {
+      saveLocalAuthSession(data.session);
+      return {
+        success: true,
+        user: data.user || data.session.user,
+        session: data.session,
+        message: data.message
+      };
+    }
+
+    return {
+      success: false,
+      error: data.error || 'Não foi possível ativar sua conta.'
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Erro de conexão ao ativar conta.'
+    };
+  }
+}
+

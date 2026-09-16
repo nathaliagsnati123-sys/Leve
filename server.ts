@@ -6,6 +6,9 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 // Ensure global __dirname injected by tsx does not break CJS/ESM hybrid resolution in plugins
 if ((globalThis as any).__dirname === ".") {
@@ -75,18 +78,329 @@ export function getSupabasePublishableKey(): string {
 // ============================================================================
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 
+// Contas protegidas que têm acesso total perpétuo garantido (NUNCA bloquear, alterar ou excluir)
 export const PROTECTED_ACCOUNTS = [
   "dallia.avr@gmail.com",
-  "cssanches@yahoo.com.br",
   "nathaliagsnati123@gmail.com",
   "nathaliagoncalvessilva1@gmail.com",
   "gabrieltmo0301@gmail.com"
+];
+
+// Contas reembolsadas/canceladas que devem permanecer sem acesso
+export const REFUNDED_ACCOUNTS = [
+  "cssanches@yahoo.com.br"
 ];
 
 export function isProtectedAccount(email?: string | null): boolean {
   if (!email) return false;
   const clean = email.trim().toLowerCase();
   return PROTECTED_ACCOUNTS.includes(clean);
+}
+
+export function isRefundedAccount(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return REFUNDED_ACCOUNTS.includes(clean);
+}
+
+// ============================================================================
+// Access Codes Store & Hotmart Automated Access Flow
+// ============================================================================
+const ACCESS_CODES_FILE = path.join(process.cwd(), "data", "access_codes.json");
+
+export interface StoredAccessCode {
+  code: string;
+  email: string;
+  buyerName?: string;
+  transactionId?: string;
+  status: "active" | "used" | "revoked";
+  used: boolean;
+  createdAt: string;
+  usedAt?: string;
+  plan: string;
+}
+
+export function getStoredAccessCodes(): Record<string, StoredAccessCode> {
+  try {
+    if (!fs.existsSync(path.dirname(ACCESS_CODES_FILE))) {
+      fs.mkdirSync(path.dirname(ACCESS_CODES_FILE), { recursive: true });
+    }
+    if (fs.existsSync(ACCESS_CODES_FILE)) {
+      const content = fs.readFileSync(ACCESS_CODES_FILE, "utf-8");
+      return JSON.parse(content || "{}");
+    }
+  } catch (err) {
+    console.warn("[access codes store] Erro ao ler access_codes.json:", err);
+  }
+  return {};
+}
+
+export function saveStoredAccessCode(item: StoredAccessCode) {
+  try {
+    const codes = getStoredAccessCodes();
+    const key = item.code.trim().toUpperCase();
+    codes[key] = {
+      ...item,
+      code: key,
+      email: item.email.trim().toLowerCase()
+    };
+    if (!fs.existsSync(path.dirname(ACCESS_CODES_FILE))) {
+      fs.mkdirSync(path.dirname(ACCESS_CODES_FILE), { recursive: true });
+    }
+    fs.writeFileSync(ACCESS_CODES_FILE, JSON.stringify(codes, null, 2), "utf-8");
+    console.log(`[access codes store] Código ${key} salvo localmente para ${item.email} (status: ${item.status})`);
+  } catch (err) {
+    console.warn("[access codes store] Erro ao salvar access_codes.json:", err);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Firebase Firestore Integration for Purchase Access Codes
+// ----------------------------------------------------------------------------
+let serverFirestoreDb: any = null;
+
+export function getServerFirestore() {
+  if (serverFirestoreDb) return serverFirestoreDb;
+  try {
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      const existingApps = getApps();
+      const existing = existingApps.find(a => a.name === "serverLeveApp");
+      const app = existing || initializeApp({
+        apiKey: cfg.apiKey,
+        authDomain: cfg.authDomain,
+        projectId: cfg.projectId,
+        appId: cfg.appId
+      }, "serverLeveApp");
+      serverFirestoreDb = getFirestore(app, cfg.firestoreDatabaseId);
+      return serverFirestoreDb;
+    }
+  } catch (err) {
+    console.warn("[server firestore] Aviso ao inicializar Firestore no servidor:", err);
+  }
+  return null;
+}
+
+export async function saveAccessCodeToFirebase(item: StoredAccessCode): Promise<boolean> {
+  try {
+    const db = getServerFirestore();
+    if (!db) return false;
+    const key = item.code.trim().toUpperCase();
+    const docRef = doc(db, "access_codes", key);
+    await setDoc(docRef, {
+      code: key,
+      email: item.email.trim().toLowerCase(),
+      buyerName: item.buyerName || "",
+      transactionId: item.transactionId || "",
+      status: item.status,
+      used: Boolean(item.used),
+      plan: item.plan || "vip",
+      createdAt: item.createdAt || new Date().toISOString(),
+      usedAt: item.usedAt || null
+    }, { merge: true });
+    console.log(`[firebase firestore] Código ${key} salvo no Firestore com sucesso (status: ${item.status})`);
+    return true;
+  } catch (err: any) {
+    console.warn("[firebase firestore] Aviso ao salvar código no Firestore:", err?.message || err);
+    return false;
+  }
+}
+
+export async function getAccessCodeFromFirebase(code: string): Promise<StoredAccessCode | null> {
+  try {
+    const db = getServerFirestore();
+    if (!db) return null;
+    const key = code.trim().toUpperCase();
+    const docRef = doc(db, "access_codes", key);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      return {
+        code: data.code || key,
+        email: data.email || "",
+        buyerName: data.buyerName || "",
+        transactionId: data.transactionId || "",
+        status: data.status || "active",
+        used: Boolean(data.used),
+        createdAt: data.createdAt || "",
+        usedAt: data.usedAt || undefined,
+        plan: data.plan || "vip"
+      };
+    }
+  } catch (err: any) {
+    console.warn("[firebase firestore] Aviso ao buscar código no Firestore:", err?.message || err);
+  }
+  return null;
+}
+
+export async function updateAccessCodeInFirebase(code: string, updates: Partial<StoredAccessCode>): Promise<boolean> {
+  try {
+    const db = getServerFirestore();
+    if (!db) return false;
+    const key = code.trim().toUpperCase();
+    const docRef = doc(db, "access_codes", key);
+    await updateDoc(docRef, updates as any);
+    console.log(`[firebase firestore] Código ${key} atualizado no Firestore:`, updates);
+    return true;
+  } catch (err: any) {
+    console.warn("[firebase firestore] Aviso ao atualizar código no Firestore:", err?.message || err);
+    return false;
+  }
+}
+
+export function generateAccessCode(): string {
+  // Gera código amigável no formato LEVE-XXXXXX (6 caracteres alfanuméricos sem ambiguidade)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let randomPart = "";
+  for (let i = 0; i < 6; i++) {
+    const idx = crypto.randomInt(0, chars.length);
+    randomPart += chars[idx];
+  }
+  return `LEVE-${randomPart}`;
+}
+
+export async function sendAccessCodeEmail(
+  toEmail: string,
+  buyerName: string,
+  accessCode: string,
+  appBaseUrl?: string
+): Promise<{ success: boolean; error?: string }> {
+  const apiKey = (process.env.RESEND_API_KEY || "").trim();
+  if (!apiKey) {
+    console.warn("[resend] AVISO: RESEND_API_KEY não configurada no ambiente. Código gerado e salvo:", accessCode);
+    return { success: false, error: "RESEND_API_KEY não configurada" };
+  }
+
+  const rawFrom = (process.env.RESEND_FROM_EMAIL || "lucianagsantos24@gmail.com").trim();
+  const isPublicDomain = /@(gmail\.com|yahoo\.com(\.br)?|hotmail\.com|outlook\.com)$/i.test(rawFrom);
+  
+  // Se for domínio público gratuito (como @gmail.com), o Resend exige envio por onboarding@resend.dev ou domínio próprio verificado.
+  // Colocamos o rawFrom em reply_to para que qualquer resposta do cliente vá para Luciana.
+  const initialFrom = isPublicDomain ? "onboarding@resend.dev" : rawFrom;
+  const replyToAddress = rawFrom;
+
+  // Monta link direto de ativação automática em 1 clique
+  const defaultBaseUrl = "https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app";
+  const cleanBaseUrl = (appBaseUrl || process.env.APP_URL || defaultBaseUrl).replace(/\/$/, "");
+  const directActivationLink = `${cleanBaseUrl}/?code=${encodeURIComponent(accessCode)}&email=${encodeURIComponent(toEmail)}`;
+
+  try {
+    const resend = new Resend(apiKey);
+    const greetingName = buyerName ? buyerName.split(" ")[0] : "você";
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seu Código de Acesso ao LEVE</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F7F8F6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2D3748; line-height: 1.6;">
+  <div style="max-width: 560px; margin: 32px auto; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #E2E8F0;">
+    
+    <!-- Top Header Banner -->
+    <div style="background-color: #1F3A34; padding: 36px 32px; text-align: center;">
+      <div style="display: inline-block; background-color: rgba(255,255,255,0.15); width: 56px; height: 56px; line-height: 56px; border-radius: 16px; font-size: 28px; margin-bottom: 12px;">🌿</div>
+      <h1 style="color: #FFFFFF; font-size: 24px; font-weight: 700; margin: 0; letter-spacing: 1px;">LEVE</h1>
+      <p style="color: #A3BFB8; font-size: 13px; margin: 6px 0 0 0;">Tire da cabeça. Coloque em ordem.</p>
+    </div>
+
+    <!-- Main Content -->
+    <div style="padding: 36px 32px;">
+      <h2 style="color: #1F3A34; font-size: 20px; margin-top: 0; font-weight: 600;">
+        Olá, ${greetingName}! Boas-vindas ao LEVE 🌸
+      </h2>
+      
+      <p style="font-size: 15px; color: #4A5568; margin-bottom: 20px;">
+        Sua compra foi aprovada com sucesso! Você tem <strong>acesso completo</strong> a todas as ferramentas do LEVE e à assistente pessoal <strong>LEVIA</strong>.
+      </p>
+
+      <!-- Access Code Box -->
+      <div style="background-color: #F0F5F3; border: 2px dashed #3D6B5E; border-radius: 14px; padding: 22px; text-align: center; margin: 26px 0;">
+        <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #2A4D43; display: block; margin-bottom: 8px;">
+          Seu Código de Acesso Exclusivo
+        </span>
+        <div style="font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 800; letter-spacing: 4px; color: #1F3A34; padding: 6px 0;">
+          ${accessCode}
+        </div>
+        <span style="font-size: 12px; color: #64748B; display: block; margin-top: 6px;">
+          Código de uso único vinculado ao seu e-mail: <strong>${toEmail}</strong>
+        </span>
+      </div>
+
+      <!-- Direct One-Click Button -->
+      <div style="text-align: center; margin: 26px 0 10px 0;">
+        <a href="${directActivationLink}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #1F3A34; color: #FFFFFF; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(31,58,52,0.25);">
+          Ativar Meu Acesso no LEVE Agora &rarr;
+        </a>
+        <div style="font-size: 11px; color: #94A3B8; margin-top: 8px;">
+          O link acima já preenche seu e-mail e código automaticamente.
+        </div>
+      </div>
+
+      <!-- How to Activate Steps -->
+      <h3 style="color: #1F3A34; font-size: 16px; font-weight: 600; margin-top: 28px; margin-bottom: 12px;">
+        Ou, se preferir ativar manualmente:
+      </h3>
+      
+      <ol style="padding-left: 20px; color: #4A5568; font-size: 14px; margin-bottom: 28px; line-height: 1.8;">
+        <li>Abra o aplicativo <strong>LEVE</strong> no celular ou computador.</li>
+        <li>Na tela inicial, clique na aba <strong>"Primeiro Acesso"</strong>.</li>
+        <li>Digite seu e-mail (<strong>${toEmail}</strong>) e o código <strong>${accessCode}</strong>.</li>
+        <li>Crie sua senha pessoal definitiva para entrar sempre que quiser.</li>
+      </ol>
+
+      <p style="font-size: 13px; color: #718096; margin-top: 28px; text-align: center;">
+        Guarde este e-mail. Se precisar de ajuda ou tiver qualquer dúvida, responda diretamente a esta mensagem.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #F8FAF9; padding: 20px 32px; border-top: 1px solid #E2E8F0; text-align: center;">
+      <p style="font-size: 12px; color: #A0AEC0; margin: 0;">
+        LEVE • Organização pessoal e bem-estar • Luciana Santos
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    let sendResult = await resend.emails.send({
+      from: `LEVE <${initialFrom}>`,
+      to: toEmail,
+      replyTo: replyToAddress,
+      subject: `🌿 Seu código de acesso ao LEVE: ${accessCode}`,
+      html: htmlContent
+    });
+
+    if (sendResult.error) {
+      console.warn("[resend] Aviso ao enviar e-mail:", sendResult.error);
+      if (initialFrom !== "onboarding@resend.dev") {
+        console.log("[resend] Tentando envio alternativo via onboarding@resend.dev...");
+        sendResult = await resend.emails.send({
+          from: `LEVE <onboarding@resend.dev>`,
+          to: toEmail,
+          replyTo: replyToAddress,
+          subject: `🌿 Seu código de acesso ao LEVE: ${accessCode}`,
+          html: htmlContent
+        });
+      }
+    }
+
+    if (sendResult.error) {
+      console.error("[resend] Falha no envio do e-mail:", sendResult.error);
+      return { success: false, error: sendResult.error.message };
+    }
+
+    console.log(`[resend] E-mail com código enviado com sucesso para ${toEmail}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error("[resend] Exceção no envio do Resend:", err);
+    return { success: false, error: err?.message };
+  }
 }
 
 export interface StoredUser {
@@ -793,6 +1107,52 @@ async function startServer() {
     res.json({ status: "ok", service: "LEVE" });
   });
 
+  // Hotmart & Resend integration status diagnostic endpoint
+  app.get("/api/hotmart-status", (_req, res) => {
+    const hasHottok = Boolean(process.env.HOTTOK || process.env.HOTMART_HOTTOK);
+    const hasResend = Boolean(process.env.RESEND_API_KEY);
+    const fromEmail = (process.env.RESEND_FROM_EMAIL || "lucianagsantos24@gmail.com").trim();
+    const isPublicDomain = /@(gmail\.com|yahoo\.com(\.br)?|hotmail\.com|outlook\.com)$/i.test(fromEmail);
+    const host = _req.get("host");
+    const proto = _req.get("x-forwarded-proto") || "https";
+    const appUrl = host ? `${proto}://${host}` : "https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app";
+    const webhookUrl = `${appUrl}/api/hotmart-webhook`;
+
+    res.json({
+      service: "LEVE Hotmart Automated Integration",
+      status: "ready",
+      webhook: {
+        endpoint: "/api/hotmart-webhook",
+        fullUrl: webhookUrl,
+        method: "POST",
+        hottokConfigured: hasHottok,
+        eventsSupported: [
+          "CLUB_FIRST_ACCESS",
+          "PURCHASE_APPROVED",
+          "PURCHASE_COMPLETE",
+          "SUBSCRIPTION_PURCHASE_APPROVED",
+          "SWITCH_PLAN",
+          "PURCHASE_REFUNDED",
+          "PURCHASE_CHARGEBACK",
+          "PURCHASE_CANCELLED"
+        ]
+      },
+      resend: {
+        configured: hasResend,
+        fromEmail,
+        isPublicDomain,
+        deliveryMode: isPublicDomain 
+          ? "onboarding@resend.dev (com reply-to configurado para " + fromEmail + ")"
+          : fromEmail
+      },
+      firebase: {
+        configured: true,
+        collection: "access_codes",
+        databaseId: "ai-studio-leve-3b76a9fa-1da8-4896-9d13-f34d41ea865e"
+      }
+    });
+  });
+
   // Supabase public configuration endpoint (detects and fixes inverted keys safely)
   app.get("/api/auth/config", (_req, res) => {
     const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
@@ -1000,6 +1360,256 @@ async function startServer() {
   // Endpoints para desbloqueio e autorização imediata de clientes pós-compra
   // ============================================================================
 
+  // 1. Validação de Código de Acesso Exclusivo (Primeiro Acesso de Comprador)
+  app.post("/api/auth/validate-access-code", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const rawCode = (req.body?.code || "").trim().toUpperCase();
+
+      if (!email || !rawCode) {
+        return res.status(400).json({ valid: false, error: "Informe seu e-mail e o código de acesso recebido." });
+      }
+
+      if (isRefundedAccount(email)) {
+        return res.status(403).json({
+          valid: false,
+          error: "Esta conta foi cancelada/reembolsada e não possui acesso ativo ao LEVE."
+        });
+      }
+
+      // Se for conta protegida, permite validação imediata
+      if (isProtectedAccount(email)) {
+        return res.json({
+          valid: true,
+          email,
+          buyerName: "",
+          isProtected: true
+        });
+      }
+
+      const codes = getStoredAccessCodes();
+      let codeRecord = codes[rawCode];
+
+      // Se não encontrou no store local, busca no Firebase Firestore
+      if (!codeRecord) {
+        codeRecord = (await getAccessCodeFromFirebase(rawCode)) || undefined;
+        if (codeRecord) {
+          saveStoredAccessCode(codeRecord);
+        }
+      }
+
+      if (!codeRecord) {
+        return res.status(404).json({
+          valid: false,
+          error: "Código de acesso não encontrado. Verifique o código recebido no seu e-mail ou certifique-se de digitar exatamente como enviado."
+        });
+      }
+
+      if (codeRecord.email.toLowerCase() !== email) {
+        return res.status(400).json({
+          valid: false,
+          error: "Este código de acesso não pertence a este e-mail. Utilize o mesmo e-mail cadastrado na Hotmart no momento da compra."
+        });
+      }
+
+      if (codeRecord.used || codeRecord.status === "used") {
+        return res.status(400).json({
+          valid: false,
+          error: "Este código de acesso já foi utilizado para ativar uma conta. Por favor, acesse a aba 'Já tenho conta' e entre com sua senha."
+        });
+      }
+
+      if (codeRecord.status === "revoked") {
+        return res.status(400).json({
+          valid: false,
+          error: "Este código de acesso foi cancelado ou revogado devido a reembolso."
+        });
+      }
+
+      return res.json({
+        valid: true,
+        email: codeRecord.email,
+        buyerName: codeRecord.buyerName || "",
+        plan: "vip"
+      });
+    } catch (err: any) {
+      console.error("[validate-access-code] Erro:", err);
+      return res.status(500).json({ valid: false, error: "Erro ao validar código de acesso." });
+    }
+  });
+
+  // 2. Ativação de Conta com Código de Acesso e Definição de Senha Pessoal
+  app.post("/api/auth/activate-account", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      const rawCode = (req.body?.code || "").trim().toUpperCase();
+      const password = (req.body?.password || "").trim();
+      const name = (req.body?.name || "").trim();
+      const treatmentPreference = (req.body?.treatmentPreference || "feminino").trim();
+      const avatar = (req.body?.avatar || "🌿").trim();
+
+      if (!email || !rawCode || !password) {
+        return res.status(400).json({ error: "E-mail, código e senha são obrigatórios." });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: "A senha deve ter no mínimo 6 caracteres." });
+      }
+
+      if (isRefundedAccount(email)) {
+        return res.status(403).json({ error: "Esta conta foi cancelada/reembolsada e não possui acesso ativo." });
+      }
+
+      const isProtected = isProtectedAccount(email);
+      let buyerName = name;
+
+      if (!isProtected) {
+        const codes = getStoredAccessCodes();
+        let codeRecord = codes[rawCode];
+
+        if (!codeRecord) {
+          codeRecord = (await getAccessCodeFromFirebase(rawCode)) || undefined;
+          if (codeRecord) {
+            saveStoredAccessCode(codeRecord);
+          }
+        }
+
+        if (!codeRecord || codeRecord.email.toLowerCase() !== email) {
+          return res.status(400).json({
+            error: "Código de acesso não confere com o e-mail informado."
+          });
+        }
+
+        if (codeRecord.used || codeRecord.status === "used") {
+          return res.status(400).json({
+            error: "Este código de acesso já foi utilizado. Entre diretamente com seu e-mail e senha."
+          });
+        }
+
+        if (codeRecord.status === "revoked") {
+          return res.status(400).json({
+            error: "Este código de acesso foi revogado."
+          });
+        }
+
+        // Invalida o código de acesso marcando como utilizado no store local E no Firebase Firestore
+        codeRecord.used = true;
+        codeRecord.status = "used";
+        codeRecord.usedAt = new Date().toISOString();
+        saveStoredAccessCode(codeRecord);
+        await updateAccessCodeInFirebase(rawCode, {
+          used: true,
+          status: "used",
+          usedAt: codeRecord.usedAt
+        });
+
+        if (!buyerName && codeRecord.buyerName) {
+          buyerName = codeRecord.buyerName;
+        }
+      }
+
+      const pwdHash = hashPassword(password);
+      const newId = crypto.randomUUID();
+
+      const users = getStoredUsers();
+      const existingUser = users[email];
+      const effectiveId = existingUser ? existingUser.id : newId;
+
+      const userRecord: StoredUser = {
+        id: effectiveId,
+        email,
+        passwordHash: pwdHash,
+        name: buyerName || email.split("@")[0],
+        avatar,
+        treatmentPreference,
+        plan: "vip",
+        leve_especial: true,
+        leve_vip: true,
+        lia_access: true,
+        confirmed: true,
+        must_change_password: false,
+        first_access_completed: true,
+        created_at: existingUser?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      saveStoredUser(userRecord);
+
+      // Salva entitlement total no store local de compras
+      saveStoredPurchase(email, {
+        plan_name: "vip",
+        leve_gratuito: false,
+        "leve gratuito": false,
+        leve_especial: true,
+        leve_vip: true,
+        lia_access: true,
+        hotmart_status: "approved",
+        user_id: effectiveId,
+        name: buyerName
+      });
+
+      // Mapeamento sync
+      const mapping = getUserSyncMapping();
+      mapping[effectiveId] = email;
+      saveUserSyncMapping(mapping);
+
+      // Se houver integração Supabase Auth ativa, sincroniza
+      const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
+      const serviceKey = getSupabaseServiceRoleKey();
+      if (supabaseUrl && serviceKey) {
+        syncPurchaseWithSupabaseAuth(
+          supabaseUrl,
+          serviceKey,
+          email,
+          buyerName,
+          {
+            plan_name: "vip",
+            leve_gratuito: false,
+            leve_especial: true,
+            leve_vip: true,
+            lia_access: true,
+            hotmart_status: "approved"
+          }
+        ).catch((err) => console.warn("[activate-account] Aviso Supabase:", err));
+      }
+
+      // Gera sessão pronta para login imediato
+      const token = `leve_token_${crypto.randomBytes(24).toString("hex")}`;
+      const session = {
+        access_token: token,
+        token_type: "bearer",
+        expires_in: 3600 * 24 * 365,
+        expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
+        refresh_token: `leve_refresh_${crypto.randomBytes(24).toString("hex")}`,
+        user: {
+          id: effectiveId,
+          email,
+          user_metadata: {
+            name: userRecord.name,
+            full_name: userRecord.name,
+            avatar: userRecord.avatar,
+            treatment_preference: userRecord.treatmentPreference,
+            plan: "vip",
+            leve_especial: true,
+            leve_vip: true,
+            lia_access: true,
+            must_change_password: false,
+            first_access_completed: true
+          }
+        }
+      };
+
+      return res.json({
+        success: true,
+        message: "Conta ativada com sucesso com Acesso Completo ao LEVE e à LEVIA!",
+        user: session.user,
+        session
+      });
+    } catch (err: any) {
+      console.error("[activate-account] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro ao ativar conta." });
+    }
+  });
+
   // Claim account / Primeiro acesso pós-compra (define senha e ativa conta instantaneamente)
   app.post("/api/auth/claim-account", async (req, res) => {
     try {
@@ -1159,6 +1769,12 @@ async function startServer() {
         return res.status(400).json({ error: "A senha deve ter pelo menos 6 caracteres." });
       }
 
+      if (isRefundedAccount(email)) {
+        return res.status(403).json({
+          error: "Esta conta foi cancelada/reembolsada e não possui permissão de acesso ao LEVE."
+        });
+      }
+
       const users = getStoredUsers();
       let user = users[email];
 
@@ -1237,6 +1853,12 @@ async function startServer() {
 
       if (!email || !password) {
         return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+      }
+
+      if (isRefundedAccount(email)) {
+        return res.status(403).json({
+          error: "Esta conta foi cancelada/reembolsada e não possui acesso ativo ao LEVE."
+        });
       }
 
       const users = getStoredUsers();
@@ -1642,6 +2264,25 @@ async function startServer() {
 
       if (!email && !userId) {
         return res.status(400).json({ error: "E-mail ou userId é obrigatório" });
+      }
+
+      // Se for conta reembolsada/cancelada, bloqueia acesso imediatamente
+      if (isRefundedAccount(email)) {
+        return res.json({
+          email,
+          plan_name: "gratuito",
+          leve_gratuito: true,
+          "leve gratuito": true,
+          leve_especial: false,
+          "leve especial": false,
+          leve_vip: false,
+          "leve vip": false,
+          lia_access: false,
+          hotmart_status: "refunded",
+          source: "refunded_account",
+          authorized: false,
+          has_access: false
+        });
       }
 
       // 0. Contas protegidas têm acesso VIP imediato e garantido sem bloqueios
@@ -2174,6 +2815,12 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         return res.status(400).json({ error: "E-mail do comprador não encontrado" });
       }
 
+      // Conta cancelada e reembolsada: NUNCA reativar ou conceder acesso
+      if (isRefundedAccount(buyerEmail)) {
+        console.warn(`[server hotmart-webhook] Bloqueado: ${buyerEmail} é conta cancelada/reembolsada.`);
+        return res.status(403).json({ error: "Conta reembolsada/cancelada. Acesso bloqueado.", status: "blocked" });
+      }
+
       const purchase = data.purchase || {};
       const subscription = data.subscription || {};
       const product = data.product || {};
@@ -2216,82 +2863,25 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         purchaseStatus === "CANCELLED" ||
         purchaseStatus === "EXPIRED";
 
-      // Códigos e Ofertas Oficiais da Hotmart
-      // 1. Upgrade LEVIA: 0vzkb290 (R$ 16,00) -> Concede VIP
-      // 2. LEVE VIP Direto: foybxnsq (R$ 65,90) -> Concede VIP
-      // 3. LEVE Especial: nve7cj26 (R$ 49,90) -> Concede Especial
-      const rawOfferCode = (
-        purchase.offer?.code ||
-        data.offer?.code ||
-        purchase.offer_code ||
-        data.offer_code ||
-        body.offer_code ||
-        ""
-      ).toString().trim().toLowerCase();
+      const buyerName = buyer.name || data.name || buyer.first_name || "";
 
-      const searchString = [
-        rawOfferCode,
-        purchase.offer?.name,
-        subscription.plan?.name,
-        product.name,
-        data.plan?.name,
-        data.offer?.name,
-        data.product_name,
-        data.plan_name,
-        purchase.offer?.code
-      ].filter(Boolean).join(" ").toLowerCase();
-
-      const priceValue = Number(
-        purchase.price?.value ?? 
-        data.price?.value ?? 
-        purchase.price ?? 
-        0
-      );
-
-      // 1. Identificação da oferta de UPGRADE (R$ 16,00)
-      // Concede VIP a partir do LEVE Especial. Identificado pelo código '0vzkb290' ou nome da oferta
-      const isUpgradeOffer = 
-        rawOfferCode === "0vzkb290" ||
-        searchString.includes("0vzkb290") ||
-        (searchString.includes("upgrade") && searchString.includes("levia")) ||
-        (searchString.includes("upgrade") && searchString.includes("vip")) ||
-        (searchString.includes("upgrade") && priceValue >= 10 && priceValue <= 25);
-
-      // 2. Identificação da oferta VIP DIRETO (R$ 65,90)
-      const isDirectVipOffer =
-        rawOfferCode === "foybxnsq" ||
-        searchString.includes("foybxnsq") ||
-        (!isUpgradeOffer && (
-          searchString.includes("vip") || 
-          searchString.includes("completo") || 
-          priceValue >= 59
-        ));
-
-      // Tanto a aprovação do Upgrade quanto do VIP Direto concedem o plano LEVE VIP
-      const isVipPurchase = isUpgradeOffer || isDirectVipOffer;
-
-      // 3. Identificação do LEVE ESPECIAL (R$ 49,90)
-      const isSpecialPurchase = 
-        !isVipPurchase && (
-          rawOfferCode === "nve7cj26" ||
-          searchString.includes("nve7cj26") ||
-          searchString.includes("especial") || 
-          searchString.includes("special") || 
-          (priceValue >= 35 && priceValue < 59)
-        );
-
+      // O produto LEVE é vendido como produto único completo por R$65,90 com acesso total (incluindo LEVIA)
       let entitlementUpdate: Record<string, any> = {
-        plan_name: "especial",
+        plan_name: "vip",
         leve_gratuito: false,
         "leve gratuito": false,
         leve_especial: true,
-        leve_vip: false,
-        lia_access: false,
+        leve_vip: true,
+        lia_access: true,
         hotmart_status: "approved",
         hotmart_transaction_id: transactionId
       };
 
+      let generatedAccessCode: string | null = null;
+      let emailSendResult: { success: boolean; error?: string } | null = null;
+
       if (isRevocationEvent && !isApprovalEvent) {
+        // Reembolso / Cancelamento: revoga acesso e invalida códigos pendentes
         entitlementUpdate = {
           plan_name: "gratuito",
           leve_gratuito: true,
@@ -2299,49 +2889,56 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
           leve_especial: false,
           leve_vip: false,
           lia_access: false,
-          hotmart_status: purchaseStatus ? purchaseStatus.toLowerCase() : "revoked",
+          hotmart_status: purchaseStatus ? purchaseStatus.toLowerCase() : "refunded",
           hotmart_transaction_id: transactionId
         };
-      } else if (isApprovalEvent) {
-        if (isVipPurchase) {
-          // Aprovado no VIP ou no Upgrade de R$ 16 -> Concede VIP total
-          entitlementUpdate = {
-            plan_name: "vip",
-            leve_gratuito: false,
-            "leve gratuito": false,
-            leve_especial: false,
-            leve_vip: true,
-            lia_access: true,
-            hotmart_status: "approved",
-            hotmart_transaction_id: transactionId
-          };
-        } else {
-          // Aprovado no LEVE Especial -> Todas as áreas liberadas, LEVIA bloqueada
-          entitlementUpdate = {
-            plan_name: "especial",
-            leve_gratuito: false,
-            "leve gratuito": false,
-            leve_especial: true,
-            leve_vip: false,
-            lia_access: false,
-            hotmart_status: "approved",
-            hotmart_transaction_id: transactionId
-          };
+
+        if (!isProtectedAccount(buyerEmail)) {
+          const codes = getStoredAccessCodes();
+          let changed = false;
+          for (const [cKey, cVal] of Object.entries(codes)) {
+            if (cVal.email.toLowerCase() === buyerEmail && cVal.status === "active") {
+              cVal.status = "revoked";
+              changed = true;
+              await updateAccessCodeInFirebase(cKey, { status: "revoked" });
+            }
+          }
+          if (changed) {
+            fs.writeFileSync(ACCESS_CODES_FILE, JSON.stringify(codes, null, 2), "utf-8");
+          }
         }
+      } else if (isApprovalEvent) {
+        // Compra aprovada: gera código único de acesso e envia e-mail com Resend
+        generatedAccessCode = generateAccessCode();
+        const codeRecord: StoredAccessCode = {
+          code: generatedAccessCode,
+          email: buyerEmail,
+          buyerName: buyerName || "",
+          transactionId,
+          status: "active",
+          used: false,
+          createdAt: new Date().toISOString(),
+          plan: "vip"
+        };
+        saveStoredAccessCode(codeRecord);
+        await saveAccessCodeToFirebase(codeRecord);
+
+        // Envio do e-mail ao comprador via Resend com link de ativação direta
+        const host = req.get("host");
+        const proto = req.get("x-forwarded-proto") || "https";
+        const appBaseUrl = host ? `${proto}://${host}` : undefined;
+        emailSendResult = await sendAccessCodeEmail(buyerEmail, buyerName, generatedAccessCode, appBaseUrl);
       }
 
-      // 1. Salvar no store persistente local imediatamente (garante disponibilidade 100% imediata)
+      // 1. Salvar no store persistente local imediatamente
       saveStoredPurchase(buyerEmail, entitlementUpdate);
 
       // 2. Se chaves do Supabase estiverem configuradas, sincroniza no Auth e na tabela
       const supabaseUrl = cleanSupabaseUrl(process.env.VITE_SUPABASE_URL);
       const supabaseServiceKey = getSupabaseServiceRoleKey();
-
-      const buyerName = buyer.name || data.name || buyer.first_name || "";
       let authSyncResult: any = null;
 
       if (supabaseUrl && supabaseServiceKey) {
-        // Cria usuário no Supabase Auth ou atualiza suas permissões e confirma e-mail imediatamente
         authSyncResult = await syncPurchaseWithSupabaseAuth(
           supabaseUrl, 
           supabaseServiceKey, 
@@ -2350,7 +2947,6 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
           entitlementUpdate
         );
 
-        // Também tenta registrar na tabela user_entitlements caso as permissões do banco estejam liberadas
         try {
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
             auth: { persistSession: false, autoRefreshToken: false }
@@ -2395,11 +2991,11 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
               });
           }
         } catch (dbErr) {
-          console.warn("[server hotmart-webhook] Aviso: tabela user_entitlements não pôde ser atualizada diretamente (Auth e Store local salvos):", dbErr);
+          console.warn("[server hotmart-webhook] Aviso: tabela user_entitlements local salva:", dbErr);
         }
       }
 
-      console.log(`[server hotmart-webhook] Compra processada com sucesso: ${buyerEmail} -> Plano ${entitlementUpdate.plan_name}`);
+      console.log(`[server hotmart-webhook] Compra processada: ${buyerEmail} -> Código: ${generatedAccessCode || "N/A"}`);
 
       return res.json({
         status: "success",
@@ -2407,6 +3003,8 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         email: buyerEmail,
         plan: entitlementUpdate.plan_name,
         entitlements: entitlementUpdate,
+        accessCode: generatedAccessCode,
+        emailSent: emailSendResult?.success || false,
         authSync: authSyncResult
       });
     } catch (err: any) {
