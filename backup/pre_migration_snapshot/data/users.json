@@ -1,0 +1,17 @@
+{
+  "nathaliagsnati123@gmail.com": {
+    "id": "79e04a29-2e07-42f2-9953-b1bca7f423a0",
+    "email": "nathaliagsnati123@gmail.com",
+    "passwordHash": "c2bacc9c2cd149e33cee23e64a9cb52e4ebdfc10f5da819579e398fd3c395cb2",
+    "name": "Nathe",
+    "avatar": "🌸",
+    "treatmentPreference": "feminino",
+    "plan": "vip",
+    "leve_especial": false,
+    "leve_vip": true,
+    "lia_access": true,
+    "confirmed": true,
+    "created_at": "2026-09-05T13:14:11.711663Z",
+    "updated_at": "2026-09-13T11:30:35.430Z"
+  }
+}

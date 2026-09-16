@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Funções auxiliares de autenticação e isolamento
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Perfil do usuário: Somente o próprio usuário autenticado pode ler e gravar
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Permissões e planos de acesso (Entitlements):
+    // Isolamento estrito: Somente o próprio usuário autenticado pode ler ou gravar seu próprio entitlement
+    // Nenhum outro usuário consegue ler ou modificar
+    match /user_entitlements/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Dados do aplicativo (tarefas, rotinas, hábitos, etc.):
+    // Isolamento estrito: Usuário A acessa estritamente dados de A (app_data/{userId})
+    // Nenhum outro usuário consegue ler ou modificar
+    match /app_data/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}
+

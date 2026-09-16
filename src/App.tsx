@@ -74,6 +74,8 @@ const AppContent: React.FC = () => {
     canAccessFeature, 
     isCheckingEntitlements, 
     isLoading, 
+    isAuthorized,
+    accessBlockedMessage,
     isAuthModalOpen, 
     setIsAuthModalOpen, 
     setAuthTab,
@@ -97,8 +99,8 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 2. Se NÃO estiver autenticado: exibe a tela inicial de acesso
-  if (!user) {
+  // 2. Se NÃO estiver autenticado OU NÃO estiver autorizado: exibe a tela inicial de acesso
+  if (!user || !isAuthorized) {
     return (
       <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col font-sans">
         <OfflineIndicator />

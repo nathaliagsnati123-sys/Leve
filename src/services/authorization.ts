@@ -24,13 +24,67 @@ export function parseBoolean(value: any): boolean {
   return false;
 }
 
+export const BLOCKED_ACCESS_MESSAGE = 'Seu acesso ao LEVE não está ativo. Para usar o aplicativo completo, realize sua compra.';
+
+export const OFFICIAL_LEVE_PRODUCT_CHECKOUT = 'https://pay.hotmart.com/W104646738F?checkoutMode=10';
+
+export const FOUNDING_CLIENT_EMAILS = [
+  'dallia.avr@gmail.com',
+  'nathaliagsnati123@gmail.com',
+  'gabrieltmo0301@gmail.com'
+];
+
+export const FOUNDING_CLIENT_IDS = [
+  '79e04a29-2e07-42f2-9953-b1bca7f423a0'
+];
+
 export type PlanTier = 'free' | 'special' | 'vip';
 
 export const PLAN_LABELS: Record<PlanTier, string> = {
-  free: 'LEVE Gratuito',
-  special: 'LEVE Especial',
-  vip: 'LEVE VIP'
+  free: 'Não Ativo',
+  special: 'LEVE Completo',
+  vip: 'LEVE Completo'
 };
+
+/**
+ * Verifica se o usuário autenticado possui autorização de acesso ao LEVE.
+ * Controle binário:
+ * - Usuário autorizado -> Acesso completo ao LEVE
+ * - Usuário não autorizado -> Bloqueado / Logout
+ */
+export function isUserAuthorized(user: any | null, entitlements: any | null): boolean {
+  if (!user && !entitlements) return false;
+
+  const email = (user?.email || entitlements?.email || '').trim().toLowerCase();
+  const userId = (user?.id || entitlements?.user_id || '').trim();
+
+  // 1. Clientes fundadoras existentes (proteção garantida e incondicional)
+  if (email && FOUNDING_CLIENT_EMAILS.includes(email)) return true;
+  if (userId && FOUNDING_CLIENT_IDS.includes(userId)) return true;
+
+  // 2. Resposta de entitlements
+  if (entitlements) {
+    if (entitlements.authorized === true || entitlements.has_access === true) return true;
+    if (entitlements.authorized === false || entitlements.has_access === false) return false;
+    if (entitlements.hotmart_status === 'approved') return true;
+    if (parseBoolean(entitlements.leve_vip) || parseBoolean(entitlements.leve_especial)) return true;
+    const plan = String(entitlements.plan_name || '').toLowerCase();
+    if (plan === 'vip' || plan === 'especial' || plan === 'completo' || plan === 'pago') return true;
+  }
+
+  // 3. Metadados do usuário no Supabase Auth
+  if (user) {
+    const meta = user.user_metadata || {};
+    const appMeta = user.app_metadata || {};
+    if (meta.hotmart_status === 'approved' || appMeta.hotmart_status === 'approved') return true;
+    if (parseBoolean(meta.leve_vip) || parseBoolean(appMeta.leve_vip)) return true;
+    if (parseBoolean(meta.leve_especial) || parseBoolean(appMeta.leve_especial)) return true;
+    const metaPlan = String(meta.plan || meta.plan_name || appMeta.plan || '').toLowerCase();
+    if (metaPlan === 'vip' || metaPlan === 'especial' || metaPlan === 'completo') return true;
+  }
+
+  return false;
+}
 
 /**
  * Ofertas e Links Oficiais de Checkout da Hotmart para o LEVE
@@ -236,75 +290,27 @@ export function determineUserPlan(user: any | null, entitlements: any | null): P
     return 'free';
   }
 
-  // 1. Extração prioritária a partir do registro de entitlements
-  if (entitlements) {
-    const extracted = extractPlanFromRow(entitlements);
-    if (extracted.tier === 'vip' || extracted.tier === 'special') {
-      return extracted.tier;
-    }
-  }
+  // Novo controle binário: se for autorizado, acesso total (vip). Se não, free.
+  return isUserAuthorized(user, entitlements) ? 'vip' : 'free';
+}
 
-  // 2. Extração a partir do user_metadata do usuário autenticado no Supabase Auth
-  const meta = user.user_metadata || {};
-  const appMeta = user.app_metadata || {};
-  const metaPlan = extractPlanFromRow({
-    leve_vip: meta.leve_vip ?? appMeta.leve_vip,
-    leve_especial: meta.leve_especial ?? appMeta.leve_especial,
-    plan_name: meta.plan || meta.plan_name || appMeta.plan || appMeta.plan_name,
-    'leve vip': meta['leve vip'] ?? appMeta['leve vip'],
-    'leve especial': meta['leve especial'] ?? appMeta['leve especial']
-  });
-
-  if (metaPlan.tier === 'vip' || metaPlan.tier === 'special') {
-    return metaPlan.tier;
-  }
-
-  // 3. Padrão: LEVE Gratuito
+/**
+ * Retorna o plano comercial mínimo necessário para acessar o recurso.
+ */
+export function getRequiredPlan(_feature: AppFeature | string): PlanTier {
   return 'free';
 }
 
 /**
- * Retorna o plano comercial mínimo necessário para acessar o recurso:
- * - 'my-day' e 'settings': 'free'
- * - 'lia': 'vip'
- * - todas as outras áreas: 'special'
- */
-export function getRequiredPlan(feature: AppFeature | string): PlanTier {
-  if (feature === 'my-day' || feature === 'settings') {
-    return 'free';
-  }
-  if (feature === 'lia') {
-    return 'vip';
-  }
-  return 'special';
-}
-
-/**
- * Função centralizada de autorização do LEVE.
- * 
- * REGRAS:
- * 🆓 GRATUITO:
- * - "Meu Dia" = LIBERADO
- * - Todas as outras áreas = BLOQUEADAS
- * - LEVIA = BLOQUEADA
- * 
- * ⭐ ESPECIAL:
- * - "Meu Dia" = LIBERADO
- * - Todas as outras áreas = LIBERADAS
- * - LEVIA = BLOQUEADA
- * 
- * 👑 VIP:
- * - "Meu Dia" = LIBERADO
- * - Todas as outras áreas = LIBERADAS
- * - LEVIA = LIBERADA
+ * Função centralizada de verificação de recurso:
+ * No novo sistema, se o usuário está no app (autorizado), tem acesso a 100% dos recursos.
  */
 export function canAccess(_feature: AppFeature | string, _plan?: PlanTier): boolean {
-  // Aplicativo totalmente liberado: todos os recursos liberados
   return true;
 }
 
 export function getPlanLabel(_plan?: PlanTier): string {
-  return 'LEVE VIP';
+  return 'Acesso Completo';
 }
 
 export function getFeatureDisplayName(feature: AppFeature | string): string {

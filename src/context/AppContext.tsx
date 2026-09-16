@@ -18,6 +18,7 @@ import {
   subscribeToCloudSyncEvents, subscribeToLocalTabUpdates, broadcastLocalTabUpdate,
   isDefaultPlaceholderData, pushAppDataToCloud, pullAppDataFromCloud, getDeviceId
 } from '../services/syncService';
+import { subscribeToAppDataFromFirestore } from '../services/firebase';
 import { ACHIEVEMENTS_LIST } from '../services/quotesAndVerses';
 import { useAuth } from './AuthContext';
 import { normalizeTreatmentPreference } from '../utils/treatment';
@@ -263,9 +264,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTabState('my-day');
   }, []);
 
-  const setActiveTab = (tab: ActiveTab) => {
+  const setActiveTab = useCallback((tab: ActiveTab) => {
     setActiveTabState(tab);
-  };
+  }, []);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   
   const [isBrainDumpOpen, setIsBrainDumpOpen] = useState(false);
@@ -531,12 +532,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
+    // Escuta atualizações em tempo real direto do Cloud Firestore (CELULAR <-> COMPUTADOR)
+    const unsubscribeFirestore = subscribeToAppDataFromFirestore(activeUserId, (remoteData, timestamp) => {
+      applyIncomingRemoteData(remoteData, timestamp);
+    });
+
     // Escuta alterações imediatas em outras abas do mesmo navegador
     const unsubscribeTabs = subscribeToLocalTabUpdates((tabData, timestamp) => {
       applyIncomingRemoteData(tabData, timestamp);
     });
 
     return () => {
+      unsubscribeFirestore();
       unsubscribeSSE();
       unsubscribeTabs();
     };

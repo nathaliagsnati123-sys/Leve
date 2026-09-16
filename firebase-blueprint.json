@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "treatmentPreference": { "type": "string" },
+        "email": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "UserEntitlement": {
+      "title": "UserEntitlement",
+      "description": "Entitlements and plan access for users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "plan": { "type": "string" },
+        "hasAccess": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "AppDataSync": {
+      "title": "AppDataSync",
+      "description": "Full application state synchronised across devices",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "data": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profile and preferences"
+    },
+    "/user_entitlements/{userId}": {
+      "schema": "UserEntitlement",
+      "description": "Active subscription and plan entitlements"
+    },
+    "/app_data/{userId}": {
+      "schema": "AppDataSync",
+      "description": "Full app state backup and multi-device sync"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "dallia.avr@gmail.com": {
+    "email": "dallia.avr@gmail.com",
+    "user_id": "founding-dallia-avr",
+    "buyer_name": "Dallia",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": true,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-15T12:00:00.000Z"
+  },
+  "cssanches@yahoo.com.br": {
+    "email": "cssanches@yahoo.com.br",
+    "user_id": "founding-cssanches",
+    "buyer_name": "C. S. Sanches",
+    "plan_name": "none",
+    "leve_gratuito": false,
+    "leve_especial": false,
+    "leve_vip": false,
+    "lia_access": false,
+    "hotmart_status": "refunded",
+    "updated_at": "2026-09-16T08:23:08.000Z"
+  },
+  "nathaliagsnati123@gmail.com": {
+    "email": "nathaliagsnati123@gmail.com",
+    "user_id": "79e04a29-2e07-42f2-9953-b1bca7f423a0",
+    "buyer_name": "Nathe",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": true,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-15T12:00:00.000Z"
+  },
+  "gabrieltmo0301@gmail.com": {
+    "email": "gabrieltmo0301@gmail.com",
+    "user_id": "founding-gabriel",
+    "buyer_name": "Gabriel",
+    "plan_name": "vip",
+    "leve_gratuito": false,
+    "leve_especial": true,
+    "leve_vip": true,
+    "lia_access": true,
+    "hotmart_status": "approved",
+    "updated_at": "2026-09-15T12:00:00.000Z"
+  }
+}
