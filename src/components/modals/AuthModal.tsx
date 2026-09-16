@@ -481,7 +481,7 @@ export const AuthModal: React.FC = () => {
           ) : (
             /* USER NOT LOGGED IN */
             <div className="space-y-4">
-              {/* Navigation Tabs (Entrar / Criar Conta / Recuperar) */}
+              {/* Navigation Tabs (Entrar / Recuperar) */}
               <div className="flex items-center p-1 rounded-xl bg-stone-200/70 dark:bg-stone-800/70 text-xs font-medium">
                 <button
                   id="tab-login-btn"
@@ -495,17 +495,6 @@ export const AuthModal: React.FC = () => {
                   Entrar
                 </button>
                 <button
-                  id="tab-signup-btn"
-                  onClick={() => { setAuthTab('signup'); setErrorMessage(null); setSuccessMessage(null); }}
-                  className={`flex-1 py-1.5 rounded-lg transition text-center cursor-pointer ${
-                    authTab === 'signup' 
-                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs font-semibold' 
-                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                  }`}
-                >
-                  Criar Conta
-                </button>
-                <button
                   id="tab-reset-btn"
                   onClick={() => { setAuthTab('reset'); setErrorMessage(null); setSuccessMessage(null); }}
                   className={`flex-1 py-1.5 rounded-lg transition text-center cursor-pointer ${
@@ -514,7 +503,7 @@ export const AuthModal: React.FC = () => {
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
                   }`}
                 >
-                  Recuperar
+                  Recuperar Senha
                 </button>
               </div>
 

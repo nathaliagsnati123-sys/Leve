@@ -577,31 +577,29 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
           )}
 
           {/* ============================================================ */}
-          {/* SLIDE 5: Após a apresentação: Fazer Login ou Criar Conta     */}
+          {/* SLIDE 5: Acesso ao aplicativo: Primeiro Acesso ou Já tenho conta */}
           {/* ============================================================ */}
           {step === 5 && (
             <div className="space-y-5 text-left animate-in fade-in duration-200">
               <div className="text-center space-y-1">
                 <h2 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100">
                   {authMode === 'first_access' && 'Ativar Primeiro Acesso'}
-                  {authMode === 'signup' && 'Crie sua conta no LEVE'}
                   {authMode === 'login' && 'Acesse sua conta'}
                   {authMode === 'reset' && 'Recuperar senha'}
                 </h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto">
                   {authMode === 'first_access' && 'Informe o código que você recebeu no seu e-mail após a compra.'}
-                  {authMode === 'signup' && 'Guarde suas anotações e rotina com segurança.'}
                   {authMode === 'login' && 'Entre para sincronizar suas anotações e rotina.'}
                   {authMode === 'reset' && 'Informe seu e-mail para receber as instruções.'}
                 </p>
               </div>
 
-              {/* Alternar abas: Primeiro Acesso vs Já tenho conta vs Criar Conta */}
+              {/* Alternar abas: Primeiro Acesso vs Já tenho conta */}
               <div className="flex rounded-2xl bg-stone-100 dark:bg-stone-800/80 p-1 gap-1">
                 <button
                   type="button"
                   onClick={() => { setAuthMode('first_access'); setErrorMessage(null); setSuccessMessage(null); }}
-                  className={`flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                     authMode === 'first_access'
                       ? 'bg-emerald-800 text-white shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
@@ -614,7 +612,7 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                 <button
                   type="button"
                   onClick={() => { setAuthMode('login'); setErrorMessage(null); setSuccessMessage(null); }}
-                  className={`flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                     authMode === 'login'
                       ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
@@ -622,19 +620,6 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
                 >
                   <LogIn className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">Já tenho conta</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setAuthMode('signup'); setErrorMessage(null); setSuccessMessage(null); }}
-                  className={`flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    authMode === 'signup'
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-                  }`}
-                >
-                  <UserPlus className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Criar Conta</span>
                 </button>
               </div>
 
