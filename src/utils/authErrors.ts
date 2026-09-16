@@ -144,7 +144,12 @@ export function translateAuthError(errorMsg?: string | null): string {
     lower.includes('syntaxerror') ||
     lower.includes('a página') ||
     lower.includes('the page') ||
+    lower.includes('page cannot be found') ||
+    lower.includes('page could not be found') ||
+    lower.includes('<!doctype') ||
     lower.includes('json.parse') ||
+    lower.includes('status 404') ||
+    lower.includes('404') ||
     (lower.includes('json') && lower.includes('válido')) ||
     (lower.includes('json') && lower.includes('valid'))
   ) {
