@@ -272,13 +272,12 @@ export async function sendAccessCodeEmail(
     return { success: false, error: "RESEND_API_KEY não configurada" };
   }
 
-  const rawFrom = (process.env.RESEND_FROM_EMAIL || "lucianagsantos24@gmail.com").trim();
-  const isPublicDomain = /@(gmail\.com|yahoo\.com(\.br)?|hotmail\.com|outlook\.com)$/i.test(rawFrom);
+  const rawFrom = (process.env.RESEND_FROM_EMAIL || "").trim();
+  const isPublicDomain = !rawFrom || /@(gmail\.com|yahoo\.com(\.br)?|hotmail\.com|outlook\.com)$/i.test(rawFrom);
   
-  // Se for domínio público gratuito (como @gmail.com), o Resend exige envio por onboarding@resend.dev ou domínio próprio verificado.
-  // Colocamos o rawFrom em reply_to para que qualquer resposta do cliente vá para Luciana.
-  const initialFrom = isPublicDomain ? "onboarding@resend.dev" : rawFrom;
-  const replyToAddress = rawFrom;
+  // Domínio verificado no Resend: levebr.online (permite envio oficial irrestrito para qualquer e-mail)
+  const initialFrom = isPublicDomain ? "acesso@levebr.online" : rawFrom;
+  const replyToAddress = rawFrom || "lucianagsantos24@gmail.com";
 
   // Monta link direto de ativação automática em 1 clique
   const defaultBaseUrl = "https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app";
@@ -377,11 +376,11 @@ export async function sendAccessCodeEmail(
     });
 
     if (sendResult.error) {
-      console.warn("[resend] Aviso ao enviar e-mail:", sendResult.error);
-      if (initialFrom !== "onboarding@resend.dev") {
-        console.log("[resend] Tentando envio alternativo via onboarding@resend.dev...");
+      console.warn("[resend] Aviso ao enviar e-mail com initialFrom:", sendResult.error);
+      if (initialFrom !== "acesso@levebr.online") {
+        console.log("[resend] Tentando envio alternativo com domínio próprio acesso@levebr.online...");
         sendResult = await resend.emails.send({
-          from: `LEVE <onboarding@resend.dev>`,
+          from: `LEVE <acesso@levebr.online>`,
           to: toEmail,
           replyTo: replyToAddress,
           subject: `🌿 Seu código de acesso ao LEVE: ${accessCode}`,
@@ -1111,8 +1110,10 @@ async function startServer() {
   app.get("/api/hotmart-status", (_req, res) => {
     const hasHottok = Boolean(process.env.HOTTOK || process.env.HOTMART_HOTTOK);
     const hasResend = Boolean(process.env.RESEND_API_KEY);
-    const fromEmail = (process.env.RESEND_FROM_EMAIL || "lucianagsantos24@gmail.com").trim();
-    const isPublicDomain = /@(gmail\.com|yahoo\.com(\.br)?|hotmail\.com|outlook\.com)$/i.test(fromEmail);
+    const rawFrom = (process.env.RESEND_FROM_EMAIL || "").trim();
+    const isPublicDomain = !rawFrom || /@(gmail\.com|yahoo\.com(\.br)?|hotmail\.com|outlook\.com)$/i.test(rawFrom);
+    const activeSender = isPublicDomain ? "acesso@levebr.online" : rawFrom;
+    const replyTo = rawFrom || "lucianagsantos24@gmail.com";
     const host = _req.get("host");
     const proto = _req.get("x-forwarded-proto") || "https";
     const appUrl = host ? `${proto}://${host}` : "https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app";
@@ -1139,11 +1140,10 @@ async function startServer() {
       },
       resend: {
         configured: hasResend,
-        fromEmail,
-        isPublicDomain,
-        deliveryMode: isPublicDomain 
-          ? "onboarding@resend.dev (com reply-to configurado para " + fromEmail + ")"
-          : fromEmail
+        domain: "levebr.online",
+        fromEmail: activeSender,
+        replyTo,
+        deliveryMode: `LEVE <${activeSender}> (com reply-to para ${replyTo})`
       },
       firebase: {
         configured: true,
@@ -1151,6 +1151,70 @@ async function startServer() {
         databaseId: "ai-studio-leve-3b76a9fa-1da8-4896-9d13-f34d41ea865e"
       }
     });
+  });
+
+  // Reenviar ou gerar código de acesso por e-mail (para suporte rápido a compradores)
+  app.post("/api/hotmart/resend-access-email", async (req, res) => {
+    try {
+      const email = (req.body?.email || "").trim().toLowerCase();
+      if (!email) {
+        return res.status(400).json({ error: "E-mail não fornecido" });
+      }
+
+      const codes = getStoredAccessCodes();
+      let foundCode: StoredAccessCode | null = null;
+
+      // Procura código existente para este e-mail
+      for (const item of Object.values(codes)) {
+        if (item.email.toLowerCase() === email && item.status === "active") {
+          foundCode = item;
+          break;
+        }
+      }
+
+      // Se não existir, gera um novo código
+      if (!foundCode) {
+        const purchases = getStoredPurchases();
+        const purchase = purchases[email];
+        const newCodeStr = generateAccessCode();
+        foundCode = {
+          code: newCodeStr,
+          email,
+          buyerName: purchase?.buyer_name || (email.split("@")[0]),
+          transactionId: purchase?.hotmart_transaction_id || `MANUAL-${Date.now()}`,
+          status: "active",
+          used: false,
+          createdAt: new Date().toISOString(),
+          plan: "vip"
+        };
+        saveStoredAccessCode(foundCode);
+        await saveAccessCodeToFirebase(foundCode);
+      }
+
+      const host = req.get("host");
+      const proto = req.get("x-forwarded-proto") || "https";
+      const appBaseUrl = host ? `${proto}://${host}` : undefined;
+
+      const sendResult = await sendAccessCodeEmail(email, foundCode.buyerName, foundCode.code, appBaseUrl);
+
+      const defaultBaseUrl = "https://ais-pre-3jo2rpsiwzwzzqnatbx4af-827551377597.us-east1.run.app";
+      const cleanBaseUrl = (appBaseUrl || process.env.APP_URL || defaultBaseUrl).replace(/\/$/, "");
+      const directActivationLink = `${cleanBaseUrl}/?code=${encodeURIComponent(foundCode.code)}&email=${encodeURIComponent(email)}`;
+
+      return res.json({
+        success: sendResult.success,
+        email,
+        code: foundCode.code,
+        directActivationLink,
+        sendError: sendResult.error || null,
+        message: sendResult.success 
+          ? `E-mail com o código ${foundCode.code} enviado com sucesso para ${email} a partir de acesso@levebr.online!`
+          : `Código ${foundCode.code} disponível, porém houve aviso no envio: ${sendResult.error}`
+      });
+    } catch (err: any) {
+      console.error("[resend-access-email] Erro:", err);
+      return res.status(500).json({ error: err?.message || "Erro ao processar reenvio de código" });
+    }
   });
 
   // Supabase public configuration endpoint (detects and fixes inverted keys safely)
