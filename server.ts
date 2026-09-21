@@ -8,7 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 // Ensure global __dirname injected by tsx does not break CJS/ESM hybrid resolution in plugins
 if ((globalThis as any).__dirname === ".") {
@@ -232,6 +232,35 @@ export async function getAccessCodeFromFirebase(code: string): Promise<StoredAcc
     console.warn("[firebase firestore] Aviso ao buscar código no Firestore:", err?.message || err);
   }
   return null;
+}
+
+export async function getAccessCodesByEmailFromFirebase(email: string): Promise<StoredAccessCode[]> {
+  try {
+    const db = getServerFirestore();
+    if (!db) return [];
+    const normalizedEmail = email.trim().toLowerCase();
+    const q = query(collection(db, "access_codes"), where("email", "==", normalizedEmail));
+    const querySnapshot = await getDocs(q);
+    const results: StoredAccessCode[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      results.push({
+        code: data.code || docSnap.id,
+        email: data.email || "",
+        buyerName: data.buyerName || "",
+        transactionId: data.transactionId || "",
+        status: data.status || "active",
+        used: Boolean(data.used),
+        createdAt: data.createdAt || "",
+        usedAt: data.usedAt || undefined,
+        plan: data.plan || "vip"
+      });
+    });
+    return results;
+  } catch (err: any) {
+    console.warn("[firebase firestore] Aviso ao buscar códigos por e-mail no Firestore:", err?.message || err);
+  }
+  return [];
 }
 
 export async function updateAccessCodeInFirebase(code: string, updates: Partial<StoredAccessCode>): Promise<boolean> {
@@ -1164,11 +1193,21 @@ async function startServer() {
       const codes = getStoredAccessCodes();
       let foundCode: StoredAccessCode | null = null;
 
-      // Procura código existente para este e-mail
+      // Procura código existente para este e-mail no store local
       for (const item of Object.values(codes)) {
         if (item.email.toLowerCase() === email && item.status === "active") {
           foundCode = item;
           break;
+        }
+      }
+
+      // Se não encontrou localmente, busca no Firestore
+      if (!foundCode) {
+        const fbCodes = await getAccessCodesByEmailFromFirebase(email);
+        const activeFbCode = fbCodes.find(c => c.status === "active");
+        if (activeFbCode) {
+          foundCode = activeFbCode;
+          saveStoredAccessCode(foundCode);
         }
       }
 
@@ -1538,9 +1577,49 @@ async function startServer() {
           }
         }
 
-        if (!codeRecord || codeRecord.email.toLowerCase() !== email) {
+        if (!codeRecord) {
+          // 1. Verifica se o e-mail possui um código ativo emitido no Firebase
+          const emailCodes = await getAccessCodesByEmailFromFirebase(email);
+          const activeEmailCode = emailCodes.find(c => c.status === "active" && !c.used);
+
+          // 2. Se o usuário tem compra aprovada no sistema local, aceita o código digitado ou o código ativo
+          const storedPurchases = getStoredPurchases();
+          const userPurchase = storedPurchases[email];
+          const hasApprovedPurchase = userPurchase && (
+            userPurchase.hotmart_status === "approved" ||
+            userPurchase.leve_vip === true ||
+            userPurchase.leve_especial === true
+          );
+
+          if (activeEmailCode) {
+            // Se o código digitado for diferente do código ativo, orienta com precisão
+            return res.status(400).json({
+              error: `Código de acesso incorreto para o e-mail ${email}. Seu código é diferente do digitado. Use o botão "Reenviar meu código" ou confira o e-mail recebido.`
+            });
+          } else if (hasApprovedPurchase) {
+            // O cliente comprou e a compra está aprovada, mas o código específico ainda não havia sido criado
+            codeRecord = {
+              code: rawCode,
+              email,
+              buyerName: userPurchase.buyer_name || userPurchase.name || (email.split("@")[0]),
+              transactionId: userPurchase.hotmart_transaction_id || `AUTO-${Date.now()}`,
+              status: "active",
+              used: false,
+              createdAt: new Date().toISOString(),
+              plan: "vip"
+            };
+            saveStoredAccessCode(codeRecord);
+            await saveAccessCodeToFirebase(codeRecord);
+          } else {
+            return res.status(400).json({
+              error: "Código de acesso não encontrado. Verifique se digitou o código exatamente como recebido ou solicite o reenvio pelo botão acima."
+            });
+          }
+        }
+
+        if (codeRecord.email.toLowerCase() !== email) {
           return res.status(400).json({
-            error: "Código de acesso não confere com o e-mail informado."
+            error: "Código de acesso não confere com o e-mail informado. Verifique se o e-mail digitado é o mesmo utilizado na compra."
           });
         }
 
@@ -2839,10 +2918,28 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
   });
 
   // ============================================================================
-  // Hotmart Webhook Handler (Endpoint alternativo / proxy para a Edge Function)
-  // Versão: 2.0.0 (CLUB_FIRST_ACCESS, PURCHASE_APPROVED, REFUNDS, etc.)
+  // Hotmart Webhook Handler (Compatível com Hotmart Webhook 2.0 e 1.0 Postback)
+  // Endpoints suportados: /api/hotmart-webhook, /api/hotmart/webhook, /api/webhook/hotmart, /hotmart-webhook
   // ============================================================================
-  app.post("/api/hotmart-webhook", async (req, res) => {
+  const webhookPaths = [
+    "/api/hotmart-webhook",
+    "/api/hotmart/webhook",
+    "/api/webhook/hotmart",
+    "/api/webhook",
+    "/hotmart-webhook"
+  ];
+
+  // Verificação GET / Ping (útil para testes de conectividade da Hotmart e ferramentas de monitoramento)
+  app.get(webhookPaths, (_req, res) => {
+    res.status(200).json({
+      status: "active",
+      service: "LEVE Hotmart Webhook",
+      timestamp: new Date().toISOString(),
+      message: "Endpoint de webhook ativo e pronto para processar eventos de compra."
+    });
+  });
+
+  app.post(webhookPaths, async (req, res) => {
     try {
       const expectedHottok = (
         process.env.HOTTOK || 
@@ -2853,29 +2950,36 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
       const incomingHottok = (
         (req.headers["x-hotmart-hottok"] as string) ||
         (req.headers["hottok"] as string) ||
+        (req.headers["x-hottok"] as string) ||
         (req.query.hottok as string) ||
         req.body?.hottok ||
+        req.body?.data?.hottok ||
         ""
       ).trim();
 
       if (expectedHottok && incomingHottok !== expectedHottok) {
-        console.warn("[server hotmart-webhook] Hottok inválido");
+        console.warn("[server hotmart-webhook] Hottok divergente ou ausente.");
         return res.status(401).json({ error: "Token Hottok inválido", status: "unauthorized" });
       }
 
       const body = req.body || {};
-      const event = (body.event || body.event_type || "").toString().trim().toUpperCase();
+      const event = (body.event || body.event_type || body.type || "").toString().trim().toUpperCase();
       const data = body.data || body;
 
-      const buyer = data.buyer || data.user || data.student || data.subscriber || {};
+      const buyer = data.buyer || data.user || data.student || data.subscriber || body.buyer || {};
       const buyerEmail = (
         buyer.email || 
+        buyer.checkout_email ||
         data.email || 
         data.buyer_email || 
+        body.email ||
         ""
       ).toString().trim().toLowerCase();
 
+      console.log(`[server hotmart-webhook] Evento recebido: "${event || 'SEM_NOME'}", e-mail: "${buyerEmail || 'N/A'}"`);
+
       if (!buyerEmail) {
+        console.warn("[server hotmart-webhook] Payload sem e-mail:", JSON.stringify(body).slice(0, 300));
         return res.status(400).json({ error: "E-mail do comprador não encontrado" });
       }
 
@@ -2894,13 +2998,14 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         data.transaction ||
         subscription.subscriber?.code ||
         body.id ||
-        ""
+        `HTM-${Date.now()}`
       ).toString();
 
       const purchaseStatus = (
         purchase.status || 
         subscription.status || 
         data.status || 
+        body.status ||
         ""
       ).toString().trim().toUpperCase();
 
@@ -2910,24 +3015,36 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
         event === "PURCHASE_COMPLETE" ||
         event === "SUBSCRIPTION_PURCHASE_APPROVED" ||
         event === "SWITCH_PLAN" ||
+        event === "ORDER_APPROVED" ||
+        event === "APPROVED" ||
+        event === "COMPLETE" ||
         purchaseStatus === "APPROVED" ||
         purchaseStatus === "COMPLETE" ||
-        purchaseStatus === "ACTIVE";
+        purchaseStatus === "ACTIVE" ||
+        purchaseStatus === "COMPLETED";
 
       const isRevocationEvent =
         event === "PURCHASE_REFUNDED" ||
         event === "PURCHASE_CHARGEBACK" ||
         event === "PURCHASE_CANCELLED" ||
         event === "PURCHASE_EXPIRED" ||
+        event === "PURCHASE_DELAYED" ||
         event === "SUBSCRIPTION_CANCELLATION" ||
         event === "SUBSCRIPTION_EXPIRED" ||
         event === "DISPUTE" ||
+        event === "REFUNDED" ||
         purchaseStatus === "REFUNDED" ||
         purchaseStatus === "CHARGEBACK" ||
         purchaseStatus === "CANCELLED" ||
         purchaseStatus === "EXPIRED";
 
-      const buyerName = buyer.name || data.name || buyer.first_name || "";
+      const buyerName = 
+        buyer.name || 
+        buyer.first_name || 
+        data.name || 
+        data.buyer_name || 
+        body.name || 
+        "";
 
       // O produto LEVE é vendido como produto único completo por R$65,90 com acesso total (incluindo LEVIA)
       let entitlementUpdate: Record<string, any> = {
@@ -2972,26 +3089,51 @@ Retorne OBRIGATORIAMENTE um objeto JSON com esta estrutura exata:
           }
         }
       } else if (isApprovalEvent) {
-        // Compra aprovada: gera código único de acesso e envia e-mail com Resend
-        generatedAccessCode = generateAccessCode();
-        const codeRecord: StoredAccessCode = {
-          code: generatedAccessCode,
-          email: buyerEmail,
-          buyerName: buyerName || "",
-          transactionId,
-          status: "active",
-          used: false,
-          createdAt: new Date().toISOString(),
-          plan: "vip"
-        };
-        saveStoredAccessCode(codeRecord);
-        await saveAccessCodeToFirebase(codeRecord);
+        // Compra aprovada: verifica se o usuário já possui um código ativo para reaproveitar de forma consistente
+        const existingCodes = getStoredAccessCodes();
+        let codeRecord: StoredAccessCode | null = null;
 
-        // Envio do e-mail ao comprador via Resend com link de ativação direta
+        for (const item of Object.values(existingCodes)) {
+          if (item.email.toLowerCase() === buyerEmail && item.status === "active" && !item.used) {
+            codeRecord = item;
+            generatedAccessCode = item.code;
+            break;
+          }
+        }
+
+        if (!codeRecord) {
+          const fbCodes = await getAccessCodesByEmailFromFirebase(buyerEmail);
+          const activeFbCode = fbCodes.find(c => c.status === "active" && !c.used);
+          if (activeFbCode) {
+            codeRecord = activeFbCode;
+            generatedAccessCode = activeFbCode.code;
+            saveStoredAccessCode(codeRecord);
+          }
+        }
+
+        // Se não tiver código ativo ainda, cria um novo
+        if (!codeRecord) {
+          generatedAccessCode = generateAccessCode();
+          codeRecord = {
+            code: generatedAccessCode,
+            email: buyerEmail,
+            buyerName: buyerName || "",
+            transactionId,
+            status: "active",
+            used: false,
+            createdAt: new Date().toISOString(),
+            plan: "vip"
+          };
+          saveStoredAccessCode(codeRecord);
+          await saveAccessCodeToFirebase(codeRecord);
+        }
+
+        // Envio do e-mail ao comprador via Resend com link de ativação direta imediata
         const host = req.get("host");
         const proto = req.get("x-forwarded-proto") || "https";
         const appBaseUrl = host ? `${proto}://${host}` : undefined;
-        emailSendResult = await sendAccessCodeEmail(buyerEmail, buyerName, generatedAccessCode, appBaseUrl);
+        emailSendResult = await sendAccessCodeEmail(buyerEmail, buyerName, generatedAccessCode!, appBaseUrl);
+        console.log(`[server hotmart-webhook] Envio de e-mail para ${buyerEmail}:`, emailSendResult);
       }
 
       // 1. Salvar no store persistente local imediatamente

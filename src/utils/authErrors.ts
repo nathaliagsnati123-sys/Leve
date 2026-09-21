@@ -47,20 +47,19 @@ export function translateAuthError(errorMsg?: string | null): string {
 
   const lower = errorMsg.toLowerCase().trim();
 
-  // 1. PRIORIDADE MÁXIMA: Interceptar QUALQUER erro técnico de JSON / Parsing / HTML / Token
+  // 1. Mensagens explícitas de código de acesso, ativação ou compras: preservar clareza e precisão
   if (
-    lower.includes('unexpected token') ||
-    lower.includes('is not valid json') ||
-    lower.includes('not valid json') ||
-    lower.includes('the page c') ||
-    lower.includes('the page') ||
-    lower.includes('a página') ||
-    lower.includes('syntaxerror') ||
-    lower.includes('token inesperado') ||
-    lower.includes('json.parse') ||
-    (lower.includes('json') && (lower.includes('válido') || lower.includes('valid')))
+    lower.includes('código de acesso não confere') ||
+    lower.includes('código de acesso inválido') ||
+    lower.includes('código não encontrado') ||
+    lower.includes('código não confere') ||
+    lower.includes('código já foi utilizado') ||
+    lower.includes('já foi utilizado') ||
+    lower.includes('foi revogado') ||
+    lower.includes('código de acesso') ||
+    lower.includes('código informado')
   ) {
-    return 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.';
+    return errorMsg;
   }
 
   // 2. Credenciais / login incorretos
@@ -134,26 +133,24 @@ export function translateAuthError(errorMsg?: string | null): string {
     return 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.';
   }
 
-  // Erros técnicos de JSON / Parsing / HTML que vazam para a UI
+  // Erros técnicos inesperados de rede ou resposta
   if (
     lower.includes('não é um json') ||
-    lower.includes('não é um json válido') ||
     lower.includes('is not valid json') ||
     lower.includes('unexpected token') ||
-    lower.includes('token inesperado') ||
     lower.includes('syntaxerror') ||
-    lower.includes('a página') ||
-    lower.includes('the page') ||
+    lower.includes('<!doctype') ||
+    lower.includes('json.parse')
+  ) {
+    return 'Houve uma instabilidade temporária na resposta do servidor. Por favor, tente novamente em alguns instantes.';
+  }
+
+  if (
     lower.includes('page cannot be found') ||
     lower.includes('page could not be found') ||
-    lower.includes('<!doctype') ||
-    lower.includes('json.parse') ||
-    lower.includes('status 404') ||
-    lower.includes('404') ||
-    (lower.includes('json') && lower.includes('válido')) ||
-    (lower.includes('json') && lower.includes('valid'))
+    lower.includes('status 404')
   ) {
-    return 'Não encontramos uma conta com esse e-mail. Para acessar o LEVE, realize sua compra primeiro.';
+    return 'Serviço temporariamente indisponível. Por favor, tente novamente.';
   }
 
   // Erro de rede / servidor

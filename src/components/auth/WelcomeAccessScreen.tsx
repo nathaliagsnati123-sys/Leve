@@ -43,11 +43,11 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
 
   // Step 1, 2, 3, 4: Apresentação | Step 5: Login, Primeiro Acesso ou Cadastro
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(() => {
-    return Boolean(paramCode) || presentationAlreadyDone || Boolean(savedEmail) ? 5 : 1;
+    return Boolean(paramCode) || Boolean(paramEmail) || presentationAlreadyDone || Boolean(savedEmail) ? 5 : 1;
   });
 
   const [authMode, setAuthMode] = useState<'first_access' | 'login' | 'signup' | 'reset'>(() => {
-    if (paramCode || paramMode === 'first_access' || paramMode === 'primeiro-acesso') {
+    if (paramCode || paramEmail || paramMode === 'first_access' || paramMode === 'primeiro-acesso') {
       return 'first_access';
     }
     return savedEmail ? 'login' : 'first_access';
@@ -77,8 +77,12 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
       setAuthMode('first_access');
       setStep(5);
     }
-    if (paramEmail && !email) {
+    if (paramEmail) {
       setEmail(paramEmail);
+      if (!paramCode) {
+        setAuthMode('first_access');
+        setStep(5);
+      }
     }
   }, [paramCode, paramEmail]);
 
@@ -101,6 +105,40 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
     setStep(5);
     setErrorMessage(null);
     setSuccessMessage(null);
+  };
+
+  const [isResendingCode, setIsResendingCode] = useState(false);
+
+  // Reenviar código para o e-mail informado
+  const handleResendCode = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setErrorMessage('Por favor, informe seu e-mail de compra acima para reenviar o código.');
+      return;
+    }
+    setIsResendingCode(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const response = await fetch('/api/hotmart/resend-access-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        if (data.code) {
+          setAccessCode(data.code);
+        }
+        setSuccessMessage(`Código enviado para ${cleanEmail}! Verifique sua caixa de entrada e Spam.`);
+      } else {
+        setErrorMessage(data.error || 'Não encontramos uma compra ativa para este e-mail. Verifique a digitação.');
+      }
+    } catch {
+      setErrorMessage('Não foi possível reenviar o código agora. Tente novamente em instantes.');
+    } finally {
+      setIsResendingCode(false);
+    }
   };
 
   // Ativação de Primeiro Acesso via Código Exclusivo Hotmart
@@ -685,9 +723,19 @@ export const WelcomeAccessScreen: React.FC<WelcomeAccessScreenProps> = () => {
 
                   {/* 2. Código de Acesso */}
                   <div className="space-y-1">
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                      Código de Acesso <span className="text-emerald-700 dark:text-emerald-400">*</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                        Código de Acesso <span className="text-emerald-700 dark:text-emerald-400">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleResendCode}
+                        disabled={isResendingCode}
+                        className="text-[11px] font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 underline cursor-pointer disabled:opacity-50"
+                      >
+                        {isResendingCode ? 'Buscando...' : 'Reenviar meu código'}
+                      </button>
+                    </div>
                     <div className="relative">
                       <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <input

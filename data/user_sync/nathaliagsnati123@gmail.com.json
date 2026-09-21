@@ -14,27 +14,59 @@
     },
     "tasks": [
       {
-        "id": "task-1",
-        "title": "Teste de Tarefa",
-        "date": "2026-09-13",
-        "completed": false,
-        "category": "Geral",
+        "id": "t-prioridade-1",
+        "title": "Fazer atividades da escola",
+        "date": "2026-09-16",
+        "time": "14:00",
         "priority": "high",
-        "createdAt": 1789301094915
+        "isPriority": false,
+        "category": "Estudos",
+        "repeat": "none",
+        "completed": false
       },
       {
-        "id": "task-real-1",
-        "title": "Tarefa Real Teste",
-        "date": "2026-09-13",
-        "completed": true,
-        "category": "Geral",
-        "priority": "medium"
+        "id": "t-tarefa-1",
+        "title": "Terminar de arrumar o quarto",
+        "date": "2026-09-16",
+        "time": "16:00",
+        "priority": "medium",
+        "isPriority": false,
+        "category": "Casa",
+        "repeat": "none",
+        "completed": false
       }
     ],
-    "habits": [],
-    "hydration": {},
+    "habits": [
+      {
+        "id": "h-1",
+        "name": "Beber 2 litros de água",
+        "icon": "💧",
+        "frequency": "daily",
+        "targetDaysPerWeek": 7,
+        "category": "Saúde",
+        "createdAt": "2026-09-16",
+        "history": {}
+      }
+    ],
+    "hydration": {
+      "2026-09-16": {
+        "date": "2026-09-16",
+        "amountMl": 0,
+        "targetMl": 2000,
+        "cupSizeMl": 250,
+        "logs": []
+      }
+    },
     "meals": {},
-    "groceries": [],
+    "groceries": [
+      {
+        "id": "g-1",
+        "name": "Comprar frutas frescas",
+        "category": "Frutas e Verduras",
+        "completed": false,
+        "quantity": "1kg"
+      }
+    ],
     "movement": [],
     "sleep": {},
     "selfCareList": [
@@ -83,14 +115,49 @@
     "checkIns": {},
     "journal": {},
     "memories": [],
-    "prayers": [],
+    "prayers": [
+      {
+        "id": "p-1",
+        "date": "2026-09-16",
+        "content": "Senhor, abençoe o meu dia e me dê serenidade.",
+        "category": "paz",
+        "answered": false
+      }
+    ],
     "devotionals": [],
     "singleMeals": [],
     "sleepList": [],
     "fiveMinuteSessions": [],
-    "favoriteVerses": [],
-    "goals": [],
-    "bills": [],
+    "favoriteVerses": [
+      "verse-1"
+    ],
+    "goals": [
+      {
+        "id": "goal-1",
+        "name": "Exemplo de meta pessoal",
+        "description": "Defina aqui algo especial que queira conquistar com tranquilidade.",
+        "category": "Pessoal",
+        "deadline": "2026-12-31",
+        "completed": false,
+        "steps": [
+          {
+            "id": "s-1",
+            "title": "Primeiro passo simples",
+            "completed": false
+          }
+        ]
+      }
+    ],
+    "bills": [
+      {
+        "id": "b-1",
+        "name": "Conta de Exemplo",
+        "amount": 50,
+        "dueDate": "2026-09-16",
+        "category": "Casa",
+        "status": "pendente"
+      }
+    ],
     "incomes": [],
     "cycle": {
       "averageCycleLength": 28,
@@ -134,8 +201,8 @@
       "summaries": []
     }
   },
-  "updatedAt": 1789305978718,
-  "version": 1048,
-  "clientTimestamp": 1789305980715,
+  "updatedAt": 1789646365976,
+  "version": 1049,
+  "clientTimestamp": 1789646365555,
   "deviceId": "dev_9wuu3dv_1789134428451"
 }
