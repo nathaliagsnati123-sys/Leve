@@ -1,171 +1,43 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useAuth } from '../../context/AuthContext';
 import { 
-  ArrowRight, ArrowLeft, Check, Sparkles, UserPlus, LogIn, 
-  Lock, Mail, User, Eye, EyeOff, HeartHandshake, ShieldCheck
+  ArrowRight, ArrowLeft, Sparkles, User, HeartHandshake, Smile
 } from 'lucide-react';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
 import { trackPixelEvent } from '../../utils/pixel';
 import { 
-  getRememberedEmail, saveRememberedEmail, 
   isPresentationAlreadyCompleted, markPresentationCompleted, 
   saveUserIdentity 
 } from '../../services/storage';
 
 export const OnboardingModal: React.FC = () => {
   const { isOnboardingOpen, setIsOnboardingOpen, updateUser, data, showToast } = useApp();
-  const { login, signup } = useAuth();
 
-  const savedEmail = getRememberedEmail();
   const presentationAlreadyDone = isPresentationAlreadyCompleted();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [authMode, setAuthMode] = useState<'signup' | 'login'>(() => (savedEmail ? 'login' : 'signup'));
 
-  // Form states - criação de conta simples: apenas nome, email, senha e confirmação de senha
+  // Estados de personalização (sem email e sem senha)
   const [name, setName] = useState(data.user.name || '');
   const [avatar, setAvatar] = useState(data.user.avatar || '🌿');
   const [treatmentPreference, setTreatmentPreference] = useState<TreatmentPreference>(() => {
     return normalizeTreatmentPreference(data.user.treatmentPreference || 'feminino');
   });
 
-  const [email, setEmail] = useState(() => savedEmail);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   if (!isOnboardingOpen || presentationAlreadyDone) return null;
 
-  const handleEmailChange = (val: string) => {
-    setEmail(val);
-    saveRememberedEmail(val);
-  };
+  const avatarOptions = ['🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', '🧘‍♀️', '🌊', '📖', '🤍'];
 
-  const avatarOptions = ['🌿', '🌸', '✨', '🕊️', '☀️', '🪴', '☕', '🌻', '🧘‍♀️', '🌊'];
-
-  // Finalização para criar conta
-  const handleSignUpSubmit = async (e?: React.FormEvent) => {
+  // Concluir personalização e começar no LEVE
+  const handleFinishOnboarding = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    setErrorMessage(null);
 
-    const cleanName = name.trim();
-    if (!cleanName) {
-      setErrorMessage('Por favor, informe seu nome.');
-      return;
-    }
-
-    const cleanEmail = email.trim();
-    if (!cleanEmail) {
-      setErrorMessage('Por favor, informe seu e-mail.');
-      return;
-    }
-
-    if (!password) {
-      setErrorMessage('Por favor, crie uma senha.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setErrorMessage('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-
-    if (!confirmPassword) {
-      setErrorMessage('Por favor, confirme sua senha.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMessage('As senhas não coincidem. Por favor, confira a digitação.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await signup(cleanEmail, password, cleanName, treatmentPreference, avatar);
-      setIsSubmitting(false);
-
-      if (res.success) {
-        // Track Pixel
-        trackPixelEvent('CompleteRegistration');
-        trackPixelEvent('Lead');
-
-        // Salvar e-mail no dispositivo e marcar apresentação como concluída
-        saveRememberedEmail(email);
-        markPresentationCompleted();
-
-        // Salva perfil persistente
-        saveUserIdentity({
-          name: cleanName,
-          avatar,
-          treatmentPreference,
-          hasCompletedOnboarding: true
-        });
-
-        updateUser({
-          name: cleanName,
-          avatar,
-          treatmentPreference,
-          hasCompletedOnboarding: true
-        });
-
-        setIsOnboardingOpen(false);
-        showToast('Conta criada com sucesso! Boas-vindas ao LEVE.', 'success');
-      } else {
-        setErrorMessage(res.error || 'Não foi possível criar a conta. Verifique os dados.');
-      }
-    } catch (err: any) {
-      setIsSubmitting(false);
-      setErrorMessage(err?.message || 'Erro ao realizar cadastro.');
-    }
-  };
-
-  // Finalização para fazer login
-  const handleLoginSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMessage(null);
-
-    if (!email || !password) {
-      setErrorMessage('Por favor, informe seu e-mail e senha.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await login(email, password);
-      setIsSubmitting(false);
-
-      if (res.success) {
-        saveRememberedEmail(email);
-        markPresentationCompleted();
-
-        saveUserIdentity({
-          hasCompletedOnboarding: true
-        });
-
-        updateUser({
-          hasCompletedOnboarding: true
-        });
-        setIsOnboardingOpen(false);
-        showToast('Boas-vindas de volta! Conta conectada.', 'success');
-      } else {
-        setErrorMessage(res.error || 'E-mail ou senha incorretos.');
-      }
-    } catch (err: any) {
-      setIsSubmitting(false);
-      setErrorMessage(err?.message || 'Erro ao entrar na conta.');
-    }
-  };
-
-  // Entrada como visitante / salvar perfil local e concluir apresentação
-  const handleContinueAsGuest = () => {
     const cleanName = name.trim();
     markPresentationCompleted();
+
+    // Track Pixel
+    trackPixelEvent('CompleteRegistration');
 
     saveUserIdentity({
       name: cleanName,
@@ -180,8 +52,9 @@ export const OnboardingModal: React.FC = () => {
       treatmentPreference,
       hasCompletedOnboarding: true
     });
+
     setIsOnboardingOpen(false);
-    showToast('Preferências salvas! Boas-vindas ao LEVE.', 'success');
+    showToast(cleanName ? `Boas-vindas ao LEVE, ${cleanName}! ✨` : 'Boas-vindas ao LEVE! ✨', 'success');
   };
 
   return (
@@ -323,314 +196,105 @@ export const OnboardingModal: React.FC = () => {
                 onClick={() => setStep(5)}
                 className="flex-1 py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
               >
-                <span>Começar no LEVE</span>
+                <span>Personalizar & Começar</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 5: Login ou Criar Conta */}
+        {/* Step 5: Personalização Simples e Direta (SEM email e SEM senha) */}
         {step === 5 && (
-          <div className="space-y-5 text-left animate-in fade-in slide-in-from-right-4 duration-200">
+          <form onSubmit={handleFinishOnboarding} className="space-y-5 text-left animate-in fade-in slide-in-from-right-4 duration-200">
             <div className="text-center space-y-1">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 flex items-center justify-center mx-auto text-2xl mb-2">
+                🌸
+              </div>
               <h2 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100">
-                {authMode === 'signup' ? 'Crie sua conta no LEVE' : 'Acesse sua conta'}
+                Personalize seu LEVE
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto">
-                {authMode === 'signup' 
-                  ? 'Guarde suas anotações e rotina com segurança na nuvem.'
-                  : 'Entre para sincronizar suas anotações e rotina.'}
+                Deixe o aplicativo com o seu jeito para uma rotina mais acolhedora.
               </p>
             </div>
 
-            {/* Abas Alternar: Criar Conta vs Já tenho conta */}
-            <div className="flex rounded-2xl bg-stone-100 dark:bg-stone-800/80 p-1">
-              <button
-                type="button"
-                onClick={() => { setAuthMode('signup'); setErrorMessage(null); }}
-                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  authMode === 'signup'
-                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-800'
-                }`}
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Criar Conta</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setAuthMode('login'); setErrorMessage(null); }}
-                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  authMode === 'login'
-                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-800'
-                }`}
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Já tenho conta</span>
-              </button>
+            {/* 1. Nome */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                Seu Nome
+              </label>
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Como gostaria de ser chamada?"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
+                />
+              </div>
             </div>
 
-            {errorMessage && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300">
-                {errorMessage}
+            {/* 2. Tratamento */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                Como prefere que o LEVE fale com você?
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {TREATMENT_OPTIONS.map((opt) => {
+                  const isSel = treatmentPreference === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTreatmentPreference(opt.id)}
+                      className={`py-2 px-2 rounded-xl text-center border transition cursor-pointer flex items-center justify-center ${
+                        isSel
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-900 dark:text-emerald-200 font-semibold ring-1 ring-emerald-600/30'
+                          : 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100'
+                      }`}
+                    >
+                      <span className="text-xs font-semibold">{opt.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
-            {/* FORM: CRIAR CONTA (Apenas nome, email, senha e confirmação de senha) */}
-            {authMode === 'signup' && (
-              <form onSubmit={handleSignUpSubmit} className="space-y-4">
-                {/* 1. Nome */}
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Nome <span className="text-emerald-700 dark:text-emerald-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Como gostaria de ser chamado(a)?"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-                    />
-                  </div>
-                </div>
-
-                {/* Preferência de Tratamento e Experiência do App */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Como prefere que o LEVE fale com você?
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {TREATMENT_OPTIONS.map((opt) => {
-                      const isSel = treatmentPreference === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setTreatmentPreference(opt.id)}
-                          className={`py-2 px-2 rounded-xl text-center border transition cursor-pointer flex items-center justify-center ${
-                            isSel
-                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-900 dark:text-emerald-200 font-semibold ring-1 ring-emerald-600/30'
-                              : 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100'
-                          }`}
-                        >
-                          <span className="text-xs font-semibold">{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. E-mail */}
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    E-mail <span className="text-emerald-700 dark:text-emerald-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => handleEmailChange(e.target.value)}
-                      placeholder="seu@email.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-                    />
-                  </div>
-                  {savedEmail && email === savedEmail && (
-                    <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 pt-0.5 px-1">
-                      <span className="flex items-center gap-1 font-medium">
-                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        E-mail salvo neste aparelho
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleEmailChange('')}
-                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline cursor-pointer"
-                      >
-                        Trocar e-mail
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Senha */}
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* 4. Confirmação de Senha */}
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Confirmação de Senha <span className="text-emerald-700 dark:text-emerald-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Digite a senha novamente"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Botão de Conclusão */}
-                <div className="pt-2 space-y-2">
+            {/* 3. Avatar */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                Escolha seu símbolo
+              </label>
+              <div className="flex flex-wrap gap-2 justify-center p-2 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700">
+                {avatarOptions.map((opt) => (
                   <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs sm:text-sm transition shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        <span>Criando conta...</span>
-                      </span>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 text-emerald-300" />
-                        <span>Criar Minha Conta e Começar</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
+                    key={opt}
                     type="button"
-                    onClick={handleContinueAsGuest}
-                    className="w-full py-2 text-center text-xs text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200 font-medium transition cursor-pointer"
+                    onClick={() => setAvatar(opt)}
+                    className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition cursor-pointer ${
+                      avatar === opt
+                        ? 'bg-white dark:bg-stone-700 border-2 border-emerald-600 shadow-xs scale-110'
+                        : 'hover:bg-stone-200/50 dark:hover:bg-stone-700/50'
+                    }`}
                   >
-                    Ou continuar como visitante por enquanto
+                    {opt}
                   </button>
-                </div>
-              </form>
-            )}
+                ))}
+              </div>
+            </div>
 
-            {/* FORM: LOGIN */}
-            {authMode === 'login' && (
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Seu e-mail
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => handleEmailChange(e.target.value)}
-                      placeholder="seu@email.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-                    />
-                  </div>
-                  {savedEmail && email === savedEmail && (
-                    <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 pt-0.5 px-1">
-                      <span className="flex items-center gap-1 font-medium">
-                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        E-mail salvo neste aparelho
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleEmailChange('')}
-                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline cursor-pointer"
-                      >
-                        Trocar e-mail
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    Sua senha
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Digite sua senha"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2 space-y-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs sm:text-sm transition shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        <span>Entrando...</span>
-                      </span>
-                    ) : (
-                      <>
-                        <LogIn className="w-4 h-4 text-emerald-300" />
-                        <span>Entrar no LEVE</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleContinueAsGuest}
-                    className="w-full py-2 text-center text-xs text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200 font-medium transition cursor-pointer"
-                  >
-                    Ou continuar como visitante por enquanto
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
+            {/* Botão de Conclusão */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                className="w-full py-3.5 px-6 rounded-2xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs sm:text-sm transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-300" />
+                <span>Começar a Usar o LEVE</span>
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Step indicator dots */}

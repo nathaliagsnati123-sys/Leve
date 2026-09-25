@@ -20,7 +20,7 @@ export const Sidebar: React.FC = () => {
     todayCompletionPercentage
   } = useApp();
 
-  const { user, setIsAuthModalOpen, syncStatus, plan, planLabel, canAccessFeature, treatmentPreference: authPref } = useAuth();
+  const { treatmentPreference: authPref } = useAuth();
   const treatmentPreference = authPref || data.user?.treatmentPreference;
   const isMale = treatmentPreference === 'masculino';
 
@@ -192,38 +192,30 @@ export const Sidebar: React.FC = () => {
 
       {/* Footer Profile, Supabase & Conquistas card */}
       <div className="pt-3 shrink-0 border-t border-stone-200/80 dark:border-stone-800/80 space-y-2">
-        {/* Cloud Sync button */}
-        <button
-          id="sidebar-auth-btn"
-          onClick={() => setIsAuthModalOpen(true)}
-          className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition text-xs cursor-pointer ${
-            user 
-              ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-100' 
-              : 'bg-stone-50 dark:bg-stone-800/80 border border-stone-200/70 dark:border-stone-700 text-stone-800 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-750'
-          }`}
+        {/* Status do App */}
+        <div
+          className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-100"
         >
           <div className="flex items-center gap-2 truncate">
-            <Cloud className={`w-3.5 h-3.5 shrink-0 ${user ? 'text-amber-500 dark:text-amber-400' : 'text-stone-500 dark:text-stone-300'}`} />
+            <span className="text-base select-none shrink-0">{data.user.avatar || '🌿'}</span>
             <div className="truncate">
               <div className="flex items-center gap-1.5 truncate">
                 <p className="text-[11px] font-semibold truncate">
-                  {user ? 'LEVE VIP' : 'Acessar Conta'}
+                  {data.user.name || 'LEVE'}
                 </p>
-                {user && (
-                  <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-800 dark:text-amber-300 uppercase tracking-wider">
-                    VIP
-                  </span>
-                )}
+                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-200/70 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+                  Ativo
+                </span>
               </div>
-              <p className="text-[9px] text-stone-500 dark:text-stone-300 truncate">
-                {user ? user.email : 'Acesse de qualquer dispositivo'}
+              <p className="text-[9px] text-stone-500 dark:text-stone-400 truncate">
+                Acesso Completo Liberado
               </p>
             </div>
           </div>
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-stone-800 text-stone-700 dark:text-stone-200 shadow-2xs shrink-0 border border-stone-200/60 dark:border-stone-700">
-            {user ? 'Ativo' : 'Entrar'}
+            100%
           </span>
-        </button>
+        </div>
 
         {/* Achievements trigger */}
         <button

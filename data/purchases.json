@@ -15,13 +15,13 @@
     "email": "cssanches@yahoo.com.br",
     "user_id": "protected-cssanches",
     "buyer_name": "CS Sanches",
-    "plan_name": "vip",
-    "leve_gratuito": false,
+    "plan_name": "gratuito",
+    "leve_gratuito": true,
     "leve_especial": false,
-    "leve_vip": true,
-    "lia_access": true,
-    "hotmart_status": "approved",
-    "updated_at": "2026-09-14T00:00:00.000Z"
+    "leve_vip": false,
+    "lia_access": false,
+    "hotmart_status": "refunded",
+    "updated_at": "2026-09-17T00:00:00.000Z"
   },
   "nathaliagsnati123@gmail.com": {
     "email": "nathaliagsnati123@gmail.com",

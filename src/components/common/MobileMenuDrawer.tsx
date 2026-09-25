@@ -25,7 +25,7 @@ export const MobileMenuDrawer: React.FC = () => {
     startTour
   } = useApp();
 
-  const { user, setIsAuthModalOpen, plan, planLabel, canAccessFeature, treatmentPreference: authPref } = useAuth();
+  const { treatmentPreference: authPref } = useAuth();
 
   // Close on escape key
   useEffect(() => {
@@ -255,41 +255,30 @@ export const MobileMenuDrawer: React.FC = () => {
 
         {/* Drawer Footer (User & Achievements) */}
         <div className="p-4 pb-safe border-t border-stone-200/70 dark:border-stone-800/70 space-y-2 bg-[#F6F7F4]/90 dark:bg-[#111714]/90">
-          {/* Supabase Account Button */}
-          <button
-            id="mobile-auth-btn"
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              setIsAuthModalOpen(true);
-            }}
-            className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${
-              user 
-                ? 'bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200' 
-                : 'bg-stone-100 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200/60'
-            }`}
+          {/* Status Badge */}
+          <div
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200"
           >
             <div className="flex items-center gap-2.5 truncate">
-              <Cloud className={`w-4 h-4 ${user ? 'text-amber-500 dark:text-amber-400' : 'text-stone-500'}`} />
+              <span className="text-lg select-none shrink-0">{data.user.avatar || '🌿'}</span>
               <div className="truncate">
                 <div className="flex items-center gap-1.5 truncate">
                   <p className="text-xs font-bold truncate">
-                    {user ? 'LEVE VIP' : 'Acessar Conta'}
+                    {data.user.name || 'LEVE'}
                   </p>
-                  {user && (
-                    <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-800 dark:text-amber-300 uppercase tracking-wider">
-                      VIP
-                    </span>
-                  )}
+                  <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-200/70 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+                    Ativo
+                  </span>
                 </div>
                 <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
-                  {user ? user.email : 'Acesse de qualquer dispositivo'}
+                  Acesso Completo Liberado
                 </p>
               </div>
             </div>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/80 dark:bg-stone-800/80 shadow-2xs shrink-0">
-              {user ? 'Ativo' : 'Entrar'}
+              100%
             </span>
-          </button>
+          </div>
 
           {/* Achievements button */}
           <button

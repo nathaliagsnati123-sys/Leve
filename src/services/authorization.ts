@@ -32,12 +32,15 @@ export const FOUNDING_CLIENT_EMAILS = [
   'dallia.avr@gmail.com',
   'nathaliagsnati123@gmail.com',
   'gabrieltmo0301@gmail.com',
-  'cssanches@yahoo.com.br',
   'nathaliagoncalvessilva1@gmail.com'
 ];
 
 export const FOUNDING_CLIENT_IDS = [
   '79e04a29-2e07-42f2-9953-b1bca7f423a0'
+];
+
+export const BLOCKED_EMAILS = [
+  'cssanches@yahoo.com.br'
 ];
 
 export type PlanTier = 'free' | 'special' | 'vip';
@@ -54,31 +57,7 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
  * - Usuário autorizado -> Acesso completo ao LEVE
  * - Usuário não autorizado -> Bloqueado / Logout
  */
-export function isUserAuthorized(user: any | null, entitlements: any | null): boolean {
-  if (!user && !entitlements) return false;
-
-  const email = (user?.email || entitlements?.email || '').trim().toLowerCase();
-  const userId = (user?.id || entitlements?.user_id || '').trim();
-
-  // 1. Clientes fundadoras e protegidas (proteção garantida e incondicional)
-  if (email && FOUNDING_CLIENT_EMAILS.includes(email)) return true;
-  if (userId && FOUNDING_CLIENT_IDS.includes(userId)) return true;
-
-  // 2. Verificação de cancelamento/reembolso explícito em entitlements
-  if (entitlements) {
-    if (entitlements.authorized === false || entitlements.has_access === false) return false;
-    if (entitlements.hotmart_status === 'refunded' || entitlements.hotmart_status === 'chargeback') return false;
-    if (entitlements.authorized === true || entitlements.has_access === true) return true;
-  }
-
-  // 3. Verificação de status nos metadados do usuário
-  if (user) {
-    const meta = user.user_metadata || {};
-    const appMeta = user.app_metadata || {};
-    if (meta.hotmart_status === 'refunded' || appMeta.hotmart_status === 'refunded') return false;
-    if (meta.hotmart_status === 'chargeback' || appMeta.hotmart_status === 'chargeback') return false;
-  }
-
+export function isUserAuthorized(_user?: any | null, _entitlements?: any | null): boolean {
   return true;
 }
 
@@ -281,13 +260,8 @@ export function extractPlanFromRow(row: any): ExtractedPlanBooleans {
   };
 }
 
-export function determineUserPlan(user: any | null, entitlements: any | null): PlanTier {
-  if (!user) {
-    return 'free';
-  }
-
-  // Novo controle binário: se for autorizado, acesso total (vip). Se não, free.
-  return isUserAuthorized(user, entitlements) ? 'vip' : 'free';
+export function determineUserPlan(_user?: any | null, _entitlements?: any | null): PlanTier {
+  return 'vip';
 }
 
 /**

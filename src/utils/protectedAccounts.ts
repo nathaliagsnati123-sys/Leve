@@ -3,16 +3,26 @@
 // restrição de acesso ou imposição forçada de troca de senha.
 
 export const PROTECTED_ACCOUNTS = [
-  'dallia.avr@gmail.com',
-  'cssanches@yahoo.com.br',
   'nathaliagsnati123@gmail.com',
-  'nathaliagoncalvessilva1@gmail.com',
-  'gabrieltmo0301@gmail.com'
+  'dallia.avr@gmail.com',
+  'gabrieltmo0301@gmail.com',
+  'nathaliagoncalvessilva1@gmail.com'
 ] as const;
+
+export const BLOCKED_ACCOUNTS = [
+  'cssanches@yahoo.com.br'
+] as const;
+
+export function isBlockedAccount(email?: string | null): boolean {
+  if (!email || typeof email !== 'string') return false;
+  const normalized = email.trim().toLowerCase();
+  return BLOCKED_ACCOUNTS.some(blockedEmail => blockedEmail.toLowerCase() === normalized);
+}
 
 export function isProtectedAccount(email?: string | null): boolean {
   if (!email || typeof email !== 'string') return false;
   const normalized = email.trim().toLowerCase();
+  if (isBlockedAccount(normalized)) return false;
   return PROTECTED_ACCOUNTS.some(protectedEmail => protectedEmail.toLowerCase() === normalized);
 }
 
@@ -25,11 +35,6 @@ export const PROTECTED_ACCOUNT_DETAILS: Record<string, { id: string; name: strin
   'dallia.avr@gmail.com': {
     id: 'd2eaa94a-de05-41fb-82fd-8a30fe4d2fde',
     name: 'Dallia',
-    avatar: '🌿'
-  },
-  'cssanches@yahoo.com.br': {
-    id: '057c6f68-e302-474f-acd0-95364307af84',
-    name: 'CS Sanches',
     avatar: '🌿'
   },
   'gabrieltmo0301@gmail.com': {

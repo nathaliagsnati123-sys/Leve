@@ -5,9 +5,8 @@ import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { MobileMenuDrawer } from './components/common/MobileMenuDrawer';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
-import { RefreshCw, Lock } from 'lucide-react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { OFFICIAL_LEVE_PRODUCT_CHECKOUT } from './services/authorization';
+import { RefreshCw } from 'lucide-react';
+import { AuthProvider } from './context/AuthContext';
 
 // 1. A tela principal de rotina ("Meu Dia") é carregada de forma direta para abertura instantânea (0ms)
 import { MyDayView } from './components/views/MyDayView';
@@ -32,10 +31,6 @@ const MyLifeView = lazy(() => import('./components/views/MyLifeView').then(m => 
 const WorkoutView = lazy(() => import('./components/views/WorkoutView').then(m => ({ default: m.WorkoutView })));
 const StudiesView = lazy(() => import('./components/views/StudiesView').then(m => ({ default: m.StudiesView })));
 
-// Tela de boas-vindas / login
-const WelcomeAccessScreen = lazy(() => import('./components/auth/WelcomeAccessScreen').then(m => ({ default: m.WelcomeAccessScreen })));
-const ForcePasswordChangeScreen = lazy(() => import('./components/auth/ForcePasswordChangeScreen').then(m => ({ default: m.ForcePasswordChangeScreen })));
-
 // Modais globais carregados sob demanda apenas quando ativados pelo usuário
 const BrainDumpModal = lazy(() => import('./components/modals/BrainDumpModal').then(m => ({ default: m.BrainDumpModal })));
 const TaskModal = lazy(() => import('./components/modals/TaskModal').then(m => ({ default: m.TaskModal })));
@@ -46,7 +41,6 @@ const CelebrationModal = lazy(() => import('./components/modals/CelebrationModal
 const OnboardingModal = lazy(() => import('./components/modals/OnboardingModal').then(m => ({ default: m.OnboardingModal })));
 const AppTourModal = lazy(() => import('./components/modals/AppTourModal').then(m => ({ default: m.AppTourModal })));
 const FiveMinuteGodModal = lazy(() => import('./components/modals/FiveMinuteGodModal').then(m => ({ default: m.FiveMinuteGodModal })));
-const AuthModal = lazy(() => import('./components/modals/AuthModal').then(m => ({ default: m.AuthModal })));
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3">
@@ -57,7 +51,6 @@ const ViewLoadingFallback: React.FC = () => (
 const AppContent: React.FC = () => {
   const { 
     activeTab, 
-    setActiveTab,
     isBrainDumpOpen,
     isTaskModalOpen,
     isDayClosingOpen,
@@ -68,103 +61,10 @@ const AppContent: React.FC = () => {
     isTourOpen,
     isFiveMinGodOpen
   } = useApp();
-  
-  const { 
-    user, 
-    entitlements, 
-    canAccessFeature, 
-    isCheckingEntitlements, 
-    isLoading, 
-    isAuthorized,
-    accessBlockedMessage,
-    isAuthModalOpen, 
-    setIsAuthModalOpen, 
-    setAuthTab,
-    mustChangePassword,
-    logout
-  } = useAuth();
 
   useEffect(() => {
     trackPixelPageView(activeTab);
   }, [activeTab]);
-
-  // 1. Enquanto carrega a sessão do Supabase, exibe tela de carregamento suave
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] flex flex-col items-center justify-center gap-3">
-        <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-xs ring-1 ring-stone-200 dark:ring-stone-700 bg-white">
-          <img src="/app-icon.png" alt="LEVE" className="w-full h-full object-cover" />
-        </div>
-        <RefreshCw className="w-5 h-5 text-[#1F3A34] dark:text-emerald-400 animate-spin" />
-        <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">Carregando o LEVE...</p>
-      </div>
-    );
-  }
-
-  // 2. Se NÃO estiver autenticado: exibe a tela inicial de acesso / login
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col font-sans">
-        <OfflineIndicator />
-        <Suspense fallback={<ViewLoadingFallback />}>
-          <WelcomeAccessScreen 
-            onOpenLogin={() => {
-              setAuthTab('login');
-              setIsAuthModalOpen(true);
-            }}
-            onOpenSignup={() => {
-              setAuthTab('signup');
-              setIsAuthModalOpen(true);
-            }}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          {isAuthModalOpen && <AuthModal />}
-        </Suspense>
-      </div>
-    );
-  }
-
-  // 2.1 Se estiver autenticado mas NÃO autorizado (compra cancelada/reembolsada ou conta sem acesso)
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full bg-white dark:bg-[#1A231E] rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-800 flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
-            <Lock className="w-7 h-7" />
-          </div>
-          <h2 className="text-xl font-serif font-bold text-stone-900 dark:text-stone-100 mb-2">Acesso Não Ativo</h2>
-          <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed mb-6">{accessBlockedMessage}</p>
-          <a
-            href={OFFICIAL_LEVE_PRODUCT_CHECKOUT}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-3.5 px-4 bg-[#1F3A34] text-white rounded-xl font-medium text-sm hover:bg-[#2A4D45] transition-colors shadow-sm mb-3 block"
-          >
-            Adquirir Acesso ao LEVE
-          </a>
-          <button
-            onClick={() => logout()}
-            className="text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 font-medium py-2 transition-colors cursor-pointer"
-          >
-            Sair ou entrar com outra conta
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. Se o usuário estiver no primeiro acesso com senha temporária: força a tela de definição de nova senha
-  if (mustChangePassword) {
-    return (
-      <div className="min-h-screen bg-[#F9FAF8] dark:bg-[#121915] text-stone-800 dark:text-stone-100 flex flex-col font-sans">
-        <OfflineIndicator />
-        <Suspense fallback={<ViewLoadingFallback />}>
-          <ForcePasswordChangeScreen />
-        </Suspense>
-      </div>
-    );
-  }
 
   const renderActiveView = () => {
     // 1. "Meu Dia" é síncrono e abre em 0ms
@@ -256,7 +156,6 @@ const AppContent: React.FC = () => {
         {isOnboardingOpen && <OnboardingModal />}
         {isTourOpen && <AppTourModal />}
         {isFiveMinGodOpen && <FiveMinuteGodModal />}
-        {isAuthModalOpen && <AuthModal />}
       </Suspense>
     </div>
   );

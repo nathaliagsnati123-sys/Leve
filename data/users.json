@@ -40,15 +40,16 @@
     "name": "CS Sanches",
     "avatar": "🌿",
     "treatmentPreference": "feminino",
-    "plan": "vip",
+    "plan": "gratuito",
     "leve_especial": false,
-    "leve_vip": true,
-    "lia_access": true,
-    "confirmed": true,
+    "leve_vip": false,
+    "lia_access": false,
+    "confirmed": false,
     "must_change_password": false,
     "first_access_completed": true,
+    "blocked": true,
     "created_at": "2026-09-14T13:53:21.388Z",
-    "updated_at": "2026-09-14T14:16:49.205Z"
+    "updated_at": "2026-09-17T00:00:00.000Z"
   },
   "gabrieltmo0301@gmail.com": {
     "id": "0077125c-48b3-4b6c-9132-10819e4bf95b",

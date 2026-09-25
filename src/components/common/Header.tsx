@@ -9,11 +9,10 @@ export const Header: React.FC = () => {
   const { data, setIsMobileMenuOpen } = useApp();
   const { user } = useAuth();
 
-  // Nome da pessoa conectada (respeita o perfil salvo ou metadados da conta)
+  // Nome da pessoa (respeita o perfil salvo)
   const userName = 
     data.user.name?.trim() || 
     (user?.user_metadata?.full_name || user?.user_metadata?.name || '')?.trim() || 
-    (user?.email ? user.email.split('@')[0] : '') || 
     'Meu Perfil';
 
   // Data serena e proporcional para celular, tablet e computador
@@ -84,11 +83,9 @@ export const Header: React.FC = () => {
             <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 truncate text-right">
               {userName}
             </span>
-            {user && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 shrink-0">
-                VIP
-              </span>
-            )}
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60 shrink-0">
+              VIP
+            </span>
           </div>
           <div className="shrink-0">
             <UserAvatar 
