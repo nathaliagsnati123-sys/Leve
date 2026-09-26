@@ -6,7 +6,7 @@ import {
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
   BarChart3, Settings, Sparkles, Award, Cloud, User, Compass, Film,
-  Zap, Shield, GraduationCap, Dumbbell
+  Zap, Shield, Dumbbell
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { UserAvatar } from './UserAvatar';
@@ -29,7 +29,6 @@ export const Sidebar: React.FC = () => {
     { id: 'calendar' as ActiveTab, label: 'Calendário & Semana', icon: Calendar },
     { id: 'habits' as ActiveTab, label: isMale ? 'Hábitos & Disciplina' : 'Meus Hábitos', icon: isMale ? Target : Sprout },
     { id: 'journal' as ActiveTab, label: isMale ? 'Diário de Gratidão' : 'Meu Caderno & Gratidão', icon: BookOpen },
-    { id: 'studies' as ActiveTab, label: 'Caderno de Estudos', icon: GraduationCap },
     { id: 'spirituality' as ActiveTab, label: isMale ? 'Fé & Oração' : 'Fé & Momento com Deus', icon: isMale ? Shield : HeartHandshake },
     { id: 'goals' as ActiveTab, label: 'Minhas Metas', icon: Target },
     { 

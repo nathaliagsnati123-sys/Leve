@@ -2,7 +2,7 @@ import {
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
   BarChart3, Sparkles, Film, LucideIcon, Zap, Shield,
-  GraduationCap, Dumbbell
+  Dumbbell
 } from 'lucide-react';
 import { ActiveTab } from '../context/AppContext';
 import { normalizeTreatmentPreference } from './treatment';
@@ -72,15 +72,6 @@ export const APP_SECTIONS: AppSectionDefinition[] = [
     group: 'principal',
     groupLabel: 'Principal',
     icon: Target,
-    canHide: true
-  },
-  {
-    id: 'studies',
-    label: 'Caderno de Estudos',
-    description: 'Matérias organizadas, documentos de estudo, resumos e anotações completas.',
-    group: 'principal',
-    groupLabel: 'Principal',
-    icon: GraduationCap,
     canHide: true
   },
   {

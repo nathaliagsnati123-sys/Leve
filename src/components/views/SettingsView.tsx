@@ -15,6 +15,7 @@ import { UserAvatar, isImageAvatar } from '../common/UserAvatar';
 export const SettingsView: React.FC = () => {
   const { data, updateUser, showToast, startTour, forceSyncAll } = useApp();
   const { 
+    user,
     treatmentPreference: authTreatmentPref, 
     updateTreatmentPreference,
     saveProfile

@@ -29,7 +29,6 @@ const SettingsView = lazy(() => import('./components/views/SettingsView').then(m
 const LiaView = lazy(() => import('./components/views/LiaView').then(m => ({ default: m.LiaView })));
 const MyLifeView = lazy(() => import('./components/views/MyLifeView').then(m => ({ default: m.MyLifeView })));
 const WorkoutView = lazy(() => import('./components/views/WorkoutView').then(m => ({ default: m.WorkoutView })));
-const StudiesView = lazy(() => import('./components/views/StudiesView').then(m => ({ default: m.StudiesView })));
 
 // Modais globais carregados sob demanda apenas quando ativados pelo usuário
 const BrainDumpModal = lazy(() => import('./components/modals/BrainDumpModal').then(m => ({ default: m.BrainDumpModal })));
@@ -109,8 +108,6 @@ const AppContent: React.FC = () => {
               return <MyLifeView />;
             case 'workouts':
               return <WorkoutView />;
-            case 'studies':
-              return <StudiesView />;
             case 'lia':
               return <LiaView />;
             default:
