@@ -189,33 +189,8 @@ export const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Footer Profile, Supabase & Conquistas card */}
+      {/* Footer Profile & Conquistas card */}
       <div className="pt-3 shrink-0 border-t border-stone-200/80 dark:border-stone-800/80 space-y-2">
-        {/* Status do App */}
-        <div
-          className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-100"
-        >
-          <div className="flex items-center gap-2 truncate">
-            <span className="text-base select-none shrink-0">{data.user.avatar || '🌿'}</span>
-            <div className="truncate">
-              <div className="flex items-center gap-1.5 truncate">
-                <p className="text-[11px] font-semibold truncate">
-                  {data.user.name || 'LEVE'}
-                </p>
-                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-200/70 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
-                  Ativo
-                </span>
-              </div>
-              <p className="text-[9px] text-stone-500 dark:text-stone-400 truncate">
-                Acesso Completo Liberado
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-stone-800 text-stone-700 dark:text-stone-200 shadow-2xs shrink-0 border border-stone-200/60 dark:border-stone-700">
-            100%
-          </span>
-        </div>
-
         {/* Achievements trigger */}
         <button
           onClick={() => setIsAchievementsOpen(true)}

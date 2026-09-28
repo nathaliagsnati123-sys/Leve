@@ -2,18 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  Settings, Sun, Moon, Monitor, User, Check, HeartHandshake, Sparkles, RefreshCw,
-  AlertTriangle, Cloud, Download, Camera, Upload, Trash2, Smartphone, Laptop, ShieldCheck
+  Settings, Sun, Moon, User, Check, HeartHandshake, 
+  Upload, Trash2, Save, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { TreatmentPreference } from '../../types';
 import { TREATMENT_OPTIONS, normalizeTreatmentPreference } from '../../utils/treatment';
-import { NotificationSettingsCard } from './NotificationSettingsCard';
 import { SectionVisibilityCard } from './SectionVisibilityCard';
-import { PWAInstallButton } from '../common/PWAInstallButton';
 import { UserAvatar, isImageAvatar } from '../common/UserAvatar';
 
 export const SettingsView: React.FC = () => {
-  const { data, updateUser, showToast, startTour, forceSyncAll } = useApp();
+  const { data, updateUser, showToast } = useApp();
   const { 
     user,
     treatmentPreference: authTreatmentPref, 
@@ -21,26 +19,30 @@ export const SettingsView: React.FC = () => {
     saveProfile
   } = useAuth();
 
+  // 1. Estado local de Perfil
   const [name, setName] = useState(data.user?.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(data.user?.avatar || '🌿');
-  const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 2. Estado local de Preferência de Tratamento
   const [selectedPreference, setSelectedPreference] = useState<TreatmentPreference>(() => {
     return normalizeTreatmentPreference(
       data.user?.treatmentPreference || authTreatmentPref || 'nao_informar'
     );
   });
+  const [treatmentSaved, setTreatmentSaved] = useState(false);
 
-  useEffect(() => {
-    if (data.user?.treatmentPreference) {
-      setSelectedPreference(normalizeTreatmentPreference(data.user.treatmentPreference));
-    } else if (authTreatmentPref) {
-      setSelectedPreference(normalizeTreatmentPreference(authTreatmentPref));
-    }
-  }, [data.user?.treatmentPreference, authTreatmentPref]);
+  // 3. Estado local de Tema / Aparência
+  const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>(() => {
+    return data.user?.theme === 'dark' ? 'dark' : 'light';
+  });
+  const [themeSaved, setThemeSaved] = useState(false);
 
+  // Sincroniza estados iniciais caso mudem externamente
   useEffect(() => {
-    if (data.user?.name) {
+    if (data.user?.name !== undefined) {
       setName(data.user.name);
     }
   }, [data.user?.name]);
@@ -51,24 +53,37 @@ export const SettingsView: React.FC = () => {
     }
   }, [data.user?.avatar]);
 
+  useEffect(() => {
+    if (data.user?.treatmentPreference) {
+      setSelectedPreference(normalizeTreatmentPreference(data.user.treatmentPreference));
+    }
+  }, [data.user?.treatmentPreference]);
+
+  useEffect(() => {
+    if (data.user?.theme) {
+      setSelectedTheme(data.user.theme === 'dark' ? 'dark' : 'light');
+    }
+  }, [data.user?.theme]);
+
   const avatarOptions = [
     '🌿', '🌸', '✨', '☕', '🕊️', '🧘‍♀️', '📖', '🌊', '🦋', '🌱',
     '☀️', '🪴', '🌻', '🤍', '🕯️', '🎨', '🌙', '🍓', '🍵', '🌺'
   ];
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
-
+  // =========================================================================
+  // Manipulação de Foto
+  // =========================================================================
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('Por favor, selecione um arquivo de imagem válido.', 'error');
+      showToast('Por favor, selecione um arquivo de imagem válido.', 'gentle');
       return;
     }
 
     setIsProcessingPhoto(true);
+    setProfileSaved(false);
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -100,57 +115,78 @@ export const SettingsView: React.FC = () => {
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
           setSelectedAvatar(compressedDataUrl);
-          showToast('Foto carregada! Clique em "Salvar Alterações" para confirmar. ✨');
+          showToast('Foto carregada! Clique em "Salvar Alterações do Perfil" para confirmar. ✨');
           setIsProcessingPhoto(false);
         } catch (err) {
           console.error('Error compressing image:', err);
-          showToast('Erro ao processar imagem.', 'error');
+          showToast('Erro ao processar imagem.', 'gentle');
           setIsProcessingPhoto(false);
         }
       };
       img.onerror = () => {
-        showToast('Não foi possível carregar a imagem.', 'error');
+        showToast('Não foi possível carregar a imagem.', 'gentle');
         setIsProcessingPhoto(false);
       };
       img.src = event.target?.result as string;
     };
     reader.onerror = () => {
-      showToast('Erro ao ler o arquivo.', 'error');
+      showToast('Erro ao ler o arquivo.', 'gentle');
       setIsProcessingPhoto(false);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // =========================================================================
+  // 1. Salvar Perfil (Nome e Avatar)
+  // =========================================================================
+  const handleSaveProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const cleanName = name.trim();
-    const normalizedPref = normalizeTreatmentPreference(selectedPreference);
+
     updateUser({
       name: cleanName,
-      avatar: selectedAvatar,
-      treatmentPreference: normalizedPref
+      avatar: selectedAvatar
     });
+
     try {
-      await updateTreatmentPreference(normalizedPref);
+      localStorage.setItem('leve_user_name', cleanName);
+      localStorage.setItem('leve_user_avatar', selectedAvatar);
     } catch {}
+
     if (user) {
       try {
         await saveProfile({
           name: cleanName,
-          treatment_preference: normalizedPref
+          avatar: selectedAvatar
         });
       } catch (err) {
-        console.warn('Erro ao salvar perfil no Supabase:', err);
+        console.warn('Erro ao salvar perfil remoto:', err);
       }
     }
-    showToast('Perfil atualizado com sucesso! ✨');
+
+    setProfileSaved(true);
+    showToast('Perfil salvo com sucesso! ✨', 'success');
+    setTimeout(() => {
+      setProfileSaved(false);
+    }, 3500);
   };
 
-  const handleSelectPreference = async (pref: TreatmentPreference) => {
-    const normalized = normalizeTreatmentPreference(pref);
-    setSelectedPreference(normalized);
+  // =========================================================================
+  // 2. Salvar Forma de Tratamento (Pronomes / Modo de Conversa)
+  // =========================================================================
+  const handleSaveTreatment = async () => {
+    const normalized = normalizeTreatmentPreference(selectedPreference);
+
     updateUser({ treatmentPreference: normalized });
-    
+
+    try {
+      localStorage.setItem('leve_treatment_preference', normalized);
+      localStorage.setItem('leve_treatment_pref_current', normalized);
+      if (user?.id) {
+        localStorage.setItem('leve_treatment_pref_' + user.id, normalized);
+      }
+    } catch {}
+
     try {
       await updateTreatmentPreference(normalized);
     } catch (err) {
@@ -163,31 +199,45 @@ export const SettingsView: React.FC = () => {
           treatment_preference: normalized
         });
       } catch (err) {
-        console.warn('Erro ao sincronizar preferência com Supabase:', err);
+        console.warn('Erro ao sincronizar preferência:', err);
       }
     }
-    
+
     const optLabel = TREATMENT_OPTIONS.find((o) => o.id === normalized)?.label || normalized;
-    showToast(`Forma de tratamento definida como: ${optLabel} ✨`);
+    setTreatmentSaved(true);
+    showToast(`Forma de tratamento salva: ${optLabel} ✨`, 'success');
+    setTimeout(() => {
+      setTreatmentSaved(false);
+    }, 3500);
   };
 
-  const currentTheme = data.user?.theme === 'dark' ? 'dark' : 'light';
+  // =========================================================================
+  // 3. Salvar Aparência do Aplicativo (Tema Claro / Escuro)
+  // =========================================================================
+  const handleSaveTheme = () => {
+    updateUser({ theme: selectedTheme });
 
-  const handleThemeChange = (newTheme: 'light' | 'dark') => {
-    updateUser({ theme: newTheme });
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    showToast(newTheme === 'dark' ? 'Modo Escuro ativado 🌙' : 'Modo Claro ativado ☀️');
+    try {
+      localStorage.setItem('leve_theme', selectedTheme);
+      if (selectedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch {}
+
+    setThemeSaved(true);
+    showToast(selectedTheme === 'dark' ? 'Modo Escuro salvo com sucesso! 🌙' : 'Modo Claro salvo com sucesso! ☀️', 'success');
+    setTimeout(() => {
+      setThemeSaved(false);
+    }, 3500);
   };
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-16">
       {/* Header */}
-      <div className="flex items-center gap-3 bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
-        <div className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+      <div className="flex items-center gap-3.5 bg-white dark:bg-stone-900 p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
+        <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
           <Settings className="w-6 h-6" />
         </div>
         <div>
@@ -195,17 +245,24 @@ export const SettingsView: React.FC = () => {
             Configurações
           </h1>
           <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
-            Personalize seu perfil, preferência de tratamento, tema e conta.
+            Personalize seu perfil, forma de tratamento, aparência e seções do aplicativo.
           </p>
         </div>
       </div>
 
-      {/* 1. Seu Perfil */}
+      {/* =====================================================================
+          1. SEU PERFIL
+         ===================================================================== */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-5">
-        <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-          <User className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-          <span>Seu Perfil</span>
-        </h3>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <User className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+            <span>Seu Perfil</span>
+          </h3>
+          <span className="text-xs text-stone-500 dark:text-stone-400">
+            Identidade visual no aplicativo
+          </span>
+        </div>
 
         <form onSubmit={handleSaveProfile} className="space-y-4 text-xs sm:text-sm">
           <div className="space-y-1.5">
@@ -215,7 +272,10 @@ export const SettingsView: React.FC = () => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setProfileSaved(false);
+              }}
               placeholder="Digite seu nome"
               className="w-full max-w-md px-4 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/50"
             />
@@ -259,7 +319,10 @@ export const SettingsView: React.FC = () => {
                   {isImageAvatar(selectedAvatar) && (
                     <button
                       type="button"
-                      onClick={() => setSelectedAvatar('🌿')}
+                      onClick={() => {
+                        setSelectedAvatar('🌿');
+                        setProfileSaved(false);
+                      }}
                       className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-rose-500" />
@@ -269,7 +332,7 @@ export const SettingsView: React.FC = () => {
                 </div>
                 <p className="text-[11px] text-stone-500 dark:text-stone-400">
                   {isImageAvatar(selectedAvatar)
-                    ? 'Foto personalizada selecionada.'
+                    ? 'Foto personalizada carregada. Não esqueça de salvar abaixo.'
                     : 'Você pode subir uma foto sua do computador ou escolher um dos ícones abaixo.'}
                 </p>
               </div>
@@ -285,7 +348,10 @@ export const SettingsView: React.FC = () => {
                   <button
                     key={emoji}
                     type="button"
-                    onClick={() => setSelectedAvatar(emoji)}
+                    onClick={() => {
+                      setSelectedAvatar(emoji);
+                      setProfileSaved(false);
+                    }}
                     className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition cursor-pointer ${
                       selectedAvatar === emoji
                         ? 'bg-emerald-100 dark:bg-emerald-950 border-2 border-emerald-600 scale-105 shadow-2xs'
@@ -299,26 +365,48 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2">
+          {/* Botão de Salvar Alterações de Perfil */}
+          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between flex-wrap gap-3">
+            <span className="text-xs text-stone-500 dark:text-stone-400">
+              {profileSaved ? '✅ Perfil gravado com sucesso no seu dispositivo.' : 'Clique abaixo para salvar seu nome e foto.'}
+            </span>
+
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
             >
-              Salvar Alterações
+              {profileSaved ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                  <span>Alterações Salvas com Sucesso!</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Salvar Alterações do Perfil</span>
+                </>
+              )}
             </button>
           </div>
         </form>
       </div>
 
-      {/* 2. Como você prefere ser tratado? */}
+      {/* =====================================================================
+          2. COMO VOCÊ QUER SER TRATADO?
+         ===================================================================== */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-            <HeartHandshake className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-            <span>Como você prefere ser tratado?</span>
-          </h3>
+          <div className="space-y-0.5">
+            <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <HeartHandshake className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+              <span>Como você quer ser tratado?</span>
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Define a linguagem e pronomes de acolhimento nos diálogos com a LEVIA e mensagens diárias.
+            </p>
+          </div>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            Ativo: <strong>{TREATMENT_OPTIONS.find((o) => o.id === selectedPreference)?.label || 'Prefiro não informar'}</strong>
+            Atual: <strong>{TREATMENT_OPTIONS.find((o) => o.id === (data.user?.treatmentPreference || 'nao_informar'))?.label || 'Não informado'}</strong>
           </span>
         </div>
 
@@ -329,7 +417,10 @@ export const SettingsView: React.FC = () => {
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => handleSelectPreference(opt.id)}
+                onClick={() => {
+                  setSelectedPreference(opt.id);
+                  setTreatmentSaved(false);
+                }}
                 className={`p-3.5 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
                   isSelected
                     ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-600 text-emerald-950 dark:text-emerald-100 font-semibold shadow-xs ring-1 ring-emerald-600/30'
@@ -352,52 +443,56 @@ export const SettingsView: React.FC = () => {
             );
           })}
         </div>
-      </div>
 
-      {/* Notificações & Lembretes */}
-      <NotificationSettingsCard />
-
-      {/* Tour Guiado do Aplicativo */}
-      <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Tour pelo LEVE</span>
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 max-w-md">
-              Quer relembrar como usar cada cantinho do app? Faça o tour guiado e conheça as ferramentas de foco, hábitos, espiritualidade e apoio da LEVIA.
-            </p>
-          </div>
+        {/* Botão de Salvar Alterações de Tratamento */}
+        <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between flex-wrap gap-3">
+          <span className="text-xs text-stone-500 dark:text-stone-400">
+            {treatmentSaved ? '✅ Preferência de tratamento salva e garantida.' : 'Selecione a opção acima e clique em salvar.'}
+          </span>
 
           <button
             type="button"
-            onClick={startTour}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold shadow-xs transition cursor-pointer shrink-0"
+            onClick={handleSaveTreatment}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
           >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Fazer Tour pelo App</span>
+            {treatmentSaved ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                <span>Alterações Salvas com Sucesso!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 text-emerald-300" />
+                <span>Salvar Alterações de Tratamento</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* 3. Aparência do Aplicativo */}
+      {/* =====================================================================
+          3. APARÊNCIA DO APP
+         ===================================================================== */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
         <div>
-          <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100">
-            Aparência do Aplicativo
+          <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <Sun className="w-4 h-4 text-amber-500" />
+            <span>Aparência do Aplicativo</span>
           </h3>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-            Escolha o modo que traz mais conforto para a sua visão.
+            Escolha entre o modo claro e o modo escuro para o seu conforto visual.
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 max-w-sm">
           <button
             type="button"
-            onClick={() => handleThemeChange('light')}
+            onClick={() => {
+              setSelectedTheme('light');
+              setThemeSaved(false);
+            }}
             className={`p-4 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
-              currentTheme === 'light'
+              selectedTheme === 'light'
                 ? 'bg-amber-50/80 dark:bg-stone-800 border-amber-500 text-stone-900 dark:text-stone-100 font-semibold shadow-xs ring-1 ring-amber-500/40'
                 : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700'
             }`}
@@ -410,20 +505,23 @@ export const SettingsView: React.FC = () => {
             </div>
             <div
               className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
-                currentTheme === 'light'
+                selectedTheme === 'light'
                   ? 'bg-amber-600 border-amber-600 text-white'
                   : 'border-stone-300 dark:border-stone-600'
               }`}
             >
-              {currentTheme === 'light' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              {selectedTheme === 'light' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
             </div>
           </button>
 
           <button
             type="button"
-            onClick={() => handleThemeChange('dark')}
+            onClick={() => {
+              setSelectedTheme('dark');
+              setThemeSaved(false);
+            }}
             className={`p-4 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
-              currentTheme === 'dark'
+              selectedTheme === 'dark'
                 ? 'bg-emerald-950/50 dark:bg-emerald-950/80 border-emerald-500 text-stone-900 dark:text-white font-semibold shadow-xs ring-1 ring-emerald-500/40'
                 : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700'
             }`}
@@ -436,136 +534,46 @@ export const SettingsView: React.FC = () => {
             </div>
             <div
               className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
-                currentTheme === 'dark'
+                selectedTheme === 'dark'
                   ? 'bg-emerald-700 border-emerald-700 text-white'
                   : 'border-stone-300 dark:border-stone-600'
               }`}
             >
-              {currentTheme === 'dark' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              {selectedTheme === 'dark' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
             </div>
+          </button>
+        </div>
+
+        {/* Botão de Salvar Alterações de Tema */}
+        <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between flex-wrap gap-3">
+          <span className="text-xs text-stone-500 dark:text-stone-400">
+            {themeSaved ? '✅ Modo visual gravado e ativo.' : 'Escolha o modo visual e confirme clicando no botão ao lado.'}
+          </span>
+
+          <button
+            type="button"
+            onClick={handleSaveTheme}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
+          >
+            {themeSaved ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                <span>Alterações Salvas com Sucesso!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 text-emerald-300" />
+                <span>Salvar Alterações de Aparência</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* 4. Baixar e Instalar o Aplicativo (Computador e Celular) */}
-      <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Download className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-              <span>Baixar e Instalar o App</span>
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 max-w-lg leading-relaxed">
-              Instale o LEVE no seu <strong>computador</strong> (Chrome ou Edge) ou no seu <strong>celular</strong> para usar como um aplicativo de verdade: abre em tela cheia sem abas, inicia rápido e funciona offline.
-            </p>
-          </div>
-
-          <div className="shrink-0">
-            <PWAInstallButton />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-          {/* Computador */}
-          <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/70 dark:border-stone-700/70 space-y-2">
-            <div className="flex items-center gap-2 text-stone-800 dark:text-stone-200 font-semibold text-xs">
-              <Laptop className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>No Computador (Windows / Mac / Linux)</span>
-            </div>
-            <p className="text-[11px] text-stone-600 dark:text-stone-300 leading-relaxed">
-              No <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong>, clique no botão <em>"Instalar LEVE"</em> acima, ou procure pelo ícone de computador/instalação no canto direito da barra de endereços do seu navegador.
-            </p>
-          </div>
-
-          {/* Celular */}
-          <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/70 dark:border-stone-700/70 space-y-2">
-            <div className="flex items-center gap-2 text-stone-800 dark:text-stone-200 font-semibold text-xs">
-              <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>No Celular (iPhone / Android)</span>
-            </div>
-            <p className="text-[11px] text-stone-600 dark:text-stone-300 leading-relaxed">
-              No <strong>iPhone (Safari)</strong>: toque no ícone de <em>Compartilhar</em> (quadrado com seta para cima) e selecione <em>"Adicionar à Tela de Início"</em>. No <strong>Android</strong>: toque no botão acima ou no menu do Chrome.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Personalizar & Ocultar Seções do Menu */}
+      {/* =====================================================================
+          4. PERSONALIZAR SEÇÕES DO MENU & MEU DIA
+         ===================================================================== */}
       <SectionVisibilityCard />
-
-      {/* 5. Privacidade & Dados */}
-      <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
-        <h3 className="font-serif text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-          <span>Privacidade & Armazenamento</span>
-        </h3>
-
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/80 dark:border-emerald-800/50">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-emerald-800/80 dark:text-emerald-400 font-semibold block">
-                  Status do Aplicativo
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    LEVE • 100% Liberado
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-emerald-100/80 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Ativo
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-xs text-stone-600 dark:text-stone-300">
-              Todas as áreas e LEVIA inclusas
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-800">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-center shrink-0 border border-stone-200/90 dark:border-stone-700 shadow-2xs">
-                <Cloud className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-stone-900 dark:text-stone-100 block">
-                  Armazenamento Local Seguro
-                </span>
-                <p className="text-xs text-stone-600 dark:text-stone-300 max-w-lg leading-relaxed">
-                  Suas anotações, hábitos, tarefas, metas e diários são salvos e preservados com total privacidade no seu aparelho, sem a necessidade de colocar e-mail ou senha.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={async () => {
-                setIsSyncingNow(true);
-                try {
-                  const ok = await forceSyncAll();
-                  if (ok) {
-                    showToast('Dados salvos e atualizados com sucesso! ✨');
-                  } else {
-                    showToast('Tudo atualizado!', 'gentle');
-                  }
-                } finally {
-                  setIsSyncingNow(false);
-                }
-              }}
-              disabled={isSyncingNow}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-white dark:bg-stone-800 hover:bg-emerald-50 dark:hover:bg-stone-700 border border-emerald-300/80 dark:border-stone-700 shadow-2xs transition cursor-pointer disabled:opacity-60 shrink-0"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNow ? 'animate-spin' : ''}`} />
-              <span>{isSyncingNow ? 'Salvando...' : 'Salvar / Atualizar'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

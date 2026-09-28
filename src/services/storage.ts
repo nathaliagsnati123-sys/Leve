@@ -204,37 +204,73 @@ export interface PersistentUserIdentity {
   avatar: string;
   treatmentPreference?: any;
   hasCompletedOnboarding?: boolean;
+  theme?: 'light' | 'dark' | 'auto' | 'system';
+  hiddenSections?: string[];
 }
 
 export function getSavedUserIdentity(): PersistentUserIdentity | null {
   try {
     const raw = localStorage.getItem(USER_IDENTITY_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return {
-          name: typeof parsed.name === 'string' ? parsed.name : '',
-          avatar: typeof parsed.avatar === 'string' && parsed.avatar ? parsed.avatar : '🌿',
-          treatmentPreference: parsed.treatmentPreference || 'nao_informar',
-          hasCompletedOnboarding: Boolean(parsed.hasCompletedOnboarding)
-        };
-      }
+    const parsed = raw ? JSON.parse(raw) : {};
+    
+    // Suporte a fallbacks diretos nas chaves dedicadas
+    const name = typeof parsed?.name === 'string' && parsed.name ? parsed.name : (localStorage.getItem('leve_user_name') || '');
+    const avatar = typeof parsed?.avatar === 'string' && parsed.avatar ? parsed.avatar : (localStorage.getItem('leve_user_avatar') || '🌿');
+    const treatmentPreference = parsed?.treatmentPreference || localStorage.getItem('leve_treatment_pref_current') || localStorage.getItem('leve_treatment_preference') || 'nao_informar';
+    const theme = (parsed?.theme || localStorage.getItem('leve_theme') || 'light') as 'light' | 'dark' | 'auto' | 'system';
+    
+    let hiddenSections: string[] = [];
+    if (Array.isArray(parsed?.hiddenSections)) {
+      hiddenSections = parsed.hiddenSections;
+    } else {
+      try {
+        const rawSec = localStorage.getItem('leve_hidden_sections');
+        if (rawSec) hiddenSections = JSON.parse(rawSec);
+      } catch {}
     }
+
+    return {
+      name,
+      avatar,
+      treatmentPreference,
+      theme,
+      hiddenSections,
+      hasCompletedOnboarding: Boolean(parsed?.hasCompletedOnboarding)
+    };
   } catch {}
   return null;
 }
 
 export function saveUserIdentity(identity: Partial<PersistentUserIdentity>): void {
   try {
-    const existing = getSavedUserIdentity() || { name: '', avatar: '🌿', treatmentPreference: 'nao_informar', hasCompletedOnboarding: false };
+    const existing = getSavedUserIdentity() || { 
+      name: '', 
+      avatar: '🌿', 
+      treatmentPreference: 'nao_informar', 
+      hasCompletedOnboarding: false,
+      theme: 'light',
+      hiddenSections: []
+    };
     const updated = {
       ...existing,
       ...(identity.name !== undefined ? { name: identity.name } : {}),
       ...(identity.avatar !== undefined ? { avatar: identity.avatar } : {}),
       ...(identity.treatmentPreference !== undefined ? { treatmentPreference: identity.treatmentPreference } : {}),
-      ...(identity.hasCompletedOnboarding !== undefined ? { hasCompletedOnboarding: identity.hasCompletedOnboarding } : {})
+      ...(identity.hasCompletedOnboarding !== undefined ? { hasCompletedOnboarding: identity.hasCompletedOnboarding } : {}),
+      ...(identity.theme !== undefined ? { theme: identity.theme } : {}),
+      ...(identity.hiddenSections !== undefined ? { hiddenSections: identity.hiddenSections } : {})
     };
     localStorage.setItem(USER_IDENTITY_KEY, JSON.stringify(updated));
+
+    // Chaves atômicas dedicadas para blindagem total contra perda de dados ao sair do app
+    if (identity.name !== undefined) localStorage.setItem('leve_user_name', identity.name);
+    if (identity.avatar !== undefined) localStorage.setItem('leve_user_avatar', identity.avatar);
+    if (identity.treatmentPreference !== undefined) {
+      localStorage.setItem('leve_treatment_preference', identity.treatmentPreference);
+      localStorage.setItem('leve_treatment_pref_current', identity.treatmentPreference);
+    }
+    if (identity.theme !== undefined) localStorage.setItem('leve_theme', identity.theme);
+    if (identity.hiddenSections !== undefined) localStorage.setItem('leve_hidden_sections', JSON.stringify(identity.hiddenSections));
   } catch (err) {
     console.warn('Erro ao salvar identidade permanente do usuário:', err);
   }
@@ -251,14 +287,26 @@ export function sanitizeAppData(parsed: any): AppData {
 
   const rawUser = (parsed.user && typeof parsed.user === 'object') ? parsed.user : {};
 
+  // Prioriza preferências expressas salvas para garantir que nunca sejam revertidas ao recarregar ou sair do app
+  const finalName = rawUser?.name || savedIdentity?.name || '';
+  const finalAvatar = rawUser?.avatar && rawUser.avatar !== '🌿' ? rawUser.avatar : (savedIdentity?.avatar || rawUser?.avatar || '🌿');
+  const finalTreatment = (rawUser?.treatmentPreference && rawUser.treatmentPreference !== 'nao_informar')
+    ? rawUser.treatmentPreference
+    : (savedIdentity?.treatmentPreference || rawUser?.treatmentPreference || 'nao_informar');
+  const finalTheme = savedIdentity?.theme || rawUser?.theme || 'light';
+  const finalHiddenSections = Array.isArray(rawUser?.hiddenSections) && rawUser.hiddenSections.length > 0
+    ? rawUser.hiddenSections
+    : (Array.isArray(savedIdentity?.hiddenSections) ? savedIdentity.hiddenSections : (rawUser?.hiddenSections || []));
+
   const userObj: UserProfile = { 
     ...INITIAL_APP_DATA.user, 
     ...rawUser,
-    ...(savedIdentity?.name && !rawUser?.name ? { name: savedIdentity.name } : {}),
-    ...(savedIdentity?.avatar && (!rawUser?.avatar || rawUser.avatar === '🌿') ? { avatar: savedIdentity.avatar } : {}),
-    ...(savedIdentity?.treatmentPreference && (!rawUser?.treatmentPreference || rawUser.treatmentPreference === 'nao_informar') ? { treatmentPreference: savedIdentity.treatmentPreference } : {}),
+    name: finalName,
+    avatar: finalAvatar,
+    treatmentPreference: finalTreatment,
+    theme: finalTheme,
     hasCompletedOnboarding: Boolean(rawUser?.hasCompletedOnboarding || hasCompletedOnboardingVal),
-    hiddenSections: Array.isArray(rawUser?.hiddenSections) ? rawUser.hiddenSections : []
+    hiddenSections: finalHiddenSections
   };
 
   return {
@@ -373,7 +421,9 @@ export function saveAppData(data: AppData): void {
       saveUserIdentity({
         name: data.user.name,
         avatar: data.user.avatar,
-        treatmentPreference: data.user.treatmentPreference
+        treatmentPreference: data.user.treatmentPreference,
+        theme: data.user.theme,
+        hiddenSections: data.user.hiddenSections
       });
     }
   } catch (err) {

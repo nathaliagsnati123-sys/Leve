@@ -326,29 +326,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Supabase Cloud Sync Integration
   const { user, syncDataNow, pullCloudData, userProfile, saveProfile } = useAuth();
 
-  // If user profile with name or treatment preference is fetched from Supabase, update user profile in state
+  // Sincroniza nome ou preferência apenas se o usuário local ainda não tiver definido
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && user) {
       const profileName = (userProfile.name || userProfile.full_name || '').trim();
       const rawPref = userProfile.treatment_preference;
       const pref = rawPref ? normalizeTreatmentPreference(rawPref) : undefined;
-      
-      if (pref) {
-        try {
-          localStorage.setItem('leve_treatment_pref_current', pref);
-          if (user?.id) {
-            localStorage.setItem('leve_treatment_pref_' + user.id, pref);
-          }
-        } catch {}
-      }
 
       setData((prev) => {
-        const needsNameUpdate = Boolean(profileName && prev.user.name !== profileName);
+        if (!prev?.user) return prev;
+        // Não sobrescreve se o usuário já tem um nome salvo localmente
+        const hasLocalName = Boolean(prev.user.name && prev.user.name.trim());
+        const needsNameUpdate = !hasLocalName && Boolean(profileName);
+
+        // Não sobrescreve se o usuário já escolheu sua preferência localmente
         const hasExplicitLocalPref = Boolean(prev.user.treatmentPreference && prev.user.treatmentPreference !== 'nao_informar');
-        const isMeaningfulCloudPref = Boolean(pref && pref !== 'nao_informar');
-        const needsPrefUpdate = isMeaningfulCloudPref 
-          ? prev.user.treatmentPreference !== pref
-          : (!hasExplicitLocalPref && Boolean(pref) && prev.user.treatmentPreference !== pref);
+        const needsPrefUpdate = !hasExplicitLocalPref && Boolean(pref && pref !== 'nao_informar');
 
         if (!needsNameUpdate && !needsPrefUpdate) return prev;
         const updated = {
@@ -705,8 +698,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveUserIdentity({
       name: profile.name,
       avatar: profile.avatar,
-      treatmentPreference: normalizedPref || profile.treatmentPreference
+      treatmentPreference: normalizedPref || profile.treatmentPreference,
+      theme: profile.theme,
+      hiddenSections: profile.hiddenSections
     });
+
+    if (profile.theme !== undefined) {
+      try {
+        localStorage.setItem('leve_theme', profile.theme);
+        if (profile.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch {}
+    }
+
+    if (profile.hiddenSections !== undefined) {
+      try {
+        localStorage.setItem('leve_hidden_sections', JSON.stringify(profile.hiddenSections));
+      } catch {}
+    }
 
     updateData((prev) => ({
       ...prev,

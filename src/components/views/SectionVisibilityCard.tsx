@@ -1,41 +1,61 @@
-import React, { useState } from 'react';
-import { useApp } from '../../context/AppContext';
+import React, { useState, useEffect } from 'react';
+import { useApp, ActiveTab } from '../../context/AppContext';
 import { getAvailableSections, isSectionHidden, AppSectionDefinition } from '../../utils/sections';
 import { normalizeTreatmentPreference } from '../../utils/treatment';
 import { 
   SlidersHorizontal, EyeOff, RotateCcw, Check, 
-  Info, ChevronDown, CheckCircle2, ShieldCheck
+  Info, ChevronDown, CheckCircle2, ShieldCheck, Save
 } from 'lucide-react';
 
 export const SectionVisibilityCard: React.FC = () => {
-  const { data, toggleSectionVisibility, resetHiddenSections, showToast } = useApp();
-  const hiddenSections = data.user?.hiddenSections || [];
+  const { data, updateUser, showToast } = useApp();
+  const currentHiddenSections = (data.user?.hiddenSections || []) as ActiveTab[];
   const treatmentPreference = data.user?.treatmentPreference;
   const pref = normalizeTreatmentPreference(treatmentPreference);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [activeGroupFilter, setActiveGroupFilter] = useState<'all' | 'principal' | 'wellness' | 'management'>('all');
+  const [stagedHidden, setStagedHidden] = useState<ActiveTab[]>(() => currentHiddenSections);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    setStagedHidden(currentHiddenSections);
+  }, [currentHiddenSections]);
 
   const availableSections = getAvailableSections(treatmentPreference);
   const totalCustomizable = availableSections.filter(s => s.canHide).length;
-  const hiddenCount = availableSections.filter(s => s.canHide && isSectionHidden(s.id, hiddenSections, treatmentPreference)).length;
+  const hiddenCount = availableSections.filter(s => s.canHide && stagedHidden.includes(s.id)).length;
   const visibleCount = totalCustomizable - hiddenCount;
+
+  const hasUnsavedChanges = JSON.stringify([...stagedHidden].sort()) !== JSON.stringify([...currentHiddenSections].sort());
 
   const handleToggle = (sec: AppSectionDefinition) => {
     if (!sec.canHide) return;
-    const willBeHidden = !isSectionHidden(sec.id, hiddenSections, treatmentPreference);
-    toggleSectionVisibility(sec.id);
-    if (willBeHidden) {
-      showToast(`Seção "${sec.label}" ocultada do menu e do painel Meu Dia.`, 'info');
-    } else {
-      showToast(`Seção "${sec.label}" reativada com sucesso! ✨`, 'success');
-    }
+    setSavedSuccess(false);
+    setStagedHidden(prev => {
+      if (prev.includes(sec.id)) {
+        return prev.filter(id => id !== sec.id);
+      } else {
+        return [...prev, sec.id];
+      }
+    });
   };
 
   const handleReset = () => {
-    if (hiddenCount === 0) return;
-    resetHiddenSections();
-    showToast('Todas as seções foram restauradas no menu e no Meu Dia! 🌿', 'success');
+    setStagedHidden([]);
+    setSavedSuccess(false);
+  };
+
+  const handleSaveSections = () => {
+    updateUser({ hiddenSections: stagedHidden });
+    try {
+      localStorage.setItem('leve_hidden_sections', JSON.stringify(stagedHidden));
+    } catch {}
+    setSavedSuccess(true);
+    showToast('Personalização de seções salva com sucesso! ✨', 'success');
+    setTimeout(() => {
+      setSavedSuccess(false);
+    }, 3500);
   };
 
   const groups: { key: 'principal' | 'wellness' | 'management'; label: string; badge: string }[] = [
@@ -72,21 +92,21 @@ export const SectionVisibilityCard: React.FC = () => {
               }`}>
                 {hiddenCount > 0 ? `${hiddenCount} oculta${hiddenCount > 1 ? 's' : ''}` : 'Todas ativas'}
               </span>
-              {pref === 'masculino' && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
-                  Modo Masculino
+              {hasUnsavedChanges && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 animate-pulse">
+                  Alterações não salvas
                 </span>
               )}
             </div>
             <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
-              Clique para exibir ou ocultar seções no menu e no painel inicial
+              Escolha quais seções você quer exibir ou ocultar no menu e no painel inicial
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hidden sm:inline">
-            {isOpen ? 'Fechar' : 'Abrir seções'}
+            {isOpen ? 'Recolher' : 'Personalizar seções'}
           </span>
           <div className={`p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
             <ChevronDown className="w-4 h-4" />
@@ -97,27 +117,47 @@ export const SectionVisibilityCard: React.FC = () => {
       {/* Conteúdo Expandido com todas as seções */}
       {isOpen && (
         <div className="px-5 pb-6 sm:px-6 sm:pb-7 pt-4 border-t border-stone-100 dark:border-stone-800/80 space-y-5 animate-in fade-in duration-200">
-          {/* Subheader & Reset */}
+          {/* Subheader, Ações e Botão de Salvar Alterações */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/70 dark:bg-stone-850/60 p-4 rounded-2xl border border-stone-200/60 dark:border-stone-800">
             <div className="space-y-0.5">
               <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
                 Selecione o que você quer ver no aplicativo:
               </span>
               <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                {visibleCount} de {totalCustomizable} seções ativas. O que você ocultar aqui sumirá do menu e também do painel Meu Dia para deixar sua rotina mais limpa.
+                {visibleCount} de {totalCustomizable} seções ativas. Depois de marcar ou desmarcar, clique no botão para salvar.
               </p>
             </div>
 
-            {hiddenCount > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {hiddenCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 text-xs font-semibold transition cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restaurar Todas</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleReset}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold transition cursor-pointer self-start sm:self-center"
+                onClick={handleSaveSections}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold shadow-xs transition cursor-pointer"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Restaurar Todas</span>
+                {savedSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                    <span>Salvo!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Salvar Alterações das Seções</span>
+                  </>
+                )}
               </button>
-            )}
+            </div>
           </div>
 
           {pref === 'masculino' && (
@@ -180,7 +220,7 @@ export const SectionVisibilityCard: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {groupSections.map(sec => {
                         const Icon = sec.icon;
-                        const isHidden = isSectionHidden(sec.id, hiddenSections, treatmentPreference);
+                        const isHidden = stagedHidden.includes(sec.id);
                         const isPermanent = !sec.canHide;
 
                         return (
@@ -274,21 +314,32 @@ export const SectionVisibilityCard: React.FC = () => {
               })}
           </div>
 
-          {/* Rodapé informativo e botão de fechar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          {/* Rodapé com botão dedicado de Salvar Alterações */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-stone-100 dark:border-stone-800">
             <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
               <Info className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Nenhum dado é perdido ao ocultar uma seção. Você pode reexibir quando quiser.</span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#1F3A34] hover:bg-[#162a26] text-white text-xs font-semibold transition cursor-pointer shadow-xs shrink-0"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Pronto, fechar</span>
-            </button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={handleSaveSections}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162a26] text-white text-xs font-semibold transition cursor-pointer shadow-xs"
+              >
+                {savedSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                    <span>Alterações Salvas com Sucesso!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Salvar Alterações das Seções</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
