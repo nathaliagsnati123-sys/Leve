@@ -90,7 +90,6 @@ export const APP_SECTIONS: AppSectionDefinition[] = [
     group: 'principal',
     groupLabel: 'Principal',
     icon: Sparkles,
-    badge: 'VIP',
     canHide: true
   },
 

@@ -106,12 +106,12 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
           {isUpgradeLiaOpportunity ? (
             <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-xs">
               <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Upgrade Exclusivo • Especial → VIP</span>
+              <span>Upgrade Exclusivo • Especial → Completo</span>
             </div>
           ) : isLia ? (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
               <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Exclusivo LEVE VIP</span>
+              <span>Exclusivo LEVE Completo</span>
             </div>
           ) : (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
@@ -134,7 +134,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
             {isUpgradeLiaOpportunity
               ? 'Você já tem o LEVE Especial. Faça o upgrade e ative a LEVIA por apenas R$16,00.'
               : isLia
-              ? 'A Levia é a sua mentora pessoal com inteligência artificial para trazer calma, sugerir pausas conscientes e planejar seu dia sem ansiedade. Este recurso é exclusivo do plano LEVE VIP.'
+              ? 'A Levia é a sua mentora pessoal com inteligência artificial para trazer calma, sugerir pausas conscientes e planejar seu dia sem ansiedade. Este recurso é exclusivo do plano LEVE Completo.'
               : `A aba ${featureTitle} faz parte das ferramentas completas do LEVE para apoiar sua organização, rotina e bem-estar.`}
           </p>
         </div>
@@ -160,7 +160,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Desbloqueio VIP automático após a confirmação da Hotmart.</span>
+                <span>Desbloqueio automático após a confirmação da Hotmart.</span>
               </div>
             </div>
           </div>
@@ -200,7 +200,7 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                   LEVIA • Mentora IA
                 </span>
                 <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                  Exclusivo LEVE VIP (R$ 65,90)
+                  Exclusivo LEVE Completo (R$ 65,90)
                 </span>
               </div>
             </div>
@@ -231,18 +231,18 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
               </p>
             </div>
           ) : isLia ? (
-            /* CASO 2: Usuário Gratuito na aba LEVIA -> VIP Direto (R$ 65,90) ou Especial (R$ 49,90) */
+            /* CASO 2: Usuário Gratuito na aba LEVIA -> Completo Direto (R$ 65,90) ou Especial (R$ 49,90) */
             <div className="space-y-2.5">
               <a
                 id="btn-checkout-vip-direct"
                 href={vipDirectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: 'LEVE VIP Anual', value: 65.9, currency: 'BRL' })}
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: 'LEVE Completo Anual', value: 65.9, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-sm font-bold shadow-md hover:shadow-lg transition cursor-pointer"
               >
                 <Crown className="w-4 h-4 text-amber-400" />
-                <span>Assinar LEVE VIP por R$ 65,90</span>
+                <span>Assinar LEVE Completo por R$ 65,90</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-80" />
               </a>
 
@@ -278,10 +278,10 @@ export const EntitlementLockScreen: React.FC<EntitlementLockScreenProps> = ({
                 href={vipDirectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: `LEVE VIP - ${featureTitle}`, value: 65.9, currency: 'BRL' })}
+                onClick={() => trackPixelEvent('InitiateCheckout', { content_name: `LEVE Completo - ${featureTitle}`, value: 65.9, currency: 'BRL' })}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition cursor-pointer"
               >
-                <span>Ou assinar LEVE VIP com LEVIA por R$ 65,90</span>
+                <span>Ou assinar LEVE Completo com LEVIA por R$ 65,90</span>
               </a>
             </div>
           )}

@@ -62,7 +62,6 @@ export const MobileMenuDrawer: React.FC = () => {
       id: 'lia' as ActiveTab, 
       label: 'LEVIA • Assistente', 
       icon: Sparkles,
-      badge: 'VIP'
     },
   ];
 
@@ -160,15 +159,6 @@ export const MobileMenuDrawer: React.FC = () => {
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-stone-500 dark:text-stone-400'}`} />
                       <span className="truncate flex-1">{item.label}</span>
-                      {item.badge && (
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-                          isActive 
-                            ? 'bg-amber-400/20 text-amber-200' 
-                            : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
                     </button>
                   );
                 })}
@@ -252,7 +242,6 @@ export const MobileMenuDrawer: React.FC = () => {
                 <p className="text-[10px] text-amber-700 dark:text-amber-400">{unlockedCount} medalhas desbloqueadas</p>
               </div>
             </div>
-            <Sparkles className="w-4 h-4 text-amber-600" />
           </button>
 
           {/* User Mini Card / Configurações */}

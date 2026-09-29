@@ -878,10 +878,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user?.id, refreshEntitlements]);
 
   // ==========================================================================
-  // Sistema de Acesso: Apenas o Plano VIP (acesso total a todas as áreas + LEVIA)
+  // Sistema de Acesso: Acesso total a todas as áreas + LEVIA
   // ==========================================================================
   const plan: PlanTier = 'vip';
-  const planLabel = 'LEVE VIP';
+  const planLabel = 'LEVE Completo';
 
   const canAccessFeature = useCallback(
     (_feature: AppFeature | string): boolean => {

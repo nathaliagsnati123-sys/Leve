@@ -397,14 +397,14 @@ export const AuthModal: React.FC = () => {
                         Plano Ativo
                       </span>
                       <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
-                        LEVE VIP
+                        LEVE Completo
                       </h3>
                     </div>
                   </div>
 
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    VIP Ativo
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Acesso Total
                   </span>
                 </div>
 

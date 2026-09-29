@@ -82,12 +82,9 @@ export const Header: React.FC = () => {
           aria-label="Abrir configurações de perfil"
           title="Abrir configurações de perfil"
         >
-          <div className="flex items-center gap-1.5 max-w-[120px] sm:max-w-[200px]">
+          <div className="flex items-center max-w-[120px] sm:max-w-[200px]">
             <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 truncate text-right">
               {userName}
-            </span>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60 shrink-0">
-              VIP
             </span>
           </div>
           <div className="shrink-0">
