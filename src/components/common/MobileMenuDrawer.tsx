@@ -5,10 +5,9 @@ import { isSectionHidden } from '../../utils/sections';
 import { 
   Sun, Calendar, Sprout, BookOpen, HeartHandshake, Target, 
   Droplets, Utensils, Activity, Moon, Heart, Receipt, 
-  BarChart3, Settings, Brain, Sparkles, Award, X, Cloud, User, Compass, Film,
+  BarChart3, Settings, Sparkles, X, Film,
   Zap, Shield, Dumbbell
 } from 'lucide-react';
-import { PWAInstallButton } from './PWAInstallButton';
 import { UserAvatar } from './UserAvatar';
 
 export const MobileMenuDrawer: React.FC = () => {
@@ -18,11 +17,8 @@ export const MobileMenuDrawer: React.FC = () => {
     activeTab, 
     setActiveTab, 
     data, 
-    setIsBrainDumpOpen, 
-    setIsDayClosingOpen,
     setIsAchievementsOpen,
-    todayCompletionPercentage,
-    startTour
+    todayCompletionPercentage
   } = useApp();
 
   const { treatmentPreference: authPref } = useAuth();
@@ -95,16 +91,6 @@ export const MobileMenuDrawer: React.FC = () => {
   const handleSelectTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
-  };
-
-  const handleOpenBrainDump = () => {
-    setIsMobileMenuOpen(false);
-    setIsBrainDumpOpen(true);
-  };
-
-  const handleOpenDayClosing = () => {
-    setIsMobileMenuOpen(false);
-    setIsDayClosingOpen(true);
   };
 
   const handleOpenAchievements = () => {
@@ -252,37 +238,12 @@ export const MobileMenuDrawer: React.FC = () => {
 
         </div>
 
-        {/* Drawer Footer (User & Achievements) */}
-        <div className="p-4 pb-safe border-t border-stone-200/70 dark:border-stone-800/70 space-y-2 bg-[#F6F7F4]/90 dark:bg-[#111714]/90">
-          {/* Status Badge */}
-          <div
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200"
-          >
-            <div className="flex items-center gap-2.5 truncate">
-              <span className="text-lg select-none shrink-0">{data.user.avatar || '🌿'}</span>
-              <div className="truncate">
-                <div className="flex items-center gap-1.5 truncate">
-                  <p className="text-xs font-bold truncate">
-                    {data.user.name || 'LEVE'}
-                  </p>
-                  <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-200/70 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
-                    Ativo
-                  </span>
-                </div>
-                <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
-                  Acesso Completo Liberado
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/80 dark:bg-stone-800/80 shadow-2xs shrink-0">
-              100%
-            </span>
-          </div>
-
+        {/* Drawer Footer: Apenas Minhas Conquistas e Configurações */}
+        <div className="p-4 pb-safe border-t border-stone-200/70 dark:border-stone-800/70 space-y-2 bg-[#F6F7F4]/90 dark:bg-[#111714]/90 shrink-0">
           {/* Achievements button */}
           <button
             onClick={handleOpenAchievements}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 text-left hover:bg-amber-100/70 transition"
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 text-left hover:bg-amber-100/70 transition cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <span className="text-base">🏆</span>
@@ -292,25 +253,6 @@ export const MobileMenuDrawer: React.FC = () => {
               </div>
             </div>
             <Sparkles className="w-4 h-4 text-amber-600" />
-          </button>
-
-          {/* Tour do App button */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              startTour();
-            }}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/25 border border-emerald-200/70 dark:border-emerald-900/40 text-left hover:bg-emerald-100/60 transition cursor-pointer"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-base">✨</span>
-              <div>
-                <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200">Tour pelo LEVE</p>
-                <p className="text-[10px] text-emerald-800 dark:text-emerald-400">Aprenda a usar o app passo a passo</p>
-              </div>
-            </div>
-            <Sparkles className="w-4 h-4 text-emerald-600" />
           </button>
 
           {/* User Mini Card / Configurações */}

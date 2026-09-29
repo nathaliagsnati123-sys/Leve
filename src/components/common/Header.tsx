@@ -6,7 +6,7 @@ import { Menu } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
 
 export const Header: React.FC = () => {
-  const { data, setIsMobileMenuOpen } = useApp();
+  const { data, setIsMobileMenuOpen, setActiveTab } = useApp();
   const { user } = useAuth();
 
   // Nome da pessoa (respeita o perfil salvo)
@@ -73,11 +73,14 @@ export const Header: React.FC = () => {
           </span>
         </div>
 
-        {/* 3. Nome da pessoa logada + foto ou avatar escolhido (apenas visualização) */}
-        <div 
+        {/* 3. Nome da pessoa logada + foto ou avatar escolhido (atalho para configurações) */}
+        <button 
           id="header-user-btn"
-          className="flex items-center gap-2 sm:gap-2.5 shrink-0 select-none"
-          aria-label="Perfil do usuário"
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className="flex items-center gap-2 sm:gap-2.5 shrink-0 select-none cursor-pointer p-1 rounded-xl hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition active:scale-95"
+          aria-label="Abrir configurações de perfil"
+          title="Abrir configurações de perfil"
         >
           <div className="flex items-center gap-1.5 max-w-[120px] sm:max-w-[200px]">
             <span className="text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 truncate text-right">
@@ -94,7 +97,7 @@ export const Header: React.FC = () => {
               size="sm" 
             />
           </div>
-        </div>
+        </button>
       </div>
     </header>
   );

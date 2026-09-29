@@ -313,7 +313,7 @@ export const SettingsView: React.FC = () => {
                     className="px-3.5 py-2 rounded-xl bg-[#1F3A34] hover:bg-[#162A25] text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <Upload className="w-3.5 h-3.5 text-emerald-300" />
-                    <span>{isProcessingPhoto ? 'Processando...' : 'Carregar Foto do Computador'}</span>
+                    <span>{isProcessingPhoto ? 'Processando...' : 'Carregar Foto'}</span>
                   </button>
 
                   {isImageAvatar(selectedAvatar) && (
@@ -333,7 +333,7 @@ export const SettingsView: React.FC = () => {
                 <p className="text-[11px] text-stone-500 dark:text-stone-400">
                   {isImageAvatar(selectedAvatar)
                     ? 'Foto personalizada carregada. Não esqueça de salvar abaixo.'
-                    : 'Você pode subir uma foto sua do computador ou escolher um dos ícones abaixo.'}
+                    : 'Você pode subir uma foto sua do celular ou computador, ou escolher um dos ícones abaixo.'}
                 </p>
               </div>
             </div>
@@ -373,7 +373,7 @@ export const SettingsView: React.FC = () => {
 
             <button
               type="submit"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
             >
               {profileSaved ? (
                 <>
@@ -453,7 +453,7 @@ export const SettingsView: React.FC = () => {
           <button
             type="button"
             onClick={handleSaveTreatment}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
           >
             {treatmentSaved ? (
               <>
@@ -553,7 +553,7 @@ export const SettingsView: React.FC = () => {
           <button
             type="button"
             onClick={handleSaveTheme}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] font-semibold text-xs transition cursor-pointer shadow-xs"
           >
             {themeSaved ? (
               <>

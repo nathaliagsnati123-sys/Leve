@@ -128,12 +128,12 @@ export const SectionVisibilityCard: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
               {hiddenCount > 0 && (
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 text-xs font-semibold transition cursor-pointer"
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 text-xs font-semibold transition cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Restaurar Todas</span>
@@ -143,7 +143,7 @@ export const SectionVisibilityCard: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveSections}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold shadow-xs transition cursor-pointer"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1F3A34] text-white hover:bg-[#162A25] text-xs font-semibold shadow-xs transition cursor-pointer"
               >
                 {savedSuccess ? (
                   <>
@@ -321,11 +321,11 @@ export const SectionVisibilityCard: React.FC = () => {
               <span>Nenhum dado é perdido ao ocultar uma seção. Você pode reexibir quando quiser.</span>
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleSaveSections}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162a26] text-white text-xs font-semibold transition cursor-pointer shadow-xs"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1F3A34] hover:bg-[#162a26] text-white text-xs font-semibold transition cursor-pointer shadow-xs"
               >
                 {savedSuccess ? (
                   <>
